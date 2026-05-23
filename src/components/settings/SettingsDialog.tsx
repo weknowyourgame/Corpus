@@ -15,76 +15,31 @@ import { Loader } from "@/components/ui/loader";
 import { useSettingsStore } from "@/stores/settings";
 import { useAuthStore } from "@/stores/auth";
 import { useModelsStore } from "@/stores/models";
+import type { ProviderType } from "@/lib/providers/types";
 import { cn } from "@/lib/utils";
-import { LogOut, Sparkles, Key, Copy, Check, X, RefreshCw, Bug } from "lucide-react";
+import { LogOut, Sparkles, Copy, Check, X, RefreshCw, Route } from "lucide-react";
 
-// Debug panel to show current auth/model status
-function DebugPanel() {
-  const [isOpen, setIsOpen] = useState(false);
-  const { authMethod, isOAuthAuthenticated, oauthAuth } = useAuthStore();
-  const { selectedModel, selectedProvider, apiKeys } = useSettingsStore();
-  const { codexModels, lastFetched, isLoading } = useModelsStore();
-
-  const isOAuth = isOAuthAuthenticated();
-
-  if (!isOpen) {
-    return (
-      <button
-        onClick={() => setIsOpen(true)}
-        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground pt-4"
-      >
-        <Bug className="w-3 h-3" />
-        Show Debug Info
-      </button>
-    );
-  }
-
-  return (
-    <div className="pt-4 border-t space-y-2">
-      <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-          Debug Info
-        </h3>
-        <button
-          onClick={() => setIsOpen(false)}
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
-          Hide
-        </button>
-      </div>
-      <div className="bg-muted/50 rounded-lg p-3 font-mono text-xs space-y-1">
-        <div><span className="text-muted-foreground">Auth Method:</span> {authMethod}</div>
-        <div><span className="text-muted-foreground">OAuth Authenticated:</span> {isOAuth ? "true" : "false"}</div>
-        <div><span className="text-muted-foreground">OAuth Auth Object:</span> {oauthAuth ? "exists" : "null"}</div>
-        <div><span className="text-muted-foreground">Has OpenAI Key:</span> {apiKeys.openai ? "true" : "false"}</div>
-        <div><span className="text-muted-foreground">Has Anthropic Key:</span> {apiKeys.anthropic ? "true" : "false"}</div>
-        <div><span className="text-muted-foreground">Selected Provider:</span> {selectedProvider}</div>
-        <div><span className="text-muted-foreground">Selected Model:</span> {selectedModel}</div>
-        <div><span className="text-muted-foreground">Models Count:</span> {codexModels.length}</div>
-        <div><span className="text-muted-foreground">Models Loading:</span> {isLoading ? "true" : "false"}</div>
-        <div><span className="text-muted-foreground">Last Fetched:</span> {lastFetched ? new Date(lastFetched).toLocaleString() : "never"}</div>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Check browser console (F12) for detailed logs when sending messages.
-      </p>
-    </div>
-  );
-}
-
-interface ApiKeyInputProps {
-  provider: "openai" | "anthropic";
+function ApiKeyInput({
+  provider,
+  label,
+  placeholder,
+  helpUrl,
+  onSaved,
+}: {
+  provider: "anthropic" | "openrouter";
   label: string;
   placeholder: string;
-}
-
-function ApiKeyInput({ provider, label, placeholder }: ApiKeyInputProps) {
+  helpUrl: string;
+  onSaved?: () => void;
+}) {
   const { apiKeys, setApiKey, hasApiKey } = useSettingsStore();
   const [showKey, setShowKey] = useState(false);
   const [value, setValue] = useState(apiKeys[provider] || "");
   const isConfigured = hasApiKey(provider);
 
   const handleSave = () => {
-    setApiKey(provider, value);
+    setApiKey(provider, value.trim());
+    onSaved?.();
   };
 
   const handleClear = () => {
@@ -96,7 +51,7 @@ function ApiKeyInput({ provider, label, placeholder }: ApiKeyInputProps) {
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <ProviderIcon id={provider} size="sm" />
+          <ProviderIcon id={provider === "anthropic" ? "anthropic" : "openrouter"} size="sm" />
           <label className="text-sm font-medium">{label}</label>
         </div>
         {isConfigured && (
@@ -106,6 +61,12 @@ function ApiKeyInput({ provider, label, placeholder }: ApiKeyInputProps) {
           </span>
         )}
       </div>
+      <p className="text-xs text-muted-foreground">
+        Get a key from{" "}
+        <a href={helpUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">
+          {provider === "anthropic" ? "console.anthropic.com" : "openrouter.ai/keys"}
+        </a>
+      </p>
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Input
@@ -113,7 +74,7 @@ function ApiKeyInput({ provider, label, placeholder }: ApiKeyInputProps) {
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder={placeholder}
-            className="pr-10 rounded-xl"
+            className="pr-10 rounded-xl font-mono text-sm"
           />
           <button
             type="button"
@@ -123,7 +84,7 @@ function ApiKeyInput({ provider, label, placeholder }: ApiKeyInputProps) {
             <Icon name={showKey ? "eye-off" : "eye"} size="sm" />
           </button>
         </div>
-        {value !== (apiKeys[provider] || "") ? (
+        {value.trim() !== (apiKeys[provider] || "") ? (
           <Button onClick={handleSave} size="sm" className="rounded-xl">
             Save
           </Button>
@@ -137,7 +98,6 @@ function ApiKeyInput({ provider, label, placeholder }: ApiKeyInputProps) {
   );
 }
 
-// ChatGPT Plus/Pro OAuth component
 function ChatGPTAuth() {
   const {
     isLoggingIn,
@@ -150,24 +110,16 @@ function ChatGPTAuth() {
     isOAuthAuthenticated,
   } = useAuthStore();
   const { codexModels, isLoading: isLoadingModels, refreshModels, lastFetched } = useModelsStore();
-
   const [copied, setCopied] = useState(false);
   const isAuthenticated = isOAuthAuthenticated();
 
-  // Poll for OAuth callback when logging in
   useEffect(() => {
     if (!isLoggingIn) return;
-    
     const interval = setInterval(async () => {
       const completed = await checkOAuthCallback();
-      if (completed) {
-        clearInterval(interval);
-      }
+      if (completed) clearInterval(interval);
     }, 1000);
-    
-    // Cleanup after 5 minutes
     const timeout = setTimeout(() => clearInterval(interval), 5 * 60 * 1000);
-    
     return () => {
       clearInterval(interval);
       clearTimeout(timeout);
@@ -184,31 +136,12 @@ function ChatGPTAuth() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded-full bg-gradient-to-br from-[#10a37f] to-[#1a7f64] flex items-center justify-center">
-            <Sparkles className="w-3 h-3 text-white" />
-          </div>
-          <label className="text-sm font-medium">ChatGPT Plus/Pro</label>
-        </div>
-        {isAuthenticated && (
-          <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full flex items-center gap-1">
-            <Icon name="check" size="sm" />
-            Signed In
-          </span>
-        )}
-      </div>
-      
       <p className="text-xs text-muted-foreground">
-        Sign in with your ChatGPT Plus or Pro subscription. No API key needed!
+        Sign in with ChatGPT Plus or Pro. Uses the Codex API — no separate API key.
       </p>
-
       {loginError && (
-        <p className="text-xs text-red-600 bg-red-50 p-2 rounded-lg">
-          {loginError}
-        </p>
+        <p className="text-xs text-red-600 bg-red-50 p-2 rounded-lg">{loginError}</p>
       )}
-
       {isAuthenticated ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between p-3 bg-green-50 rounded-xl">
@@ -216,33 +149,17 @@ function ChatGPTAuth() {
               <div className="w-2 h-2 rounded-full bg-green-500" />
               <span className="text-sm text-green-700">Connected to ChatGPT</span>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={logout}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-            >
+            <Button variant="ghost" size="sm" onClick={logout} className="text-red-600 hover:bg-red-50">
               <LogOut className="w-4 h-4 mr-1" />
               Sign Out
             </Button>
           </div>
-          {/* Model info and refresh */}
           <div className="flex items-center justify-between px-1">
             <span className="text-xs text-muted-foreground">
-              {codexModels.length} models available
-              {lastFetched && (
-                <span className="ml-1">
-                  · Updated {new Date(lastFetched).toLocaleTimeString()}
-                </span>
-              )}
+              {codexModels.length} models
+              {lastFetched && ` · ${new Date(lastFetched).toLocaleTimeString()}`}
             </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={refreshModels}
-              disabled={isLoadingModels}
-              className="h-6 px-2 text-xs"
-            >
+            <Button variant="ghost" size="sm" onClick={refreshModels} disabled={isLoadingModels} className="h-6 px-2 text-xs">
               <RefreshCw className={cn("w-3 h-3 mr-1", isLoadingModels && "animate-spin")} />
               Refresh
             </Button>
@@ -250,59 +167,25 @@ function ChatGPTAuth() {
         </div>
       ) : isLoggingIn ? (
         <div className="space-y-3">
-          {/* Signing in state with URL fallback */}
           <div className="flex items-center justify-between p-3 bg-primary/5 rounded-xl">
-            <div className="flex items-center gap-2">
-              <Loader variant="dots" size="sm" />
-              <Loader variant="text-shimmer" text="Signing in" size="sm" />
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={cancelLogin}
-              className="text-muted-foreground hover:text-foreground"
-            >
+            <Loader variant="text-shimmer" text="Signing in" size="sm" />
+            <Button variant="ghost" size="sm" onClick={cancelLogin}>
               <X className="w-4 h-4" />
             </Button>
           </div>
-
-          {/* URL fallback */}
           {loginUrl && (
-            <div className="space-y-2">
-              <p className="text-xs text-muted-foreground">
-                Browser didn't open? Copy this URL and paste it in your browser:
-              </p>
-              <div className="flex gap-2">
-                <Input
-                  value={loginUrl}
-                  readOnly
-                  className="text-xs font-mono rounded-lg h-9"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCopyUrl}
-                  className="shrink-0 h-9 w-9 p-0 rounded-lg"
-                >
-                  {copied ? (
-                    <Check className="w-4 h-4 text-green-600" />
-                  ) : (
-                    <Copy className="w-4 h-4" />
-                  )}
-                </Button>
-              </div>
+            <div className="flex gap-2">
+              <Input value={loginUrl} readOnly className="text-xs font-mono h-9" />
+              <Button variant="outline" size="sm" onClick={handleCopyUrl} className="h-9 w-9 p-0">
+                {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+              </Button>
             </div>
           )}
-
-          <p className="text-xs text-muted-foreground text-center">
-            Complete sign-in in your browser. This window will update automatically.
-          </p>
         </div>
       ) : (
-        <Button 
+        <Button
           onClick={startLogin}
-          disabled={isLoggingIn}
-          className="w-full rounded-xl bg-gradient-to-r from-[#10a37f] to-[#1a7f64] hover:from-[#0d8f6e] hover:to-[#166b55]"
+          className="w-full rounded-xl bg-gradient-to-r from-[#10a37f] to-[#1a7f64]"
         >
           <Sparkles className="w-4 h-4 mr-2" />
           Sign in with ChatGPT
@@ -312,42 +195,41 @@ function ChatGPTAuth() {
   );
 }
 
-// Auth method tabs
-function AuthMethodTabs() {
-  const { authMethod, setAuthMethod, isOAuthAuthenticated } = useAuthStore();
+function ProviderTabs({
+  active,
+  onChange,
+}: {
+  active: ProviderType;
+  onChange: (p: ProviderType) => void;
+}) {
+  const { isOAuthAuthenticated } = useAuthStore();
   const { hasApiKey } = useSettingsStore();
-  
-  const isOAuth = isOAuthAuthenticated();
-  const hasKey = hasApiKey("openai") || hasApiKey("anthropic");
+
+  const tabs: { id: ProviderType; label: string; icon: React.ReactNode; ready: boolean }[] = [
+    { id: "codex", label: "Codex", icon: <Sparkles className="w-3.5 h-3.5" />, ready: isOAuthAuthenticated() },
+    { id: "anthropic", label: "Claude", icon: <ProviderIcon id="anthropic" size="xs" />, ready: hasApiKey("anthropic") },
+    { id: "openrouter", label: "OpenRouter", icon: <Route className="w-3.5 h-3.5" />, ready: hasApiKey("openrouter") },
+  ];
 
   return (
-    <div className="flex gap-2 p-1 bg-muted rounded-xl">
-      <button
-        onClick={() => setAuthMethod("oauth")}
-        className={cn(
-          "flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all",
-          authMethod === "oauth" 
-            ? "bg-background shadow-sm text-foreground" 
-            : "text-muted-foreground hover:text-foreground"
-        )}
-      >
-        <Sparkles className="w-4 h-4" />
-        ChatGPT Plus/Pro
-        {isOAuth && <span className="w-2 h-2 rounded-full bg-green-500" />}
-      </button>
-      <button
-        onClick={() => setAuthMethod("api_key")}
-        className={cn(
-          "flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all",
-          authMethod === "api_key" 
-            ? "bg-background shadow-sm text-foreground" 
-            : "text-muted-foreground hover:text-foreground"
-        )}
-      >
-        <Key className="w-4 h-4" />
-        API Keys
-        {hasKey && <span className="w-2 h-2 rounded-full bg-green-500" />}
-      </button>
+    <div className="flex gap-1 p-1 bg-muted rounded-xl">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          onClick={() => onChange(tab.id)}
+          className={cn(
+            "flex-1 flex flex-col items-center gap-0.5 py-2 px-1 rounded-lg text-[11px] font-medium transition-all",
+            active === tab.id ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <span className="flex items-center gap-1">
+            {tab.icon}
+            {tab.ready && <span className="w-1.5 h-1.5 rounded-full bg-green-500" />}
+          </span>
+          {tab.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -357,7 +239,14 @@ interface SettingsDialogProps {
 }
 
 export function SettingsDialog({ children }: SettingsDialogProps) {
-  const { authMethod } = useAuthStore();
+  const { selectedProvider, setSelectedModel } = useSettingsStore();
+  const [tab, setTab] = useState<ProviderType>(selectedProvider);
+  const { fetchClaudeModels, fetchOpenRouterModels, openrouterModels, claudeModels, isLoadingOpenRouter, isLoadingClaude } =
+    useModelsStore();
+
+  useEffect(() => {
+    setTab(selectedProvider);
+  }, [selectedProvider]);
 
   return (
     <Dialog>
@@ -370,61 +259,69 @@ export function SettingsDialog({ children }: SettingsDialogProps) {
       </DialogTrigger>
       <DialogContent className="sm:max-w-md rounded-2xl">
         <DialogHeader>
-          <DialogTitle className="text-xl">Settings</DialogTitle>
+          <DialogTitle className="text-xl">AI Providers</DialogTitle>
           <DialogDescription>
-            Configure your AI provider to start chatting.
+            Codex (ChatGPT), Claude API, or OpenRouter — pick one and choose any model.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-6 py-4">
-          {/* Auth method tabs */}
-          <AuthMethodTabs />
 
-          {/* Auth content based on selected method */}
-          <div className="space-y-4">
-            {authMethod === "oauth" ? (
-              <ChatGPTAuth />
-            ) : (
-              <>
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  API Keys
-                </h3>
-                <ApiKeyInput
-                  provider="openai"
-                  label="OpenAI"
-                  placeholder="sk-..."
-                />
-                <ApiKeyInput
-                  provider="anthropic"
-                  label="Anthropic"
-                  placeholder="sk-ant-..."
-                />
-              </>
-            )}
-          </div>
-          
-          <div className="pt-4 border-t">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-              Roblox Studio
-            </h3>
-            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
-              <div className="flex items-center gap-2">
-                <div className={cn(
-                  "w-2 h-2 rounded-full",
-                  "bg-muted-foreground" // Will change to green when connected
-                )} />
-                <span className="text-sm">Studio Connection</span>
-              </div>
-              <span className="text-xs text-muted-foreground">
-                Not connected
-              </span>
+        <div className="space-y-4 py-2">
+          <ProviderTabs
+            active={tab}
+            onChange={(p) => {
+              setTab(p);
+              setSelectedModel(
+                p === "codex" ? "gpt-4o" : p === "anthropic" ? "claude-sonnet-4-20250514" : "openai/gpt-4o",
+                p
+              );
+            }}
+          />
+
+          {tab === "codex" && <ChatGPTAuth />}
+
+          {tab === "anthropic" && (
+            <ApiKeyInput
+              provider="anthropic"
+              label="Claude API Key"
+              placeholder="sk-ant-..."
+              helpUrl="https://console.anthropic.com/settings/keys"
+              onSaved={() => {
+                fetchClaudeModels();
+                setSelectedModel("claude-sonnet-4-20250514", "anthropic");
+              }}
+            />
+          )}
+
+          {tab === "openrouter" && (
+            <div className="space-y-3">
+              <ApiKeyInput
+                provider="openrouter"
+                label="OpenRouter API Key"
+                placeholder="sk-or-..."
+                helpUrl="https://openrouter.ai/keys"
+                onSaved={() => {
+                  fetchOpenRouterModels();
+                  setSelectedModel("anthropic/claude-sonnet-4", "openrouter");
+                }}
+              />
+              {useSettingsStore.getState().hasApiKey("openrouter") && (
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>
+                    {isLoadingOpenRouter ? "Loading models…" : `${openrouterModels.length} models with tool support`}
+                  </span>
+                  <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => fetchOpenRouterModels()} disabled={isLoadingOpenRouter}>
+                    <RefreshCw className={cn("w-3 h-3", isLoadingOpenRouter && "animate-spin")} />
+                  </Button>
+                </div>
+              )}
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Install the Stud plugin in Roblox Studio to enable AI-powered editing.
-            </p>
-          </div>
+          )}
 
-          {/* Debug Panel - shows auth status */}
-          <DebugPanel />
+          {tab === "anthropic" && useSettingsStore.getState().hasApiKey("anthropic") && (
+            <p className="text-xs text-muted-foreground">
+              {isLoadingClaude ? "Loading Claude models…" : `${claudeModels.length} Claude models available`}
+            </p>
+          )}
         </div>
       </DialogContent>
     </Dialog>

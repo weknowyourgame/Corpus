@@ -94,11 +94,11 @@ This starts:
 
 ### AI Providers
 
-| Provider | Setup | Best For |
-|----------|-------|----------|
-| **ChatGPT Plus/Pro** | Click "Sign in with ChatGPT" | Free with subscription, no API costs |
-| **OpenAI API** | Add API key in Settings | Pay-per-use, full control |
-| **Anthropic API** | Add API key in Settings | Claude models |
+| Provider | Setup | Models |
+|----------|-------|--------|
+| **Codex** | Sign in with ChatGPT Plus/Pro in Settings | GPT-5, o3, Codex models |
+| **Claude** | Add Anthropic API key (`sk-ant-...`) | All Claude models from the API |
+| **OpenRouter** | Add OpenRouter API key (`sk-or-...`) | 300+ models (Claude, GPT, Gemini, Llama, …) |
 
 **Recommended**: If you have ChatGPT Plus/Pro, use the OAuth sign-in. No API key needed, and it works with GPT-4, GPT-5, o3, and more.
 

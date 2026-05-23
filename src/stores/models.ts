@@ -1,6 +1,5 @@
 /**
- * Models Store - manages fetching and caching of AI models
- * Models auto-refresh every hour from models.dev
+ * Models Store — Codex, Claude (Anthropic), and OpenRouter model lists
  */
 
 import { create } from "zustand";
@@ -11,20 +10,28 @@ import {
   clearModelsCache,
   FALLBACK_CODEX_MODELS,
 } from "@/lib/models/fetcher";
+import { fetchClaudeModels, FALLBACK_CLAUDE_MODELS } from "@/lib/anthropic/models";
+import { fetchOpenRouterModels } from "@/lib/openrouter/models";
+import { useSettingsStore } from "./settings";
 
-// Auto-refresh interval: 1 hour
 const AUTO_REFRESH_INTERVAL_MS = 60 * 60 * 1000;
 
 interface ModelsState {
-  // State
   providers: ProvidersData | null;
   codexModels: DisplayModel[];
+  claudeModels: DisplayModel[];
+  openrouterModels: DisplayModel[];
   isLoading: boolean;
+  isLoadingClaude: boolean;
+  isLoadingOpenRouter: boolean;
   lastFetched: number | null;
+  lastClaudeFetched: number | null;
+  lastOpenRouterFetched: number | null;
   error: string | null;
 
-  // Actions
   fetchModels: () => Promise<void>;
+  fetchClaudeModels: () => Promise<void>;
+  fetchOpenRouterModels: () => Promise<void>;
   refreshModels: () => Promise<void>;
   clearModels: () => void;
   startAutoRefresh: () => void;
@@ -36,21 +43,22 @@ let autoRefreshTimer: ReturnType<typeof setInterval> | null = null;
 export const useModelsStore = create<ModelsState>((set, get) => ({
   providers: null,
   codexModels: FALLBACK_CODEX_MODELS,
+  claudeModels: FALLBACK_CLAUDE_MODELS,
+  openrouterModels: [],
   isLoading: false,
+  isLoadingClaude: false,
+  isLoadingOpenRouter: false,
   lastFetched: null,
+  lastClaudeFetched: null,
+  lastOpenRouterFetched: null,
   error: null,
 
   fetchModels: async () => {
-    // Don't fetch if already loading
     if (get().isLoading) return;
-
-    console.log("[Models] Starting fetch...");
     set({ isLoading: true, error: null });
-
     try {
       const providers = await getModelsWithCache();
       const codexModels = extractCodexModels(providers);
-
       set({
         providers,
         codexModels,
@@ -58,24 +66,61 @@ export const useModelsStore = create<ModelsState>((set, get) => ({
         isLoading: false,
         error: null,
       });
-
-      console.log(`[Models] Loaded ${codexModels.length} Codex models:`, codexModels.map(m => m.id));
     } catch (error) {
-      console.error("[Models] Failed to fetch:", error);
       set({
         isLoading: false,
         error: error instanceof Error ? error.message : "Failed to fetch models",
-        // Keep existing models or use fallback
         codexModels: get().codexModels.length > 0 ? get().codexModels : FALLBACK_CODEX_MODELS,
       });
     }
   },
 
+  fetchClaudeModels: async () => {
+    const key = useSettingsStore.getState().getApiKey("anthropic");
+    if (!key) {
+      set({ claudeModels: FALLBACK_CLAUDE_MODELS });
+      return;
+    }
+    if (get().isLoadingClaude) return;
+    set({ isLoadingClaude: true });
+    try {
+      const claudeModels = await fetchClaudeModels(key);
+      set({ claudeModels, lastClaudeFetched: Date.now(), isLoadingClaude: false });
+    } catch (error) {
+      console.error("[Models] Claude fetch failed:", error);
+      set({
+        claudeModels: FALLBACK_CLAUDE_MODELS,
+        isLoadingClaude: false,
+        error: error instanceof Error ? error.message : "Failed to fetch Claude models",
+      });
+    }
+  },
+
+  fetchOpenRouterModels: async () => {
+    const key = useSettingsStore.getState().getApiKey("openrouter");
+    if (!key) {
+      set({ openrouterModels: [] });
+      return;
+    }
+    if (get().isLoadingOpenRouter) return;
+    set({ isLoadingOpenRouter: true });
+    try {
+      const openrouterModels = await fetchOpenRouterModels(key);
+      set({ openrouterModels, lastOpenRouterFetched: Date.now(), isLoadingOpenRouter: false });
+    } catch (error) {
+      console.error("[Models] OpenRouter fetch failed:", error);
+      set({
+        isLoadingOpenRouter: false,
+        error: error instanceof Error ? error.message : "Failed to fetch OpenRouter models",
+      });
+    }
+  },
+
   refreshModels: async () => {
-    console.log("[Models] Force refreshing...");
-    // Clear cache to force fresh fetch
     clearModelsCache();
     await get().fetchModels();
+    await get().fetchClaudeModels();
+    await get().fetchOpenRouterModels();
   },
 
   clearModels: () => {
@@ -83,37 +128,31 @@ export const useModelsStore = create<ModelsState>((set, get) => ({
     set({
       providers: null,
       codexModels: FALLBACK_CODEX_MODELS,
+      claudeModels: FALLBACK_CLAUDE_MODELS,
+      openrouterModels: [],
       lastFetched: null,
+      lastClaudeFetched: null,
+      lastOpenRouterFetched: null,
       error: null,
     });
   },
 
   startAutoRefresh: () => {
-    if (autoRefreshTimer) {
-      console.log("[Models] Auto-refresh already running");
-      return;
-    }
-
-    console.log("[Models] Starting auto-refresh (every hour)");
+    if (autoRefreshTimer) return;
     autoRefreshTimer = setInterval(() => {
-      console.log("[Models] Auto-refresh triggered");
       get().refreshModels();
     }, AUTO_REFRESH_INTERVAL_MS);
   },
 
   stopAutoRefresh: () => {
     if (autoRefreshTimer) {
-      console.log("[Models] Stopping auto-refresh");
       clearInterval(autoRefreshTimer);
       autoRefreshTimer = null;
     }
   },
 }));
 
-// Auto-fetch models on store creation
 setTimeout(() => {
-  console.log("[Models] Initial fetch on load");
   useModelsStore.getState().fetchModels();
-  // Start auto-refresh
   useModelsStore.getState().startAutoRefresh();
 }, 100);

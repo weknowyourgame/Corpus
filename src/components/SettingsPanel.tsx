@@ -27,13 +27,13 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({ trigger }: SettingsPanelProps) {
   const { apiKeys, setApiKey, appSettings, updateAppSettings, resetAppSettings } = useSettingsStore();
-  const [showOpenAIKey, setShowOpenAIKey] = useState(false);
   const [showAnthropicKey, setShowAnthropicKey] = useState(false);
-  const [localOpenAI, setLocalOpenAI] = useState(apiKeys.openai || "");
+  const [showOpenRouterKey, setShowOpenRouterKey] = useState(false);
   const [localAnthropic, setLocalAnthropic] = useState(apiKeys.anthropic || "");
+  const [localOpenRouter, setLocalOpenRouter] = useState(apiKeys.openrouter || "");
   const [saved, setSaved] = useState<string | null>(null);
 
-  const handleSaveKey = (provider: "openai" | "anthropic", value: string) => {
+  const handleSaveKey = (provider: "anthropic" | "openrouter", value: string) => {
     setApiKey(provider, value);
     setSaved(provider);
     setTimeout(() => setSaved(null), 2000);
@@ -74,55 +74,11 @@ export function SettingsPanel({ trigger }: SettingsPanelProps) {
 
           {/* API Keys Tab */}
           <TabsContent value="api" className="mt-4 space-y-6">
-            {/* OpenAI */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="openai-key" className="text-sm font-medium">
-                  OpenAI API Key
-                </Label>
-                <a
-                  href="https://platform.openai.com/api-keys"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
-                >
-                  Get key <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Input
-                    id="openai-key"
-                    type={showOpenAIKey ? "text" : "password"}
-                    placeholder="sk-..."
-                    value={localOpenAI}
-                    onChange={(e) => setLocalOpenAI(e.target.value)}
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowOpenAIKey(!showOpenAIKey)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {showOpenAIKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => handleSaveKey("openai", localOpenAI)}
-                  disabled={localOpenAI === apiKeys.openai}
-                  className="gap-1"
-                >
-                  {saved === "openai" ? <Check className="w-3.5 h-3.5" /> : "Save"}
-                </Button>
-              </div>
-            </div>
-
-            {/* Anthropic */}
+            {/* Claude (Anthropic) */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label htmlFor="anthropic-key" className="text-sm font-medium">
-                  Anthropic API Key
+                  Claude API Key
                 </Label>
                 <a
                   href="https://console.anthropic.com/settings/keys"
@@ -162,11 +118,54 @@ export function SettingsPanel({ trigger }: SettingsPanelProps) {
               </div>
             </div>
 
-            {/* Codex info */}
+            {/* OpenRouter */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="openrouter-key" className="text-sm font-medium">
+                  OpenRouter API Key
+                </Label>
+                <a
+                  href="https://openrouter.ai/keys"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+                >
+                  Get key <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    id="openrouter-key"
+                    type={showOpenRouterKey ? "text" : "password"}
+                    placeholder="sk-or-..."
+                    value={localOpenRouter}
+                    onChange={(e) => setLocalOpenRouter(e.target.value)}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowOpenRouterKey(!showOpenRouterKey)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showOpenRouterKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => handleSaveKey("openrouter", localOpenRouter)}
+                  disabled={localOpenRouter === apiKeys.openrouter}
+                  className="gap-1"
+                >
+                  {saved === "openrouter" ? <Check className="w-3.5 h-3.5" /> : "Save"}
+                </Button>
+              </div>
+            </div>
+
             <div className="rounded-lg border bg-muted/30 p-4">
-              <h4 className="text-sm font-medium mb-2">ChatGPT Plus/Pro (Codex)</h4>
+              <h4 className="text-sm font-medium mb-2">Codex (ChatGPT Plus/Pro)</h4>
               <p className="text-xs text-muted-foreground">
-                Using ChatGPT Plus or Pro? Click the model selector in the chat and choose "Codex" to authenticate with your ChatGPT account. No API key needed.
+                Sign in via Settings → Codex tab. OpenRouter unlocks 300+ models with one API key.
               </p>
             </div>
           </TabsContent>

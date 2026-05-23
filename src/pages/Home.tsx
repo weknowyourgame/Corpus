@@ -400,7 +400,10 @@ export function Home() {
     };
   }, [setPendingQuestion, setQuestionResolver]);
 
-  const hasConfiguredProvider = hasApiKey("openai") || hasApiKey("anthropic") || useAuthStore.getState().isOAuthAuthenticated();
+  const hasConfiguredProvider =
+    hasApiKey("anthropic") ||
+    hasApiKey("openrouter") ||
+    useAuthStore.getState().isOAuthAuthenticated();
   const isConnected = studioStatus === "connected";
 
   // Improve prompt handler
@@ -669,7 +672,7 @@ export function Home() {
               <div className="text-center">
                 <p className="text-sm text-amber-600">
                   <Icon name="key" size="sm" className="inline mr-1" />
-                  No API key configured.{" "}
+                  No AI provider configured.{" "}
                   <SettingsDialog>
                     <button className="underline hover:no-underline">
                       Open settings

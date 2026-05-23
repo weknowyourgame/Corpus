@@ -331,6 +331,8 @@ const PROXY_ALLOWED = [
   "https://catalog.roblox.com/",
   "https://thumbnails.roblox.com/",
   "https://apis.roblox.com/",
+  "https://openrouter.ai/",
+  "https://api.anthropic.com/",
 ];
 
 app.get("/api/proxy", async (req, res) => {

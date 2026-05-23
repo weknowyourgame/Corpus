@@ -101,15 +101,15 @@ export const usePrereqStore = create<PrereqStore>((set, get) => ({
     set({ checks: [...checks] });
 
     const { hasApiKey } = useSettingsStore.getState();
-    const hasOpenAI = hasApiKey("openai");
     const hasAnthropic = hasApiKey("anthropic");
+    const hasOpenRouter = hasApiKey("openrouter");
     const hasOAuth = isAuthenticated();
 
-    if (hasOpenAI || hasAnthropic || hasOAuth) {
+    if (hasOAuth || hasAnthropic || hasOpenRouter) {
       const providers = [];
-      if (hasOAuth) providers.push("ChatGPT Plus/Pro");
-      if (hasOpenAI) providers.push("OpenAI");
-      if (hasAnthropic) providers.push("Anthropic");
+      if (hasOAuth) providers.push("Codex (ChatGPT)");
+      if (hasAnthropic) providers.push("Claude");
+      if (hasOpenRouter) providers.push("OpenRouter");
       updateCheck("api-provider", {
         status: "passed",
         message: `Configured: ${providers.join(", ")}`,

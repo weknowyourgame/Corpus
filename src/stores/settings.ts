@@ -1,21 +1,21 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { ProviderType } from "@/lib/providers/types";
+
+export type { ProviderType };
 
 export interface ApiKeys {
-  openai?: string;
+  /** Anthropic API key (Claude / Claude Code) */
   anthropic?: string;
+  /** OpenRouter API key */
+  openrouter?: string;
 }
 
-export type ProviderType = "openai" | "anthropic" | "codex";
-
 export interface AppSettings {
-  // UI Settings
   animationsEnabled: boolean;
   soundEnabled: boolean;
   compactMode: boolean;
   showToolDetails: boolean;
-
-  // Behavior Settings
   autoScrollChat: boolean;
   confirmDestructiveActions: boolean;
   saveHistory: boolean;
@@ -28,7 +28,6 @@ export interface SettingsState {
   selectedProvider: ProviderType;
   appSettings: AppSettings;
 
-  // Actions
   setApiKey: (provider: keyof ApiKeys, key: string) => void;
   setSelectedModel: (model: string, provider: ProviderType) => void;
   hasApiKey: (provider: keyof ApiKeys) => boolean;
@@ -48,12 +47,19 @@ const DEFAULT_APP_SETTINGS: AppSettings = {
   maxHistoryMessages: 100,
 };
 
+type PersistedSettings = {
+  apiKeys?: ApiKeys & { openai?: string };
+  selectedModel?: string;
+  selectedProvider?: string;
+  appSettings?: AppSettings;
+};
+
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set, get) => ({
       apiKeys: {},
       selectedModel: "gpt-4o",
-      selectedProvider: "codex" as ProviderType,
+      selectedProvider: "codex",
       appSettings: DEFAULT_APP_SETTINGS,
 
       setApiKey: (provider, key) =>
@@ -84,6 +90,20 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "stud-settings",
+      version: 2,
+      migrate: (persisted) => {
+        const p = persisted as PersistedSettings;
+        const keys = p.apiKeys ?? {};
+        const { openai: _removed, ...rest } = keys;
+        let provider = p.selectedProvider as ProviderType | string | undefined;
+        if (provider === "openai") provider = "codex";
+        provider = provider as ProviderType | undefined;
+        return {
+          ...p,
+          apiKeys: rest,
+          selectedProvider: provider ?? "codex",
+        };
+      },
     }
   )
 );
