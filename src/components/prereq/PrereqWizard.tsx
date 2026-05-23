@@ -10,6 +10,8 @@ import { usePrereqStore, type PrereqCheck } from "@/stores/prereq";
 import { Loader } from "@/components/ui/loader";
 import { cn } from "@/lib/utils";
 import { SettingsDialog } from "@/components/settings/SettingsDialog";
+import { StudLogo } from "@/stud-ui";
+import { Button } from "@/components/ui/button";
 import {
   CheckCircle,
   XCircle,
@@ -57,16 +59,7 @@ function CheckItem({
   const isIssue = check.status === "failed" || check.status === "warning";
 
   return (
-    <div
-      className={cn(
-        "flex items-start gap-4 p-4 rounded-lg border transition-colors",
-        check.status === "failed" && "border-red-200 bg-red-50",
-        check.status === "warning" && "border-amber-200 bg-amber-50",
-        check.status === "passed" && "border-green-200 bg-green-50",
-        check.status === "pending" && "border-neutral-200 bg-neutral-50",
-        check.status === "checking" && "border-neutral-200 bg-neutral-50"
-      )}
-    >
+    <div className="stud-panel flex items-start gap-4 p-4">
       <div
         className={cn(
           "p-2 rounded-lg",
@@ -102,20 +95,15 @@ function CheckItem({
           <div className="mt-3">
             {check.action.handler === "open-settings" ? (
               <SettingsDialog>
-                <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-black text-white rounded-md hover:bg-neutral-800 transition-colors">
-                  {check.action.label}
-                </button>
+                <Button variant="dark" size="sm">{check.action.label}</Button>
               </SettingsDialog>
             ) : (
-              <button
-                onClick={() => onAction(check.action!.handler)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-black text-white rounded-md hover:bg-neutral-800 transition-colors"
-              >
+              <Button variant="dark" size="sm" onClick={() => onAction(check.action!.handler)}>
                 {check.action.handler === "download-studio" && <Download className="w-4 h-4" />}
                 {check.action.handler === "install-plugin" && <Plug className="w-4 h-4" />}
                 {check.action.label}
                 {check.action.handler === "download-studio" && <ExternalLink className="w-3 h-3" />}
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -167,22 +155,22 @@ export function PrereqWizard() {
   // Show loading state while checking
   if (isChecking) {
     return (
-      <div className="fixed inset-0 bg-white z-50 flex items-center justify-center">
+      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "var(--stud-bg)" }}>
         <div className="text-center">
           <Loader variant="wave" size="lg" />
-          <p className="mt-4 text-neutral-600">Checking prerequisites...</p>
+          <p className="mt-4" style={{ color: "var(--stud-muted)" }}>Checking prerequisites...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-white z-50 overflow-auto">
+    <div className="fixed inset-0 z-50 overflow-auto" style={{ background: "var(--stud-bg)" }}>
       <div className="max-w-2xl mx-auto px-6 py-12">
-        {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">Setup Required</h1>
-          <p className="text-neutral-600 mt-2">
+          <StudLogo className="justify-center mb-6" />
+          <h1 className="stud-display-title" style={{ fontSize: "2.25rem" }}>Setup Required</h1>
+          <p className="stud-display-subtitle">
             {hasIssues
               ? "Some prerequisites need your attention before using Stud."
               : "Almost ready! Just a few optional items to review."}
@@ -233,29 +221,12 @@ export function PrereqWizard() {
 
         {/* Actions */}
         <div className="flex items-center justify-center gap-4">
-          <button
-            onClick={() => runAllChecks()}
-            className="px-4 py-2 text-sm font-medium border border-neutral-300 rounded-md hover:bg-neutral-50 transition-colors"
-          >
-            Re-check
-          </button>
-
+          <Button variant="outline" onClick={() => runAllChecks()}>Re-check</Button>
           {!hasIssues && (
-            <button
-              onClick={dismissWizard}
-              className="px-6 py-2 text-sm font-medium bg-black text-white rounded-md hover:bg-neutral-800 transition-colors"
-            >
-              Continue to Stud
-            </button>
+            <Button variant="dark" onClick={dismissWizard}>Continue to Stud</Button>
           )}
-
           {hasIssues && (
-            <button
-              onClick={dismissWizard}
-              className="px-4 py-2 text-sm text-neutral-500 hover:text-neutral-700 transition-colors"
-            >
-              Skip for now
-            </button>
+            <Button variant="ghost" onClick={dismissWizard}>Skip for now</Button>
           )}
         </div>
 

@@ -183,10 +183,7 @@ function ChatGPTAuth() {
           )}
         </div>
       ) : (
-        <Button
-          onClick={startLogin}
-          className="w-full rounded-xl bg-gradient-to-r from-[#10a37f] to-[#1a7f64]"
-        >
+        <Button variant="dark" onClick={startLogin} className="w-full">
           <Sparkles className="w-4 h-4 mr-2" />
           Sign in with ChatGPT
         </Button>
@@ -212,16 +209,13 @@ function ProviderTabs({
   ];
 
   return (
-    <div className="flex gap-1 p-1 bg-muted rounded-xl">
+    <div className="segmented">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           type="button"
           onClick={() => onChange(tab.id)}
-          className={cn(
-            "flex-1 flex flex-col items-center gap-0.5 py-2 px-1 rounded-lg text-[11px] font-medium transition-all",
-            active === tab.id ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-          )}
+          className={cn("flex-1 flex flex-col items-center gap-0.5 py-2 px-1 text-[11px] font-medium", active === tab.id && "active")}
         >
           <span className="flex items-center gap-1">
             {tab.icon}
@@ -252,14 +246,14 @@ export function SettingsDialog({ children }: SettingsDialogProps) {
     <Dialog>
       <DialogTrigger asChild>
         {children || (
-          <Button variant="ghost" size="icon" className="rounded-xl">
+          <button type="button" className="stud-icon-btn nav-button" aria-label="Settings">
             <Icon name="settings-gear" size="md" />
-          </Button>
+          </button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md rounded-2xl">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-xl">AI Providers</DialogTitle>
+          <DialogTitle>AI Providers</DialogTitle>
           <DialogDescription>
             Codex (ChatGPT), Claude API, or OpenRouter — pick one and choose any model.
           </DialogDescription>

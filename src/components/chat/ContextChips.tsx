@@ -1,5 +1,5 @@
-import { Button } from "@/components/ui/button";
 import { BookOpen, Globe, Play, FileText, Box } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export type ChipAction = "search-models" | "docs" | "web" | "run-code" | "plan" | "toolbox";
 
@@ -43,30 +43,31 @@ const chips: ContextChip[] = [
   },
 ];
 
-interface ContextChipsProps {
+export function ContextChips({
+  onChipClick,
+  activeChips = [],
+  disabled = false,
+}: {
   onChipClick: (chipId: ChipAction) => void;
   activeChips?: ChipAction[];
   disabled?: boolean;
-}
-
-export function ContextChips({ onChipClick, activeChips = [], disabled = false }: ContextChipsProps) {
+}) {
   return (
     <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
       {chips.map((chip) => {
         const isActive = activeChips.includes(chip.id);
         return (
-          <Button
+          <button
             key={chip.id}
-            variant={isActive ? "default" : "outline"}
-            size="sm"
-            className="h-7 text-xs gap-1.5 rounded-full shrink-0 font-normal"
+            type="button"
+            className={cn("stud-suggestion-chip flex items-center gap-1.5 shrink-0", isActive && "border-[#1a1817]/25 bg-white text-[#1a1817]")}
             onClick={() => onChipClick(chip.id)}
             disabled={disabled}
             title={chip.description}
           >
             {chip.icon}
             {chip.label}
-          </Button>
+          </button>
         );
       })}
     </div>

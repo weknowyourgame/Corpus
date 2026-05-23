@@ -17,7 +17,12 @@ export default defineConfig({
     port: 5173,
     strictPort: false,
     proxy: {
-      "/stud": { target: BRIDGE_TARGET, changeOrigin: true },
+      // Bridge API only — do not proxy /stud/fonts or /stud/assets (public/stud)
+      "/stud/sessions": { target: BRIDGE_TARGET, changeOrigin: true },
+      "/stud/request": { target: BRIDGE_TARGET, changeOrigin: true },
+      "/stud/poll": { target: BRIDGE_TARGET, changeOrigin: true },
+      "/stud/respond": { target: BRIDGE_TARGET, changeOrigin: true },
+      "/stud/status": { target: BRIDGE_TARGET, changeOrigin: true },
       "/auth": { target: BRIDGE_TARGET, changeOrigin: true },
       "/codex": { target: BRIDGE_TARGET, changeOrigin: true },
       "/api": { target: BRIDGE_TARGET, changeOrigin: true },

@@ -1,21 +1,16 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import {
-  PromptInput,
-  PromptInputTextarea,
-  PromptInputActions,
-  PromptInputAction,
-} from "@/components/ui/prompt-input";
+import { PromptInputAction } from "@/components/ui/prompt-input";
 import { Button } from "@/components/ui/button";
-import { PromptSuggestion } from "@/components/ui/prompt-suggestion";
 import {
   ChatContainerRoot,
   ChatContainerContent,
 } from "@/components/ui/chat-container";
 import { ScrollButton } from "@/components/ui/scroll-button";
-import { Message, MessageContent } from "@/components/ui/message";
+import { MessageContent } from "@/components/ui/message";
 import { ToolCalls } from "@/components/ui/tool-call";
 import { Loader } from "@/components/ui/loader";
-import { Logo, LogoMark } from "@/components/icons/Logo";
+import { StudAppHeader } from "@/stud-ui";
+import { StudComposer } from "@/stud-ui/StudComposer";
 import { BotAvatar, UserAvatar } from "@/components/icons/Avatars";
 import { Icon } from "@/components/icons/Icon";
 import { ModelSelector } from "@/components/chat/ModelSelector";
@@ -72,49 +67,39 @@ const SUGGESTIONS = [
   "Build a trading system between players",
 ];
 
-// Step indicator for connection flow
-function ConnectionStep({ 
-  step, 
-  title, 
-  description, 
-  status 
-}: { 
+function ConnectionStep({
+  step,
+  title,
+  description,
+  status,
+}: {
   step: number;
   title: string;
   description: string;
   status: "pending" | "active" | "complete";
 }) {
-  // step 1-4 connection flow
   return (
-    <div className="flex items-start gap-4">
-      <div className="flex flex-col items-center">
-        <div
-          className={cn(
-            "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all",
-            status === "complete" && "bg-green-100 text-green-600",
-            status === "active" && "bg-primary/10 text-primary",
-            status === "pending" && "bg-muted text-muted-foreground"
-          )}
-        >
-          {status === "complete" ? (
-            <CheckCircle2 className="w-5 h-5" />
-          ) : status === "active" ? (
-            <Loader variant="circular" size="sm" />
-          ) : (
-            step
-          )}
-        </div>
+    <div className="stud-step-row">
+      <div
+        className={cn(
+          "stud-step-num",
+          status === "complete" && "is-complete",
+          status === "active" && "is-active"
+        )}
+      >
+        {status === "complete" ? (
+          <CheckCircle2 className="w-4 h-4" />
+        ) : status === "active" ? (
+          <Loader variant="circular" size="sm" />
+        ) : (
+          step
+        )}
       </div>
-      <div className="flex-1 pt-1">
-        <h3 className={cn(
-          "font-medium",
-          status === "complete" && "text-green-600",
-          status === "active" && "text-foreground",
-          status === "pending" && "text-muted-foreground"
-        )}>
-          {title}
-        </h3>
-        <p className="text-sm text-muted-foreground mt-0.5">{description}</p>
+      <div className="flex-1 pt-0.5">
+        <h3 className="font-medium text-[15px]">{title}</h3>
+        <p className="text-sm mt-0.5" style={{ color: "var(--stud-muted)" }}>
+          {description}
+        </p>
       </div>
     </div>
   );
@@ -176,33 +161,24 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
   const pluginInstalled = pluginStatus?.installed && pluginStatus?.is_current_version;
 
   return (
-    <div className="h-screen flex flex-col bg-background">
-      {/* Minimal header */}
-      <header className="flex items-center justify-between px-6 py-4">
-        <Logo />
-        <SettingsDialog />
-      </header>
+    <div className="stud-app-shell">
+      <StudAppHeader trailing={<SettingsDialog />} />
 
-      {/* Centered content */}
-      <main className="flex-1 flex flex-col items-center justify-center px-6 pb-24">
-        <div className="w-full max-w-md space-y-6">
-          {/* Main heading */}
-          <div className="text-center space-y-2">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-primary/10 mb-4">
-              <Loader variant="wave" size="lg" />
-            </div>
-            <h1 className="text-2xl font-heading text-foreground">
-              Connecting to Roblox Studio
+      <main className="stud-connection-layout">
+        <div className="stud-connection-stack">
+          <div className="text-center">
+            <Loader variant="wave" size="lg" />
+            <h1 className="stud-display-title mt-6" style={{ fontSize: "2.25rem" }}>
+              Connect Roblox Studio
             </h1>
-            <p className="text-muted-foreground">
+            <p className="stud-display-subtitle">
               <Loader variant="terminal" text="Waiting for connection" size="sm" />
             </p>
           </div>
 
-          <SessionCode className="bg-card rounded-2xl border border-border p-5" />
+          <SessionCode />
 
-          {/* Connection steps */}
-          <div className="bg-card rounded-2xl border border-border p-6 space-y-6">
+          <div className="stud-panel p-6 space-y-5">
             <ConnectionStep
               step={1}
               title="Bridge server running"
@@ -210,7 +186,7 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
               status={getStepStatus(1)}
             />
 
-            <div className="border-l-2 border-dashed border-border ml-4 h-4" />
+            <div className="stud-divider ml-4 w-8" />
 
             <ConnectionStep
               step={2}
@@ -219,7 +195,7 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
               status={getStepStatus(2)}
             />
 
-            <div className="border-l-2 border-dashed border-border ml-4 h-4" />
+            <div className="stud-divider ml-4 w-8" />
 
             <ConnectionStep
               step={3}
@@ -228,7 +204,7 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
               status={getStepStatus(3)}
             />
 
-            <div className="border-l-2 border-dashed border-border ml-4 h-4" />
+            <div className="stud-divider ml-4 w-8" />
 
             <ConnectionStep
               step={4}
@@ -238,46 +214,38 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
             />
           </div>
 
-          {/* Plugin Installation Card */}
-          <div className="bg-card rounded-2xl border border-border p-5 space-y-4">
+          <div className="stud-panel p-5 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="font-medium text-foreground">Plugin Status</span>
+                <span className="font-medium">Plugin Status</span>
                 {isChecking ? (
                   <Loader variant="circular" size="sm" />
                 ) : pluginInstalled ? (
-                  <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
-                    <CheckCircle2 className="w-3 h-3" />
+                  <span className="status-pill">
+                    <span style={{ background: "#2f9c63" }} />
                     Installed
                   </span>
                 ) : pluginStatus?.installed ? (
-                  <span className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
-                    Update Available
-                  </span>
+                  <span className="status-pill">Update available</span>
                 ) : (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                    Not Installed
-                  </span>
+                  <span className="status-pill">Not installed</span>
                 )}
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
+              <button
+                type="button"
+                className="stud-icon-btn"
                 onClick={() => checkPlugin()}
                 disabled={isChecking}
               >
                 <RefreshCw className={cn("w-4 h-4", isChecking && "animate-spin")} />
-              </Button>
+              </button>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex gap-2">
               <Button onClick={handleDownloadPlugin} className="flex-1">
                 <Download className="w-4 h-4 mr-2" />
                 Download Plugin
               </Button>
-              
               <Button
                 variant="outline"
                 onClick={handleDownloadPlugin}
@@ -287,12 +255,16 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
               </Button>
             </div>
 
-            {/* Manual path info */}
             {showManualPath && pluginStatus && (
-              <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 space-y-1">
-                <p className="font-medium text-foreground">Manual Installation:</p>
+              <div className="stud-panel-soft p-3 text-xs space-y-1" style={{ color: "var(--stud-muted)" }}>
+                <p className="font-medium" style={{ color: "var(--stud-text)" }}>
+                  Manual installation
+                </p>
                 <p>Copy the plugin to your Roblox Plugins folder:</p>
-                <code className="block bg-background px-2 py-1 rounded text-xs break-all">
+                <code
+                  className="block px-2 py-1 rounded text-xs break-all"
+                  style={{ background: "var(--stud-soft)", fontFamily: "var(--stud-tech)" }}
+                >
                   {pluginStatus.plugins_folder}
                 </code>
               </div>
@@ -300,33 +272,6 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
           </div>
         </div>
       </main>
-    </div>
-  );
-}
-
-// Status badge for the header
-function StatusBadge({ status }: { status: ConnectionStatus }) {
-  const config = {
-    disconnected: {
-      color: "bg-zinc-400",
-      label: "Offline",
-    },
-    bridge_only: {
-      color: "bg-amber-500",
-      label: "Waiting",
-    },
-    connected: {
-      color: "bg-green-500",
-      label: "Connected",
-    },
-  };
-
-  const { color, label } = config[status];
-
-  return (
-    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-      <div className={cn("w-2 h-2 rounded-full", color)} />
-      <span>{label}</span>
     </div>
   );
 }
@@ -541,146 +486,96 @@ export function Home() {
     return <ConnectionScreen status={studioStatus} />;
   }
 
-  // Empty state - show centered input (connected but no messages)
+  const composerActions = (
+    <>
+      <div className="flex items-center gap-1">
+        <PromptInputAction tooltip="Attach file">
+          <button type="button" className="stud-icon-btn" disabled>
+            <Icon name="link" size="sm" />
+          </button>
+        </PromptInputAction>
+        <InstancePicker onSelect={(path) => setInput((prev) => prev + `@${path} `)} />
+      </div>
+      <div className="flex items-center gap-2">
+        <ModelSelector disabled={!hasConfiguredProvider} />
+        <PromptInputAction tooltip="Improve prompt for Stud">
+          <button
+            type="button"
+            className="stud-icon-btn"
+            onClick={handleImprovePrompt}
+            disabled={!input.trim() || isImproving || isStreaming || !hasConfiguredProvider}
+          >
+            {isImproving ? <Loader variant="circular" size="sm" /> : <Sparkles className="h-4 w-4" />}
+          </button>
+        </PromptInputAction>
+        <button
+          type="button"
+          className={cn("stud-icon-btn", input.trim() && !isStreaming && hasConfiguredProvider && "is-primary")}
+          onClick={isStreaming ? handleStop : handleSubmit}
+          disabled={!input.trim() || !hasConfiguredProvider}
+        >
+          {isStreaming ? <Square className="h-4 w-4 fill-current" /> : <ArrowUp className="h-4 w-4" />}
+        </button>
+      </div>
+    </>
+  );
+
   if (messages.length === 0) {
     return (
-      <div className="h-screen flex flex-col bg-background">
-        {/* Header */}
-        <header className="flex items-center justify-between px-6 py-4 border-b border-border/50">
-          <Logo />
-          <div className="flex items-center gap-3">
-            <StatusBadge status={studioStatus} />
-            <SettingsDialog />
-          </div>
-        </header>
-
-        {/* Centered content */}
-        <main className="flex-1 flex flex-col items-center justify-center px-6 pb-24">
+      <div className="stud-app-shell">
+        <StudAppHeader status={studioStatus} trailing={<SettingsDialog />} />
+        <main className="stud-app-main stud-connection-layout">
           <div className="w-full max-w-2xl space-y-8">
-            {/* Welcome message */}
-            <div className="text-center space-y-2">
-              <h1 className="text-3xl font-heading text-foreground">
-                What would you like to build?
-              </h1>
-              <p className="text-muted-foreground">
-                I can help you create scripts, design systems, and build games in Roblox Studio.
+            <div className="text-center">
+              <h1 className="stud-display-title">What would you like to build?</h1>
+              <p className="stud-display-subtitle">
+                Create scripts, design systems, and build games in Roblox Studio.
               </p>
             </div>
-
-            {/* Input */}
-            <div className="space-y-3">
-              <ContextChips
-                onChipClick={handleChipClick}
-                activeChips={activeChips}
-                disabled={isStreaming || !hasConfiguredProvider}
-              />
-              <PromptInput
-                value={input}
-                onValueChange={setInput}
-                onSubmit={handleSubmit}
-                isLoading={isStreaming}
-                className={cn(
-                  "rounded-2xl border-2 border-border shadow-lg bg-card",
-                  isImproving && "relative overflow-hidden"
-                )}
-              >
-                {/* Skeleton shimmer overlay when improving */}
-                {isImproving && (
-                  <div className="absolute inset-0 pointer-events-none z-10">
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent animate-shimmer" />
-                  </div>
-                )}
-                <PromptInputTextarea
-                  placeholder={
-                    isImproving
-                      ? "Improving your prompt..."
-                      : hasConfiguredProvider
-                        ? "Ask me anything about Roblox development..."
-                        : "Configure an API key in settings to start..."
-                  }
-                  disabled={!hasConfiguredProvider || isImproving}
-                  className={cn(
-                    "min-h-[60px] text-base",
-                    isImproving && "opacity-60"
-                  )}
-                />
-                <PromptInputActions className="justify-between px-3 py-2">
-                  <div className="flex items-center gap-1">
-                    <PromptInputAction tooltip="Attach file">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" disabled>
-                        <Icon name="link" size="sm" />
-                      </Button>
-                    </PromptInputAction>
-                    <InstancePicker
-                      onSelect={(path) => setInput((prev) => prev + `@${path} `)}
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <ModelSelector disabled={!hasConfiguredProvider} />
-                    {/* Improve Prompt Button */}
-                    <PromptInputAction tooltip="Improve prompt for Stud">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className={cn(
-                          "h-8 w-8 rounded-lg transition-all",
-                          isImproving && "animate-pulse",
-                          input.trim() && !isImproving && !isStreaming && "text-amber-500 hover:text-amber-600 hover:bg-amber-50"
-                        )}
-                        onClick={handleImprovePrompt}
-                        disabled={!input.trim() || isImproving || isStreaming || !hasConfiguredProvider}
-                      >
-                        {isImproving ? (
-                          <Loader variant="circular" size="sm" />
-                        ) : (
-                          <Sparkles className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </PromptInputAction>
-                    <Button
-                      size="icon"
-                      className="h-8 w-8 rounded-lg"
-                      onClick={handleSubmit}
-                      disabled={!input.trim() || isStreaming || !hasConfiguredProvider}
-                    >
-                      {isStreaming ? (
-                        <Square className="h-4 w-4 fill-current" />
-                      ) : (
-                        <ArrowUp className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </PromptInputActions>
-              </PromptInput>
-            </div>
-
-            {/* Suggestions */}
+            <ContextChips
+              onChipClick={handleChipClick}
+              activeChips={activeChips}
+              disabled={isStreaming || !hasConfiguredProvider}
+            />
+            <StudComposer
+              value={input}
+              onValueChange={setInput}
+              onSubmit={handleSubmit}
+              isLoading={isStreaming}
+              isImproving={isImproving}
+              disabled={!hasConfiguredProvider}
+              placeholder={
+                isImproving
+                  ? "Improving your prompt..."
+                  : hasConfiguredProvider
+                    ? "Ask me anything about Roblox development..."
+                    : "Configure an API key in settings to start..."
+              }
+            >
+              {composerActions}
+            </StudComposer>
             <div className="flex flex-wrap justify-center gap-2">
               {displayedSuggestions.map((suggestion) => (
-                <PromptSuggestion
+                <button
                   key={suggestion}
+                  type="button"
+                  className="stud-suggestion-chip"
                   onClick={() => handleSuggestionClick(suggestion)}
-                  className="rounded-xl"
                 >
                   {suggestion}
-                </PromptSuggestion>
+                </button>
               ))}
             </div>
-
-            {/* Not configured warning */}
             {!hasConfiguredProvider && (
-              <div className="text-center">
-                <p className="text-sm text-amber-600">
-                  <Icon name="key" size="sm" className="inline mr-1" />
-                  No AI provider configured.{" "}
-                  <SettingsDialog>
-                    <button className="underline hover:no-underline">
-                      Open settings
-                    </button>
-                  </SettingsDialog>{" "}
-                  to add one.
-                </p>
-              </div>
+              <p className="text-center text-sm" style={{ color: "var(--stud-muted)" }}>
+                <Icon name="key" size="sm" className="inline mr-1" />
+                No AI provider configured.{" "}
+                <SettingsDialog>
+                  <button type="button" className="underline">
+                    Open settings
+                  </button>
+                </SettingsDialog>
+              </p>
             )}
           </div>
         </main>
@@ -688,38 +583,37 @@ export function Home() {
     );
   }
 
-  // Chat view
   return (
-    <div className="h-screen flex flex-col bg-background">
-      {/* Header */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-border/50 bg-card/50 backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          <LogoMark className="w-8 h-8" />
-          <span className="text-lg font-logo">Stud</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <StatusBadge status={studioStatus} />
-          <div className="h-4 w-px bg-border mx-1" />
-          <ChatActions
-            onClear={clearMessages}
-            disabled={messages.length === 0 || isStreaming}
-          />
-          <SettingsPanel
-            trigger={
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Settings className="w-4 h-4" />
-              </Button>
-            }
-          />
-        </div>
-      </header>
+    <div className="stud-app-shell">
+      <StudAppHeader
+        status={studioStatus}
+        compact
+        trailing={
+          <>
+            <ChatActions onClear={clearMessages} disabled={messages.length === 0 || isStreaming} />
+            <SettingsPanel
+              trigger={
+                <button type="button" className="stud-icon-btn" aria-label="Settings">
+                  <Settings className="w-4 h-4" />
+                </button>
+              }
+            />
+            <SettingsDialog />
+          </>
+        }
+      />
 
-      {/* Chat messages */}
-      <ChatContainerRoot className="flex-1 relative">
-        <ChatContainerContent className="max-w-3xl mx-auto px-4 py-6 space-y-6">
-          {/* Error alert */}
+      <div className="studio-window stud-app-main mx-auto w-[min(100%-40px,920px)] my-4 flex flex-col min-h-0 flex-1">
+        <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--stud-border)]">
+          <strong style={{ fontFamily: "var(--stud-tech)", fontSize: 13, letterSpacing: "0.12em" }}>
+            STUDIO CHAT
+          </strong>
+        </header>
+
+      <ChatContainerRoot className="flex-1 relative min-h-0">
+        <ChatContainerContent className="stud-chat-scroll space-y-2">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 flex items-start gap-3">
+            <div className="stud-alert-error flex items-start gap-3">
               <div className="flex-shrink-0 w-5 h-5 mt-0.5">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="10" />
@@ -749,57 +643,58 @@ export function Home() {
           )}
 
           {messages.map((message) => (
-            <Message key={message.id} className="gap-4">
-              {message.role === "assistant" ? (
-                <BotAvatar />
-              ) : (
-                <UserAvatar />
+            <div
+              key={message.id}
+              className={cn("stud-message-block", message.role === "user" && "is-user")}
+            >
+              {message.role === "user" && message.contextChips && message.contextChips.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                  {message.contextChips.map((chip) => (
+                    <span key={chip} className="stud-suggestion-chip text-xs py-1">
+                      {chip === "search-models" && <><Box className="w-3 h-3 inline mr-1" /> Models</>}
+                      {chip === "docs" && <><FileText className="w-3 h-3 inline mr-1" /> Docs</>}
+                      {chip === "web" && <><Globe className="w-3 h-3 inline mr-1" /> Web</>}
+                      {chip === "run-code" && <><Play className="w-3 h-3 inline mr-1" /> Run</>}
+                      {chip === "plan" && <><ListTodo className="w-3 h-3 inline mr-1" /> Plan</>}
+                    </span>
+                  ))}
+                </div>
               )}
-              <div className="flex-1 space-y-3">
-                {/* Context chips indicator for user messages */}
-                {message.role === "user" && message.contextChips && message.contextChips.length > 0 && (
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {message.contextChips.map((chip) => (
-                      <span
-                        key={chip}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-neutral-100 text-neutral-600 rounded-full"
-                      >
-                        {chip === "search-models" && <><Box className="w-3 h-3" /> Models</>}
-                        {chip === "docs" && <><FileText className="w-3 h-3" /> Docs</>}
-                        {chip === "web" && <><Globe className="w-3 h-3" /> Web</>}
-                        {chip === "run-code" && <><Play className="w-3 h-3" /> Run</>}
-                        {chip === "plan" && <><ListTodo className="w-3 h-3" /> Plan</>}
-                      </span>
-                    ))}
-                  </div>
-                )}
 
-                {/* Tool calls (shown before content for assistant) */}
-                {message.role === "assistant" && message.toolCalls && message.toolCalls.length > 0 && (
-                  <ToolCalls toolCalls={message.toolCalls} />
-                )}
-
-                {/* Message content */}
-                {message.content ? (
-                  <MessageContent
-                    markdown={message.role === "assistant"}
-                    className={cn(
-                      "prose prose-sm max-w-none",
-                      message.role === "user" && "bg-muted/50 rounded-2xl px-4 py-3"
-                    )}
-                  >
-                    {message.content}
-                  </MessageContent>
-                ) : (
-                  isStreaming && message.role === "assistant" && !message.toolCalls?.length && (
-                    <div className="flex items-center gap-2 h-8">
-                      <Loader variant="wave" size="sm" />
-                      <span className="text-sm text-muted-foreground">Thinking...</span>
+              <div className="flex gap-3 items-start">
+                {message.role === "assistant" ? <BotAvatar /> : <UserAvatar />}
+                <div className="flex-1 min-w-0">
+                  {message.role === "assistant" && message.toolCalls && message.toolCalls.length > 0 && (
+                    <div className="stud-tool-card">
+                      <ToolCalls toolCalls={message.toolCalls} />
                     </div>
-                  )
-                )}
+                  )}
+                  {message.content ? (
+                    <div
+                      className={cn(
+                        "stud-message-bubble",
+                        message.role === "user" ? "is-user" : "is-assistant"
+                      )}
+                    >
+                      <MessageContent markdown={message.role === "assistant"} className="prose prose-sm max-w-none">
+                        {message.content}
+                      </MessageContent>
+                    </div>
+                  ) : (
+                    isStreaming &&
+                    message.role === "assistant" &&
+                    !message.toolCalls?.length && (
+                      <div className="flex items-center gap-2 py-2">
+                        <Loader variant="wave" size="sm" />
+                        <span className="text-sm" style={{ color: "var(--stud-muted)" }}>
+                          Thinking...
+                        </span>
+                      </div>
+                    )
+                  )}
+                </div>
               </div>
-            </Message>
+            </div>
           ))}
 
           {/* Pending question from AI */}
@@ -815,110 +710,35 @@ export function Home() {
 
           {/* Streaming indicator */}
           {isStreaming && !pendingQuestion && (
-            <div className="flex items-center gap-3 px-4 py-3 bg-muted/30 rounded-xl max-w-fit mx-auto">
+            <div className="flex items-center gap-3 py-3 max-w-fit mx-auto">
               <Loader variant="wave" size="sm" />
-              <span className="text-sm text-muted-foreground">AI is working...</span>
+              <span className="text-sm" style={{ color: "var(--stud-muted)" }}>
+                AI is working...
+              </span>
             </div>
           )}
         </ChatContainerContent>
-        
-        {/* Scroll to bottom button */}
-        <div className="absolute bottom-24 left-1/2 -translate-x-1/2">
-          <ScrollButton className="shadow-lg rounded-full" />
+        <div className="absolute bottom-28 left-1/2 -translate-x-1/2">
+          <ScrollButton />
         </div>
       </ChatContainerRoot>
 
-      {/* Input */}
-      <div className="border-t border-border/50 bg-card/50 backdrop-blur-sm px-4 py-4">
-        <div className="max-w-3xl mx-auto space-y-3">
-          <ContextChips
-            onChipClick={handleChipClick}
-            activeChips={activeChips}
-            disabled={isStreaming}
-          />
-          <PromptInput
-            value={input}
-            onValueChange={setInput}
-            onSubmit={handleSubmit}
-            isLoading={isStreaming}
-            className={cn(
-              "rounded-2xl border shadow-sm",
-              isImproving && "relative overflow-hidden"
-            )}
-          >
-            {/* Skeleton shimmer overlay when improving */}
-            {isImproving && (
-              <div className="absolute inset-0 pointer-events-none z-10">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent animate-shimmer" />
-              </div>
-            )}
-            <PromptInputTextarea
-              placeholder={isImproving ? "Improving your prompt..." : "Ask a follow-up..."}
-              className={cn(
-                "min-h-[44px] text-base",
-                isImproving && "opacity-60"
-              )}
-              disabled={isImproving}
-            />
-            <PromptInputActions className="justify-between px-3 py-2">
-              <div className="flex items-center gap-1">
-                <PromptInputAction tooltip="Attach file">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" disabled>
-                    <Icon name="link" size="sm" />
-                  </Button>
-                </PromptInputAction>
-                <InstancePicker
-                  onSelect={(path) => setInput((prev) => prev + `@${path} `)}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <ModelSelector />
-                {/* Improve Prompt Button */}
-                <PromptInputAction tooltip="Improve prompt for Stud (AI enhances your message)">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={cn(
-                      "h-8 w-8 rounded-lg transition-all",
-                      isImproving && "animate-pulse",
-                      input.trim() && !isImproving && !isStreaming && "text-amber-500 hover:text-amber-600 hover:bg-amber-50"
-                    )}
-                    onClick={handleImprovePrompt}
-                    disabled={!input.trim() || isImproving || isStreaming}
-                  >
-                    {isImproving ? (
-                      <Loader variant="circular" size="sm" />
-                    ) : (
-                      <Sparkles className="h-4 w-4" />
-                    )}
-                  </Button>
-                </PromptInputAction>
-                {isStreaming ? (
-                  <Button
-                    size="icon"
-                    variant="destructive"
-                    className="h-8 w-8 rounded-lg"
-                    onClick={handleStop}
-                  >
-                    <Square className="h-4 w-4 fill-current" />
-                  </Button>
-                ) : (
-                  <Button
-                    size="icon"
-                    className="h-8 w-8 rounded-lg"
-                    onClick={handleSubmit}
-                    disabled={!input.trim()}
-                  >
-                    <ArrowUp className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            </PromptInputActions>
-          </PromptInput>
-        </div>
+      <div className="stud-chat-composer px-4 pb-4">
+        <ContextChips onChipClick={handleChipClick} activeChips={activeChips} disabled={isStreaming} />
+        <StudComposer
+          value={input}
+          onValueChange={setInput}
+          onSubmit={handleSubmit}
+          isLoading={isStreaming}
+          isImproving={isImproving}
+          placeholder={isImproving ? "Improving your prompt..." : "Ask a follow-up..."}
+          className="mt-3"
+        >
+          {composerActions}
+        </StudComposer>
+      </div>
       </div>
 
-      {/* Command Palette */}
       <CommandPalette
         onCommand={(cmd, payload) => {
           if (cmd === "prompt" && typeof payload === "string") {

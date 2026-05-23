@@ -162,20 +162,16 @@ export function ModelSelector({ className, disabled }: ModelSelectorProps) {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild disabled={disabled}>
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
-          className={cn(
-            "gap-1.5 px-2 h-7 text-xs text-muted-foreground hover:text-foreground",
-            "rounded-md border border-transparent hover:border-border",
-            className
-          )}
+          className={cn("gap-1.5 px-2 h-8 text-xs", className)}
         >
           <ProviderIcon id={providerIconId()} size="xs" />
           <span className="font-medium max-w-[72px] truncate">{getShortName()}</span>
           <ChevronDown className="w-3 h-3 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-72 p-0 rounded-xl shadow-lg" onOpenAutoFocus={(e) => e.preventDefault()}>
+      <PopoverContent align="end" className="stud-popover w-72 p-0" onOpenAutoFocus={(e) => e.preventDefault()}>
         <div className="p-2 border-b">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />

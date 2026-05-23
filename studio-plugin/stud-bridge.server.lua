@@ -597,6 +597,9 @@ local function jsonDecode(str)
 end
 
 local function getInstanceFromPath(path)
+	if path == "game" then
+		return game
+	end
 	local parts = string.split(path, ".")
 	if #parts < 2 or parts[1] ~= "game" then
 		return nil
