@@ -652,6 +652,64 @@ handlers["/ping"] = function()
 	return { status = "ok", plugin = PLUGIN_NAME }
 end
 
+-- ─── Playtest log capture ────────────────────────────────────────────────────
+local playLogBuffer = {}
+local PLAY_LOG_MAX = 200
+
+local LOG_SEVERITY = {
+	[Enum.MessageType.MessageOutput]  = "info",
+	[Enum.MessageType.MessageInfo]    = "info",
+	[Enum.MessageType.MessageWarning] = "warning",
+	[Enum.MessageType.MessageError]   = "error",
+}
+
+local LogService = game:GetService("LogService")
+LogService.MessageOut:Connect(function(message, messageType)
+	if #playLogBuffer >= PLAY_LOG_MAX then table.remove(playLogBuffer, 1) end
+	table.insert(playLogBuffer, {
+		message  = tostring(message):sub(1, 2000),
+		severity = LOG_SEVERITY[messageType] or "info",
+		channel  = "output",
+		timestamp = tick(),
+	})
+end)
+
+handlers["/playtest/start"] = function(data)
+	playLogBuffer = {}  -- fresh log window for this cycle
+	local ok, err = pcall(function() plugin:StartPlaySolo() end)
+	if not ok then error("Failed to start playtest: " .. tostring(err)) end
+	return { started = true, mode = (data and data.mode) or "play_solo" }
+end
+
+handlers["/playtest/stop"] = function()
+	-- Best-effort stop; errors are non-fatal
+	pcall(function() game:GetService("RunService"):Stop() end)
+	return { stopped = true }
+end
+
+handlers["/playtest/logs"] = function(data)
+	local limit = tonumber(data and data.limit) or 50
+	local total = #playLogBuffer
+	local from  = math.max(1, total - limit + 1)
+	local result = {}
+	for i = from, total do result[#result + 1] = playLogBuffer[i] end
+	return { logs = result }
+end
+
+handlers["/playtest/diagnostics"] = function(data)
+	local filter = data and data.scriptPath
+	local errors = {}
+	for _, entry in ipairs(playLogBuffer) do
+		if entry.severity == "error" then
+			if not filter or (entry.scriptPath and entry.scriptPath:find(filter, 1, true)) then
+				errors[#errors + 1] = entry
+			end
+		end
+	end
+	return { diagnostics = errors }
+end
+-- ─────────────────────────────────────────────────────────────────────────────
+
 -- Simple revision token: length + first 6 chars + last 6 chars (cheap fingerprint for conflict detection)
 local function makeRevision(source)
 	local len = #source
@@ -1206,6 +1264,8 @@ local modifyingPaths = {
 	["/instance/bulk-set"] = true,
 	["/code/run"] = true,
 	["/asset/insert"] = true,
+	["/playtest/start"] = true,
+	["/playtest/stop"] = true,
 }
 
 -- Friendly names for activity log
@@ -1229,6 +1289,10 @@ local actionNames = {
 	["/code/run"] = "Run Code",
 	["/asset/inspect"] = "Inspect Asset",
 	["/asset/insert"] = "Insert Asset",
+	["/playtest/start"] = "Start Playtest",
+	["/playtest/stop"] = "Stop Playtest",
+	["/playtest/logs"] = "Get Logs",
+	["/playtest/diagnostics"] = "Get Diagnostics",
 }
 
 -- HTTP request handler

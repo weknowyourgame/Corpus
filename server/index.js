@@ -14,6 +14,7 @@ import { RobloxStudioMcpGateway } from "./agent/tools.ts";
 import { OpenCloudClient } from "./agent/open-cloud.ts";
 import { createDataStoreTools } from "./agent/datastore-tools.ts";
 import { createSubagentTool } from "./agent/subagent.ts";
+import { createPlaytestTools } from "./agent/playtest-tools.ts";
 import { createModelDriverFactory } from "./agent/drivers.ts";
 import { createAgentRouter } from "./agent/routes.ts";
 
@@ -40,6 +41,8 @@ const MUTATING_STUDIO_PATHS = new Set([
   "/instance/bulk-set",
   "/code/run",
   "/asset/insert",
+  "/playtest/start",
+  "/playtest/stop",
 ]);
 
 const app = express();
@@ -139,7 +142,8 @@ class CompositeToolRegistry {
   }
 }
 
-const combinedTools = new CompositeToolRegistry(agentTools, datastoreTools);
+const playtestTools = createPlaytestTools(relayStudioRequest);
+const combinedTools = new CompositeToolRegistry(agentTools, [...datastoreTools, ...playtestTools]);
 
 // Subagent tool references combinedTools for read-only wrapping
 const subagentTool = createSubagentTool(combinedTools);
