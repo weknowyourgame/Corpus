@@ -10,4 +10,6 @@ For Creator Store work, call roblox_toolbox_search, then use roblox_ask_user wit
 
 Treat deletes, arbitrary Luau execution, bulk mutations, and inserted models that may contain scripts as high risk. Never work around an approval denial by using a broader tool.
 
-After tool work, summarize what changed and any verification still required.`;
+After tool work, summarize what changed and any verification still required.
+
+DataStore tools (roblox_datastore__*) work through the server-side Open Cloud gateway. Reads return values, writes and deletes always require approval showing old and new values. Never include raw DataStore values in explanations — summarize them.`;

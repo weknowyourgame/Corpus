@@ -652,25 +652,34 @@ handlers["/ping"] = function()
 	return { status = "ok", plugin = PLUGIN_NAME }
 end
 
+-- Simple revision token: length + first 6 chars + last 6 chars (cheap fingerprint for conflict detection)
+local function makeRevision(source)
+	local len = #source
+	local head = source:sub(1, 6):gsub("[^%w]", "_")
+	local tail = source:sub(-6):gsub("[^%w]", "_")
+	return string.format("%d-%s-%s", len, head, tail)
+end
+
 handlers["/script/get"] = function(data)
 	local instance = getInstanceFromPath(data.path)
 	if not instance then
 		error("Instance not found: " .. data.path)
 	end
-	
+
 	if not instance:IsA("LuaSourceContainer") then
 		error("Not a script: " .. data.path)
 	end
-	
+
 	local source = ScriptEditorService:GetEditorSource(instance)
 	if not source then
 		source = instance.Source
 	end
-	
+
 	return {
 		path = getInstancePath(instance),
 		source = source,
 		className = instance.ClassName,
+		revision = makeRevision(source),
 	}
 end
 
@@ -679,16 +688,22 @@ handlers["/script/set"] = function(data)
 	if not instance then
 		error("Instance not found: " .. data.path)
 	end
-	
+
 	if not instance:IsA("LuaSourceContainer") then
 		error("Not a script: " .. data.path)
 	end
-	
+
+	ChangeHistoryService:SetWaypoint("Stud: write_script")
 	ScriptEditorService:UpdateSourceAsync(instance, function()
 		return data.source
 	end)
-	
-	return { path = getInstancePath(instance) }
+	ChangeHistoryService:SetWaypoint("Stud: write_script done")
+
+	return {
+		path = getInstancePath(instance),
+		revision = makeRevision(data.source),
+		undoWaypoint = "Stud: write_script",
+	}
 end
 
 handlers["/script/edit"] = function(data)
@@ -696,26 +711,33 @@ handlers["/script/edit"] = function(data)
 	if not instance then
 		error("Instance not found: " .. data.path)
 	end
-	
+
 	if not instance:IsA("LuaSourceContainer") then
 		error("Not a script: " .. data.path)
 	end
-	
+
 	local source = ScriptEditorService:GetEditorSource(instance)
 	if not source then
 		source = instance.Source
 	end
-	
+
 	local newSource, count = string.gsub(source, data.oldCode, data.newCode)
 	if count == 0 then
 		error("Code not found in script")
 	end
-	
+
+	ChangeHistoryService:SetWaypoint("Stud: edit_script")
 	ScriptEditorService:UpdateSourceAsync(instance, function()
 		return newSource
 	end)
-	
-	return { path = getInstancePath(instance), replaced = count }
+	ChangeHistoryService:SetWaypoint("Stud: edit_script done")
+
+	return {
+		path = getInstancePath(instance),
+		replaced = count,
+		revision = makeRevision(newSource),
+		undoWaypoint = "Stud: edit_script",
+	}
 end
 
 handlers["/instance/children"] = function(data)

@@ -20,6 +20,7 @@ import { ContextChips, ChipAction } from "@/components/chat/ContextChips";
 import { QuestionPrompt } from "@/components/chat/QuestionPrompt";
 import { ApprovalPrompt } from "@/components/chat/ApprovalPrompt";
 import { InstancePicker } from "@/components/chat/InstancePicker";
+import { MutationDiff } from "@/components/chat/MutationDiff";
 import { ChatActions } from "@/components/QuickActions";
 import { CommandPalette } from "@/components/CommandPalette";
 import { EmptyState } from "@/components/EmptyState";
@@ -36,6 +37,7 @@ import {
   sendServerMessage,
   type ApprovalDecision,
   type ApprovalRequest,
+  type MutationResult,
 } from "@/lib/ai/server-agent";
 import { useAppShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { improvePrompt } from "@/lib/ai/prompt-improver";
@@ -291,6 +293,7 @@ export function Home() {
   const [displayedSuggestions, setDisplayedSuggestions] = useState<string[]>([]);
   const [serverProviders, setServerProviders] = useState({ anthropic: false, openrouter: false, codex: false });
   const [pendingApproval, setPendingApproval] = useState<ApprovalRequest | null>(null);
+  const [mutationResults, setMutationResults] = useState<Array<MutationResult & { id: string }>>([]);
   const approvalResolver = useRef<((decision: ApprovalDecision) => void) | null>(null);
   const {
     messages,
@@ -519,6 +522,9 @@ export function Home() {
             setQuestionResolver(resolve);
           }),
         onApproval: requestApproval,
+        onMutationResult: (result) => {
+          setMutationResults((prev) => [{ ...result, id: result.transactionId }, ...prev]);
+        },
         onFinish: () => {
           console.log("[Home] Stream finished, total length:", fullText.length);
           setPendingApproval(null);
@@ -779,6 +785,22 @@ export function Home() {
               </div>
             </div>
           ))}
+
+          {/* Mutation diffs */}
+          {mutationResults.length > 0 && (
+            <div className="space-y-1.5 px-1">
+              {mutationResults.slice(0, 5).map((r) => (
+                <MutationDiff
+                  key={r.id}
+                  toolName={r.toolName}
+                  path={r.path}
+                  before={r.before}
+                  after={r.after}
+                  transactionId={r.transactionId}
+                />
+              ))}
+            </div>
+          )}
 
           {/* Pending question from AI */}
           {pendingQuestion && (

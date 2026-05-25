@@ -2,7 +2,10 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { Router, type Request } from "express";
 import { z } from "zod";
 import type { AgentRuntime } from "./runtime.ts";
+import { RateLimiter } from "./rate-limit.ts";
 import type { Conversation } from "./types.ts";
+
+const rateLimiter = new RateLimiter();
 
 const sessionSchema = z.string().regex(/^[A-Za-z0-9]{6,12}$/);
 const startSchema = z.object({
@@ -86,7 +89,10 @@ export function createAgentRouter(runtime: AgentRuntime) {
       return;
     }
     try {
-      res.status(202).json(await runtime.startRun(req.params.conversationId, parsed.data));
+      const rlKey = `${parsed.data.provider}:${req.params.conversationId}`;
+      await rateLimiter.acquire(rlKey, parsed.data.model, parsed.data.provider);
+      const release = () => rateLimiter.release(rlKey);
+      res.status(202).json(await runtime.startRun(req.params.conversationId, { ...parsed.data, rateLimiterRelease: release }));
     } catch (error) {
       res.status(409).json({ error: error instanceof Error ? error.message : String(error) });
     }

@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { PermissionPolicy } from "./policy.ts";
+import { parseAtMentions, resolveAtMentions, buildContextBlock } from "./context.ts";
+import { RobloxStudioMcpGateway } from "./tools.ts";
 import type {
   AgentAnswer,
   AgentEvent,
@@ -90,6 +92,7 @@ export class AgentRuntime {
 
     void this.execute(conversation.id, run.id, input).finally(() => {
       this.active.delete(run.id);
+      input.rateLimiterRelease?.();
     });
 
     return run;
@@ -152,6 +155,7 @@ export class AgentRuntime {
     try {
       const driver = this.drivers({ provider: input.provider, model: input.model });
       let fullText = "";
+      let contextBlock: string | undefined;
 
       for (let iteration = 1; iteration <= this.maxIterations; iteration += 1) {
         this.throwIfAborted(active.controller.signal);
@@ -160,9 +164,32 @@ export class AgentRuntime {
         run.iterations = iteration;
         await this.store.save(conversation);
 
+        // On first iteration: resolve @mentions and build context block (only when relay is available and user has @mentions)
+        if (iteration === 1) {
+          const relay = this.tools instanceof RobloxStudioMcpGateway ? this.tools.getRelay() : undefined;
+          if (relay) {
+            const lastUser = [...conversation.messages].reverse().find((m) => m.role === "user");
+            const userText = lastUser?.role === "user" ? lastUser.content : "";
+            const mentionPaths = parseAtMentions(userText);
+            const mentions: Array<{ path: string; summary: string }> = mentionPaths.length > 0
+              ? await resolveAtMentions(mentionPaths, relay, conversation.studioSessionId, active.controller.signal).catch(() => [])
+              : [];
+            if (mentions.length > 0) {
+              contextBlock = buildContextBlock(true, [], mentions);
+              await this.emitById(conversationId, runId, {
+                type: "context_snapshot",
+                studioConnected: true,
+                selectedPaths: [],
+                atMentions: mentions,
+              });
+            }
+          }
+        }
+
         const turn = await driver.generate({
           messages: conversation.messages,
           signal: active.controller.signal,
+          systemContext: iteration === 1 ? contextBlock : undefined,
           onTextDelta: async (text) => {
             fullText += text;
             await this.emitById(conversationId, runId, { type: "text_delta", text });
@@ -197,6 +224,25 @@ export class AgentRuntime {
           const withResult = await this.requiredConversation(conversationId);
           withResult.messages.push({ role: "tool", toolCallId: call.id, toolName: call.name, output });
           await this.emit(withResult, runId, { type: "tool_result", toolCallId: call.id, toolName: call.name, output });
+
+          // Emit mutation_result if the output has script diff info
+          if (typeof output === "object" && output !== null && !Array.isArray(output)) {
+            const out = output as Record<string, unknown>;
+            const hasDiff = "beforeSource" in out || "afterSource" in out || "before" in out || "after" in out;
+            const hasTransaction = "transactionId" in out;
+            if (hasDiff || hasTransaction) {
+              const p = typeof call.input.path === "string" ? call.input.path : "";
+              await this.emitById(conversationId, runId, {
+                type: "mutation_result",
+                transactionId: typeof out.transactionId === "string" ? out.transactionId : call.id,
+                toolName: call.name,
+                path: p,
+                before: typeof out.beforeSource === "string" ? out.beforeSource : typeof out.before === "string" ? out.before : undefined,
+                after: typeof out.afterSource === "string" ? out.afterSource : typeof out.after === "string" ? out.after : undefined,
+                undoWaypoint: typeof out.undoWaypoint === "string" ? out.undoWaypoint : undefined,
+              });
+            }
+          }
         }
       }
 

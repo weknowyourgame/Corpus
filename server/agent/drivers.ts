@@ -61,9 +61,12 @@ class AiSdkDriver implements ModelDriver {
       entry.name,
       tool({ description: entry.description, inputSchema: schema(entry.inputSchema) }),
     ]));
+    const systemPrompt = input.systemContext
+      ? `${ROBLOX_AGENT_SYSTEM_PROMPT}\n\n${input.systemContext}`
+      : ROBLOX_AGENT_SYSTEM_PROMPT;
     const result = streamText({
       model,
-      system: ROBLOX_AGENT_SYSTEM_PROMPT,
+      system: systemPrompt,
       tools,
       messages: aiMessages(input.messages) as never,
       abortSignal: input.signal,
@@ -138,9 +141,12 @@ class CodexDriver implements ModelDriver {
   async generate(input: Parameters<ModelDriver["generate"]>[0]) {
     const accessToken = process.env.STUD_CODEX_ACCESS_TOKEN;
     if (!accessToken) throw new Error("Set STUD_CODEX_ACCESS_TOKEN on the bridge server");
+    const instructions = input.systemContext
+      ? `${ROBLOX_AGENT_SYSTEM_PROMPT}\n\n${input.systemContext}`
+      : ROBLOX_AGENT_SYSTEM_PROMPT;
     const body = {
       model: this.model,
-      instructions: ROBLOX_AGENT_SYSTEM_PROMPT,
+      instructions,
       input: codexMessages(input.messages),
       tools: this.tools.list().map((entry) => ({
         type: "function",

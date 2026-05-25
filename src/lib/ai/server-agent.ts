@@ -128,12 +128,22 @@ export async function loadServerMessages(): Promise<Array<Omit<Message, "id" | "
   return messages;
 }
 
+export type MutationResult = {
+  transactionId: string;
+  toolName: string;
+  path: string;
+  before?: string;
+  after?: string;
+  undoWaypoint?: string;
+};
+
 export interface ServerChatCallbacks {
   onToken: (token: string) => void;
   onToolCall: (toolCall: { id: string; name: string; input: Record<string, unknown> }) => void;
   onToolResult: (toolResult: { id: string; output: unknown }) => void;
   onInteraction: (interactionId: string, questions: Question[]) => Promise<Answer[]>;
   onApproval: (approval: ApprovalRequest) => Promise<ApprovalDecision>;
+  onMutationResult?: (result: MutationResult) => void;
   onFinish: () => void;
   onError: (error: Error) => void;
 }
@@ -182,6 +192,19 @@ async function handleEvent(
       body: JSON.stringify({ decision }),
     }, access.accessToken);
     resolvedApprovals.add(event.approvalId ?? "");
+  }
+  if (event.type === "context_snapshot") {
+    console.log("[agent] context_snapshot:", event);
+  }
+  if (event.type === "mutation_result" && callbacks.onMutationResult) {
+    callbacks.onMutationResult({
+      transactionId: (event as unknown as { transactionId: string }).transactionId,
+      toolName: event.toolName ?? "",
+      path: (event as unknown as { path: string }).path ?? "",
+      before: (event as unknown as { before?: string }).before,
+      after: (event as unknown as { after?: string }).after,
+      undoWaypoint: (event as unknown as { undoWaypoint?: string }).undoWaypoint,
+    });
   }
   if (event.type === "interaction_resolved") resolvedInteractions.add(event.interactionId ?? "");
   if (event.type === "approval_resolved") resolvedApprovals.add(event.approvalId ?? "");

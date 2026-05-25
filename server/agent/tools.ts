@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import { ToolboxService, toolboxSearchSchema } from "./toolbox.ts";
+import { ScriptRevisionTracker } from "./conflict.ts";
 import type {
   AgentQuestion,
   AgentTool,
@@ -182,24 +183,112 @@ const studioTools: Array<{
 
 export class RobloxStudioMcpGateway implements AgentToolRegistry {
   private readonly tools: AgentTool[];
+  private readonly tracker = new ScriptRevisionTracker();
 
   constructor(
     private readonly relay: StudioRelay,
     toolbox = new ToolboxService(),
   ) {
-    this.tools = studioTools.map((item) => ({
-      name: item.name,
-      description: item.description,
-      transport: "studio_mcp",
-      risk: item.risk,
-      concurrency: item.risk === "read" ? "parallel_read" : "exclusive_mutation",
-      inputSchema: item.schema,
-      scope: item.scope,
-      execute: async (input, context) => {
-        const parsed = item.schema.parse(input);
-        return this.relay(context.studioSessionId, item.endpoint, parsed, context.signal, context.operationId);
-      },
-    }));
+    this.tools = studioTools.map((item) => {
+      if (item.name === "mcp__roblox_studio__read_script") {
+        return {
+          name: item.name,
+          description: item.description,
+          transport: "studio_mcp" as const,
+          risk: item.risk,
+          concurrency: item.risk === "read" ? "parallel_read" as const : "exclusive_mutation" as const,
+          inputSchema: item.schema,
+          scope: item.scope,
+          execute: async (input: Record<string, unknown>, context: ToolExecutionContext) => {
+            const parsed = item.schema.parse(input) as { path: string };
+            const result = await this.relay(context.studioSessionId, item.endpoint, parsed, context.signal, context.operationId);
+            const src = typeof result === "object" && result !== null && !Array.isArray(result) && "source" in result
+              ? String((result as Record<string, unknown>).source ?? "")
+              : "";
+            const revision = this.tracker.record(context.studioSessionId, parsed.path, src);
+            return { ...result as Record<string, unknown>, revision } as JsonValue;
+          },
+        };
+      }
+      if (item.name === "mcp__roblox_studio__write_script") {
+        return {
+          name: item.name,
+          description: item.description,
+          transport: "studio_mcp" as const,
+          risk: item.risk,
+          concurrency: "exclusive_mutation" as const,
+          inputSchema: item.schema,
+          scope: item.scope,
+          execute: async (input: Record<string, unknown>, context: ToolExecutionContext) => {
+            const parsed = item.schema.parse(input) as { path: string; source: string };
+            // Check current source first
+            const currentResult = await this.relay(context.studioSessionId, "/script/get", { path: parsed.path }, context.signal, `${context.operationId}:check`).catch(() => null);
+            if (currentResult) {
+              const currentSrc = typeof currentResult === "object" && currentResult !== null && "source" in currentResult
+                ? String((currentResult as Record<string, unknown>).source ?? "")
+                : "";
+              const conflict = this.tracker.check(context.studioSessionId, parsed.path, currentSrc);
+              if (conflict.conflict) {
+                return { conflict: true, reason: conflict.reason, currentRevision: conflict.currentHash } as JsonValue;
+              }
+            }
+            const result = await this.relay(context.studioSessionId, item.endpoint, parsed, context.signal, context.operationId);
+            this.tracker.record(context.studioSessionId, parsed.path, parsed.source);
+            return { ...result as Record<string, unknown>, transactionId: context.operationId, undoWaypoint: "Stud: write_script" } as JsonValue;
+          },
+        };
+      }
+      if (item.name === "mcp__roblox_studio__edit_script") {
+        return {
+          name: item.name,
+          description: item.description,
+          transport: "studio_mcp" as const,
+          risk: item.risk,
+          concurrency: "exclusive_mutation" as const,
+          inputSchema: item.schema,
+          scope: item.scope,
+          execute: async (input: Record<string, unknown>, context: ToolExecutionContext) => {
+            const parsed = item.schema.parse(input) as { path: string; oldCode: string; newCode: string };
+            const currentResult = await this.relay(context.studioSessionId, "/script/get", { path: parsed.path }, context.signal, `${context.operationId}:check`).catch(() => null);
+            let beforeSource: string | undefined;
+            if (currentResult) {
+              beforeSource = typeof currentResult === "object" && currentResult !== null && "source" in currentResult
+                ? String((currentResult as Record<string, unknown>).source ?? "")
+                : undefined;
+              if (beforeSource !== undefined) {
+                const conflict = this.tracker.check(context.studioSessionId, parsed.path, beforeSource);
+                if (conflict.conflict) {
+                  return { conflict: true, reason: conflict.reason, currentRevision: conflict.currentHash } as JsonValue;
+                }
+              }
+            }
+            const result = await this.relay(context.studioSessionId, item.endpoint, parsed, context.signal, context.operationId);
+            const afterSource = beforeSource !== undefined ? beforeSource.replace(parsed.oldCode, parsed.newCode) : undefined;
+            if (afterSource !== undefined) this.tracker.record(context.studioSessionId, parsed.path, afterSource);
+            return {
+              ...result as Record<string, unknown>,
+              transactionId: context.operationId,
+              undoWaypoint: "Stud: edit_script",
+              beforeSource,
+              afterSource,
+            } as JsonValue;
+          },
+        };
+      }
+      return {
+        name: item.name,
+        description: item.description,
+        transport: "studio_mcp" as const,
+        risk: item.risk,
+        concurrency: item.risk === "read" ? "parallel_read" as const : "exclusive_mutation" as const,
+        inputSchema: item.schema,
+        scope: item.scope,
+        execute: async (input: Record<string, unknown>, context: ToolExecutionContext) => {
+          const parsed = item.schema.parse(input);
+          return this.relay(context.studioSessionId, item.endpoint, parsed, context.signal, context.operationId);
+        },
+      };
+    });
     this.tools.push({
       name: "mcp__roblox_studio__insert_asset",
       description: "Insert a chosen Creator Store asset after safety inspection. Scripts can be removed before parenting.",
@@ -254,6 +343,27 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
         });
       },
     });
+    this.tools.push({
+      name: "mcp__roblox_studio__get_live_context",
+      description: "Get current Studio selection and live context for a specific instance path.",
+      transport: "studio_mcp",
+      risk: "read",
+      concurrency: "parallel_read",
+      inputSchema: z.object({ path: z.string().optional() }),
+      scope: () => "studio.live-context",
+      execute: async (input, context) => {
+        const selection = await this.relay(context.studioSessionId, "/selection/get", undefined, context.signal, `${context.operationId}:sel`).catch(() => null);
+        if (input.path) {
+          const children = await this.relay(context.studioSessionId, "/instance/children", { path: input.path }, context.signal, `${context.operationId}:ctx`).catch(() => null);
+          return asJson({ selection, instanceContext: { path: input.path, children } });
+        }
+        return asJson({ selection });
+      },
+    });
+  }
+
+  getRelay(): StudioRelay {
+    return this.relay;
   }
 
   list() {

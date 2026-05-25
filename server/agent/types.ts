@@ -39,6 +39,18 @@ export type AgentEventBase = {
   timestamp: string;
 };
 
+export type DataStoreApprovalRequest = {
+  approvalId: string;
+  operation: "write" | "delete" | "increment";
+  universe: string;
+  store: string;
+  scope: string;
+  key: string;
+  oldValue: string | null;
+  newValue: string | null;
+  risk: "destructive";
+};
+
 export type AgentEventData =
   | { type: "run_started"; provider: AgentProvider; model: string; mode: RunMode }
   | { type: "text_delta"; text: string }
@@ -66,7 +78,11 @@ export type AgentEventData =
   | { type: "plan_proposed"; text: string }
   | { type: "run_completed"; text: string; iterations: number }
   | { type: "run_cancelled"; reason: string }
-  | { type: "run_error"; error: string };
+  | { type: "run_error"; error: string }
+  | { type: "context_snapshot"; studioConnected: boolean; selectedPaths: string[]; atMentions: Array<{ path: string; summary: string }> }
+  | { type: "mutation_result"; transactionId: string; toolName: string; path: string; before?: string; after?: string; undoWaypoint?: string }
+  | { type: "datastore_approval_pending"; approvalId: string; operation: DataStoreApprovalRequest["operation"]; store: string; key: string; oldValue: string | null; newValue: string | null }
+  | { type: "datastore_approval_resolved"; approvalId: string; decision: ApprovalDecision };
 
 export type AgentEvent = AgentEventBase & AgentEventData;
 
@@ -126,6 +142,7 @@ export type StartRunInput = {
   provider: AgentProvider;
   model: string;
   mode?: RunMode;
+  rateLimiterRelease?: () => void;
 };
 
 export type ModelTurn = {
@@ -137,6 +154,7 @@ export type GenerateTurnInput = {
   messages: AgentMessage[];
   signal: AbortSignal;
   onTextDelta: (text: string) => Promise<void>;
+  systemContext?: string;
 };
 
 export interface ModelDriver {

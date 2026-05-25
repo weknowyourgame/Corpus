@@ -11,6 +11,8 @@ import { randomUUID } from "node:crypto";
 import { MemoryConversationStore } from "./agent/store.ts";
 import { AgentRuntime } from "./agent/runtime.ts";
 import { RobloxStudioMcpGateway } from "./agent/tools.ts";
+import { OpenCloudClient } from "./agent/open-cloud.ts";
+import { createDataStoreTools } from "./agent/datastore-tools.ts";
 import { createModelDriverFactory } from "./agent/drivers.ts";
 import { createAgentRouter } from "./agent/routes.ts";
 
@@ -100,10 +102,48 @@ const relayStudioRequest = async (sessionId, path, body, signal, operationId) =>
 };
 
 const agentTools = new RobloxStudioMcpGateway(relayStudioRequest);
+
+// DataStore tools via Open Cloud
+const openCloudClient = new OpenCloudClient();
+
+/**
+ * @param {import('./agent/types.ts').DataStoreApprovalRequest} req
+ * @returns {Promise<import('./agent/types.ts').ApprovalDecision>}
+ */
+const datastoreApprovalRequester = async (req) => {
+  // DataStore tools use the existing risk:"destructive" approval flow via runtime,
+  // so this requester is not actually called during normal execution (the runtime
+  // handles destructive tools). This is here as a fallback for standalone use.
+  console.log("[datastore] Approval requested for", req.operation, req.key);
+  return "deny";
+};
+
+const datastoreTools = createDataStoreTools(openCloudClient, datastoreApprovalRequester);
+
+/**
+ * Composite registry that combines studio gateway tools with DataStore tools.
+ */
+class CompositeToolRegistry {
+  constructor(base, extra) {
+    this._base = base;
+    this._extra = extra;
+  }
+
+  list() {
+    return [...this._base.list(), ...this._extra];
+  }
+
+  get(name) {
+    return this._base.get(name) ?? this._extra.find((t) => t.name === name);
+  }
+}
+
+const combinedTools = new CompositeToolRegistry(agentTools, datastoreTools);
+
 const agentRuntime = new AgentRuntime(
   new MemoryConversationStore(),
-  createModelDriverFactory(agentTools),
-  agentTools,
+  createModelDriverFactory(combinedTools),
+  combinedTools,
 );
 app.use("/agent", createAgentRouter(agentRuntime));
 
