@@ -26,9 +26,13 @@ import { useChatStore } from "@/stores/chat";
 import { useSettingsStore } from "@/stores/settings";
 import { useRobloxStore, ConnectionStatus } from "@/stores/roblox";
 import { usePluginStore } from "@/stores/plugin";
-import { useAuthStore } from "@/stores/auth";
-import { useChat } from "@/lib/ai/providers";
-import { setAskUserHandler } from "@/lib/roblox/tools";
+import {
+  cancelServerRun,
+  clearServerConversation,
+  getServerProviderConfig,
+  loadServerMessages,
+  sendServerMessage,
+} from "@/lib/ai/server-agent";
 import { useAppShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { improvePrompt } from "@/lib/ai/prompt-improver";
 import { cn } from "@/lib/utils";
@@ -171,9 +175,9 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
             <h1 className="stud-display-title mt-6" style={{ fontSize: "2.25rem" }}>
               Connect Roblox Studio
             </h1>
-            <p className="stud-display-subtitle">
+            <div className="stud-display-subtitle">
               <Loader variant="terminal" text="Waiting for connection" size="sm" />
-            </p>
+            </div>
           </div>
 
           <SessionCode />
@@ -281,6 +285,7 @@ export function Home() {
   const [activeChips, setActiveChips] = useState<ChipAction[]>([]);
   const [isImproving, setIsImproving] = useState(false);
   const [displayedSuggestions, setDisplayedSuggestions] = useState<string[]>([]);
+  const [serverProviders, setServerProviders] = useState({ anthropic: false, openrouter: false, codex: false });
   const {
     messages,
     isStreaming,
@@ -296,17 +301,21 @@ export function Home() {
     setQuestionResolver,
     answerQuestion,
     clearMessages,
+    replaceMessages,
   } = useChatStore();
-  const { hasApiKey } = useSettingsStore();
+  const { selectedModel, selectedProvider, setSelectedModel } = useSettingsStore();
   const { status: studioStatus, startPolling } = useRobloxStore();
-  const { sendMessage } = useChat();
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const handleClearChat = useCallback(() => {
+    void clearServerConversation();
+    clearMessages();
+  }, [clearMessages]);
 
   // Keyboard shortcuts
   useAppShortcuts({
     onClearChat: () => {
       if (messages.length > 0 && !isStreaming) {
-        clearMessages();
+        handleClearChat();
       }
     },
     onFocusInput: () => {
@@ -326,29 +335,30 @@ export function Home() {
     setDisplayedSuggestions(shuffled.slice(0, 4));
   }, [messages.length === 0]);
 
-  // Set up the ask_user handler
   useEffect(() => {
-    setAskUserHandler((questions) => {
-      return new Promise((resolve) => {
-        setPendingQuestion({
-          id: crypto.randomUUID(),
-          toolCallId: "",
-          messageId: "",
-          questions,
-        });
-        setQuestionResolver(resolve);
-      });
+    void getServerProviderConfig().then(setServerProviders);
+  }, []);
+
+  useEffect(() => {
+    if (serverProviders[selectedProvider]) return;
+    if (serverProviders.anthropic) {
+      setSelectedModel("claude-sonnet-4-20250514", "anthropic");
+    } else if (serverProviders.openrouter) {
+      setSelectedModel("anthropic/claude-sonnet-4", "openrouter");
+    } else if (serverProviders.codex) {
+      setSelectedModel("gpt-4o", "codex");
+    }
+  }, [serverProviders, selectedProvider, setSelectedModel]);
+
+  useEffect(() => {
+    if (studioStatus !== "connected" || messages.length) return;
+    void loadServerMessages().then((saved) => {
+      if (saved.length) replaceMessages(saved);
     });
+  }, [studioStatus, messages.length, replaceMessages]);
 
-    return () => {
-      setAskUserHandler(null);
-    };
-  }, [setPendingQuestion, setQuestionResolver]);
-
-  const hasConfiguredProvider =
-    hasApiKey("anthropic") ||
-    hasApiKey("openrouter") ||
-    useAuthStore.getState().isOAuthAuthenticated();
+  const hasConfiguredProvider = serverProviders[selectedProvider];
+  const hasAnyServerProvider = Object.values(serverProviders).some(Boolean);
   const isConnected = studioStatus === "connected";
 
   // Improve prompt handler
@@ -408,16 +418,9 @@ export function Home() {
     setError(null);
 
     try {
-      const chatMessages = [
-        ...messages.map((m) => ({ role: m.role, content: m.content })),
-        { role: "user" as const, content: fullMessage },
-      ];
-
-      console.log("[Home] Sending", chatMessages.length, "messages to AI");
-
       let fullText = "";
 
-      await sendMessage(chatMessages, {
+      await sendServerMessage(fullMessage, selectedProvider, selectedModel, {
         onToken: (token) => {
           fullText += token;
           updateMessage(assistantId, fullText);
@@ -441,6 +444,16 @@ export function Home() {
             result: toolResult.output,
           });
         },
+        onInteraction: (_interactionId, questions) =>
+          new Promise((resolve) => {
+            setPendingQuestion({
+              id: crypto.randomUUID(),
+              toolCallId: "",
+              messageId: assistantId,
+              questions,
+            });
+            setQuestionResolver(resolve);
+          }),
         onFinish: () => {
           console.log("[Home] Stream finished, total length:", fullText.length);
           setStreaming(false);
@@ -457,7 +470,7 @@ export function Home() {
       setError(errorMessage);
       setStreaming(false);
     }
-  }, [input, isStreaming, messages, activeChips, addMessage, updateMessage, addToolCall, updateToolCall, setStreaming, setError, sendMessage]);
+  }, [input, isStreaming, activeChips, addMessage, updateMessage, addToolCall, updateToolCall, setStreaming, setError, selectedProvider, selectedModel, setPendingQuestion, setQuestionResolver]);
 
   const handleSuggestionClick = (suggestion: string) => {
     setInput(suggestion);
@@ -478,7 +491,7 @@ export function Home() {
   };
 
   const handleStop = () => {
-    setStreaming(false);
+    void cancelServerRun();
   };
 
   // Show connection screen if not connected
@@ -497,7 +510,7 @@ export function Home() {
         <InstancePicker onSelect={(path) => setInput((prev) => prev + `@${path} `)} />
       </div>
       <div className="flex items-center gap-2">
-        <ModelSelector disabled={!hasConfiguredProvider} />
+        <ModelSelector disabled={!hasAnyServerProvider} serverProviders={serverProviders} />
         <PromptInputAction tooltip="Improve prompt for Stud">
           <button
             type="button"
@@ -590,7 +603,7 @@ export function Home() {
         compact
         trailing={
           <>
-            <ChatActions onClear={clearMessages} disabled={messages.length === 0 || isStreaming} />
+            <ChatActions onClear={handleClearChat} disabled={messages.length === 0 || isStreaming} />
             <SettingsPanel
               trigger={
                 <button type="button" className="stud-icon-btn" aria-label="Settings">
@@ -745,7 +758,7 @@ export function Home() {
             setInput(payload);
           }
         }}
-        onClearChat={clearMessages}
+        onClearChat={handleClearChat}
       />
     </div>
   );

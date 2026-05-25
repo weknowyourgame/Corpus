@@ -54,6 +54,7 @@ export interface ChatState {
   setStreaming: (streaming: boolean) => void;
   setError: (error: string | null) => void;
   clearMessages: () => void;
+  replaceMessages: (messages: Array<Omit<Message, "id" | "createdAt">>) => void;
 
   // Question handling
   setPendingQuestion: (question: PendingQuestion | null) => void;
@@ -120,6 +121,9 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   setError: (error) => set({ error }),
 
   clearMessages: () => set({ messages: [] }),
+  replaceMessages: (messages) => set({
+    messages: messages.map((message) => ({ ...message, id: crypto.randomUUID(), createdAt: new Date() })),
+  }),
 
   // Question handling
   setPendingQuestion: (question) => set({ pendingQuestion: question }),

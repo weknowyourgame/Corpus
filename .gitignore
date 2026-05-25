@@ -38,6 +38,14 @@ yarn-error.log*
 
 # Test coverage
 coverage/
+.stud/
+
+# Required application sources (override broad user-level lib/ ignores)
+!src/lib/
+src/lib/*
+!src/lib/ai/
+src/lib/ai/*
+!src/lib/ai/server-agent.ts
 
 # Misc
 *.tsbuildinfo

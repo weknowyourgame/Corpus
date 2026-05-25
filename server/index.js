@@ -7,6 +7,11 @@
 
 import express from "express";
 import cors from "cors";
+import { DevelopmentConversationStore } from "./agent/store.ts";
+import { AgentRuntime } from "./agent/runtime.ts";
+import { TransitionalRobloxTools } from "./agent/tools.ts";
+import { createModelDriverFactory } from "./agent/drivers.ts";
+import { createAgentRouter } from "./agent/routes.ts";
 
 const PORT = Number(process.env.PORT) || 3001;
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -57,6 +62,25 @@ const nextRequestId = (session) => {
   session.counter += 1;
   return `req_${session.counter}_${timestamp()}`;
 };
+
+const relayStudioRequest = async (sessionId, path, body, signal) => {
+  const response = await fetch(`http://127.0.0.1:${PORT}/stud/sessions/${sessionId}/request`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path, body: body ? JSON.stringify(body) : undefined }),
+    signal,
+  });
+  const result = await response.json();
+  return response.ok ? result : { error: result.error || `Studio request failed: ${response.status}` };
+};
+
+const agentTools = new TransitionalRobloxTools(relayStudioRequest);
+const agentRuntime = new AgentRuntime(
+  new DevelopmentConversationStore(),
+  createModelDriverFactory(agentTools),
+  agentTools,
+);
+app.use("/agent", createAgentRouter(agentRuntime));
 
 // --- Session routes (web + plugin) ---
 

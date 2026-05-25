@@ -27,7 +27,7 @@ New Stud chat execution is owned by a Node/TypeScript server runtime. React subm
 
 **Known deferred issue**
 
-Existing provider credentials are browser-local in `src/stores/settings.ts` and `src/lib/auth/codex.ts`. Phase 1 supports server environment credentials and temporary development pass-through of already existing frontend credentials. Full server credential ownership and user authentication remain required for hosting.
+Existing provider credentials remain browser-local in the legacy modules `src/stores/settings.ts` and `src/lib/auth/codex.ts`, but the migrated chat path does not send or execute with them. Phase 1 accepts provider credentials from server environment variables only. Full server credential management and user authentication remain required for hosting.
 
 ## ADR-002: Studio Will Be Exposed Through Roblox MCP, Not Reimplemented During Phase 1
 

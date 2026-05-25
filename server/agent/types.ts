@@ -44,6 +44,13 @@ export type AgentEventData =
       interactionId: string;
       questions: AgentQuestion[];
     }
+  | {
+      type: "approval_pending";
+      approvalId: string;
+      toolCallId: string;
+      summary: string;
+      risk: "low_mutation" | "destructive" | "runtime_code" | "secret";
+    }
   | { type: "run_completed"; text: string; iterations: number }
   | { type: "run_cancelled"; reason: string }
   | { type: "run_error"; error: string };
@@ -76,17 +83,10 @@ export type Conversation = {
   events: AgentEvent[];
 };
 
-export type RunCredentials = {
-  apiKey?: string;
-  accessToken?: string;
-  accountId?: string;
-};
-
 export type StartRunInput = {
   message: string;
   provider: AgentProvider;
   model: string;
-  credentials?: RunCredentials;
 };
 
 export type ModelTurn = {
@@ -107,12 +107,30 @@ export interface ModelDriver {
 export type ModelDriverFactory = (input: {
   provider: AgentProvider;
   model: string;
-  credentials?: RunCredentials;
 }) => ModelDriver;
+
+export type ToolExecutionContext = {
+  conversationId: string;
+  runId: string;
+  studioSessionId: string;
+  signal: AbortSignal;
+  requestInteraction: (questions: AgentQuestion[]) => Promise<AgentAnswer[]>;
+};
+
+export type AgentTool = {
+  name: string;
+  description: string;
+  inputSchema: unknown;
+  execute: (input: Record<string, unknown>, context: ToolExecutionContext) => Promise<JsonValue>;
+};
+
+export interface AgentToolRegistry {
+  list(): AgentTool[];
+  execute(name: string, input: Record<string, unknown>, context: ToolExecutionContext): Promise<JsonValue>;
+}
 
 export interface ConversationStore {
   create(studioSessionId: string): Promise<Conversation>;
   get(id: string): Promise<Conversation | null>;
   save(conversation: Conversation): Promise<void>;
 }
-

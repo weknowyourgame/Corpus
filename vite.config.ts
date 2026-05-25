@@ -26,6 +26,7 @@ export default defineConfig({
       "/auth": { target: BRIDGE_TARGET, changeOrigin: true },
       "/codex": { target: BRIDGE_TARGET, changeOrigin: true },
       "/api": { target: BRIDGE_TARGET, changeOrigin: true },
+      "/agent": { target: BRIDGE_TARGET, changeOrigin: true },
       "/health": { target: BRIDGE_TARGET, changeOrigin: true },
     },
   },

@@ -18,9 +18,10 @@ import { Check, ChevronDown, Search, Brain, Sparkles, Route } from "lucide-react
 interface ModelSelectorProps {
   className?: string;
   disabled?: boolean;
+  serverProviders?: Record<ProviderType, boolean>;
 }
 
-export function ModelSelector({ className, disabled }: ModelSelectorProps) {
+export function ModelSelector({ className, disabled, serverProviders }: ModelSelectorProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const { selectedModel, selectedProvider, setSelectedModel, hasApiKey, apiKeys } = useSettingsStore();
@@ -38,6 +39,9 @@ export function ModelSelector({ className, disabled }: ModelSelectorProps) {
   } = useModelsStore();
 
   const isCodexAuth = isOAuthAuthenticated();
+  const isConfigured = (provider: ProviderType) => serverProviders?.[provider] || (
+    provider === "codex" ? isCodexAuth : hasApiKey(provider)
+  );
 
   useEffect(() => {
     if (isCodexAuth) fetchModels();
@@ -75,7 +79,7 @@ export function ModelSelector({ className, disabled }: ModelSelectorProps) {
       disabled?: boolean;
     }> = [];
 
-    if (isCodexAuth) {
+    if (isConfigured("codex")) {
       codexModels.forEach((m) => {
         models.push({
           id: m.id,
@@ -88,7 +92,7 @@ export function ModelSelector({ className, disabled }: ModelSelectorProps) {
       });
     }
 
-    if (hasApiKey("anthropic")) {
+    if (isConfigured("anthropic")) {
       claudeModels.forEach((m) => {
         models.push({
           id: m.id,
@@ -109,7 +113,7 @@ export function ModelSelector({ className, disabled }: ModelSelectorProps) {
       });
     }
 
-    if (hasApiKey("openrouter")) {
+    if (isConfigured("openrouter")) {
       openrouterModels.forEach((m) => {
         models.push({
           id: m.id,
@@ -118,10 +122,18 @@ export function ModelSelector({ className, disabled }: ModelSelectorProps) {
           description: m.description,
         });
       });
+      if (!openrouterModels.length) {
+        models.push({
+          id: "anthropic/claude-sonnet-4",
+          name: "Claude Sonnet 4",
+          provider: "openrouter",
+          description: "Server-configured OpenRouter",
+        });
+      }
     }
 
     return models;
-  }, [codexModels, claudeModels, openrouterModels, isCodexAuth, hasApiKey]);
+  }, [codexModels, claudeModels, openrouterModels, isCodexAuth, hasApiKey, serverProviders]);
 
   const filteredModels = useMemo(() => {
     if (!search.trim()) return allModels;
@@ -194,7 +206,7 @@ export function ModelSelector({ className, disabled }: ModelSelectorProps) {
 
           {!loading && filteredModels.length === 0 && (
             <div className="text-center py-6 text-sm text-muted-foreground px-2">
-              {hasApiKey("openrouter") || isCodexAuth || hasApiKey("anthropic")
+              {isConfigured("openrouter") || isConfigured("codex") || isConfigured("anthropic")
                 ? "No models match your search"
                 : "Add a provider in Settings"}
             </div>

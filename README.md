@@ -43,23 +43,23 @@ All while you watch it happen in real-time.
 
 ```
 ┌─────────────┐     HTTP      ┌─────────────┐     Polling     ┌─────────────┐
-│  Stud Web   │◄────────────►│   Bridge    │◄───────────────►│   Studio    │
-│   (React)   │              │   (Node)    │   100ms         │  (Plugin)   │
+│  Stud Web   │◄────────────►│ Bridge +    │◄───────────────►│   Studio    │
+│   (React)   │  SSE / HTTP  │ Agent (Node)│   100ms         │  (Plugin)   │
 └─────────────┘              └─────────────┘                 └─────────────┘
-      │
-      │ Vercel AI SDK
-      ▼
-┌─────────────┐
-│  AI Models  │
-│ GPT/Claude  │
-└─────────────┘
+                                   │
+                                   │ Vercel AI SDK / server credentials
+                                   ▼
+                              ┌─────────────┐
+                              │  AI Models  │
+                              │ GPT/Claude  │
+                              └─────────────┘
 ```
 
 1. You open Stud in your browser and copy your **session code**
 2. Paste the code into the Stud plugin in Roblox Studio and click Connect
-3. You type a message in Stud — AI decides which tools to use
-4. The bridge server queues requests; the plugin polls and executes them in Studio
-5. Results flow back to the AI
+3. You type a message in Stud; the server-owned agent streams run events to the UI
+4. The bridge server queues requested Studio operations; the plugin polls and executes them
+5. Results return to the server loop, which can continue with additional tools or a final response
 
 *Roblox Studio can only make outgoing HTTP requests, so the plugin polls the bridge.*
 
@@ -76,6 +76,7 @@ All while you watch it happen in real-time.
 git clone https://github.com/madebyshaurya/stud.git
 cd stud
 npm install
+export ANTHROPIC_API_KEY="sk-ant-..." # or OPENROUTER_API_KEY / STUD_CODEX_ACCESS_TOKEN
 npm run dev
 ```
 
@@ -94,13 +95,15 @@ This starts:
 
 ### AI Providers
 
+Phase 1 chat runs on the server. Configure credentials on the bridge process, never as `VITE_` browser variables:
+
 | Provider | Setup | Models |
 |----------|-------|--------|
-| **Codex** | Sign in with ChatGPT Plus/Pro in Settings | GPT-5, o3, Codex models |
-| **Claude** | Add Anthropic API key (`sk-ant-...`) | All Claude models from the API |
-| **OpenRouter** | Add OpenRouter API key (`sk-or-...`) | 300+ models (Claude, GPT, Gemini, Llama, …) |
+| **Codex** | `STUD_CODEX_ACCESS_TOKEN` and optional `STUD_CODEX_ACCOUNT_ID` | Codex-compatible models |
+| **Claude** | `ANTHROPIC_API_KEY` | Claude models |
+| **OpenRouter** | `OPENROUTER_API_KEY` | OpenRouter tool-capable models |
 
-**Recommended**: If you have ChatGPT Plus/Pro, use the OAuth sign-in. No API key needed, and it works with GPT-4, GPT-5, o3, and more.
+The older Settings key/OAuth code remains in source during migration, but the active chat path does not execute with browser-stored credentials. See `docs/phase-1/server-agent-runtime.md` for the run protocol and local validation notes.
 
 ### Roblox Cloud API (Optional)
 
@@ -162,7 +165,8 @@ For DataStore access and game publishing:
 npm run dev          # Web + bridge (recommended)
 npm run dev:web      # Frontend only
 npm run dev:bridge   # Bridge server only
-npx tsc --noEmit
+npm run typecheck     # Frontend and server runtime type checks
+npm run test:run
 npm run build        # Production web build
 npm run start:bridge # Run bridge in production
 ```

@@ -4,8 +4,7 @@
 
 import { create } from "zustand";
 import { isBridgeRunning, isStudioConnected } from "@/lib/roblox/client";
-import { useSettingsStore } from "./settings";
-import { isAuthenticated } from "@/lib/auth/codex";
+import { getServerProviderConfig } from "@/lib/ai/server-agent";
 
 export interface PrereqCheck {
   id: string;
@@ -47,7 +46,7 @@ const initialChecks: PrereqCheck[] = [
   {
     id: "api-provider",
     name: "AI Provider",
-    description: "An API key or ChatGPT Plus/Pro login is required",
+    description: "A provider credential must be configured on the agent server",
     status: "pending",
   },
   {
@@ -100,25 +99,24 @@ export const usePrereqStore = create<PrereqStore>((set, get) => ({
     updateCheck("api-provider", { status: "checking" });
     set({ checks: [...checks] });
 
-    const { hasApiKey } = useSettingsStore.getState();
-    const hasAnthropic = hasApiKey("anthropic");
-    const hasOpenRouter = hasApiKey("openrouter");
-    const hasOAuth = isAuthenticated();
+    const providers = await getServerProviderConfig();
+    const hasAnthropic = providers.anthropic;
+    const hasOpenRouter = providers.openrouter;
+    const hasOAuth = providers.codex;
 
     if (hasOAuth || hasAnthropic || hasOpenRouter) {
-      const providers = [];
-      if (hasOAuth) providers.push("Codex (ChatGPT)");
-      if (hasAnthropic) providers.push("Claude");
-      if (hasOpenRouter) providers.push("OpenRouter");
+      const configured = [];
+      if (hasOAuth) configured.push("Codex");
+      if (hasAnthropic) configured.push("Claude");
+      if (hasOpenRouter) configured.push("OpenRouter");
       updateCheck("api-provider", {
         status: "passed",
-        message: `Configured: ${providers.join(", ")}`,
+        message: `Configured on server: ${configured.join(", ")}`,
       });
     } else {
       updateCheck("api-provider", {
         status: "failed",
-        message: "No AI provider configured",
-        action: { label: "Open Settings", handler: "open-settings" },
+        message: "No server AI provider configured; set an environment credential and restart",
       });
     }
     set({ checks: [...checks] });
