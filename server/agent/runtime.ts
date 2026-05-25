@@ -42,7 +42,7 @@ export class AgentRuntime {
     private readonly store: ConversationStore,
     private readonly drivers: ModelDriverFactory,
     private readonly tools: AgentToolRegistry,
-    private readonly maxIterations = 10,
+    private readonly maxIterations = 50,
     private readonly policy = new PermissionPolicy(),
   ) {}
 
@@ -400,7 +400,18 @@ export class AgentRuntime {
     conversation.nextSequence += 1;
     conversation.events.push(event);
     await this.store.save(conversation);
+    this.log(event);
     for (const listener of this.listeners.get(conversation.id) ?? []) listener(event);
+  }
+
+  private log(event: AgentEvent) {
+    const tag = `[agent ${event.runId.slice(0, 8)}]`;
+    if (event.type === "run_started") console.log(`${tag} started ${event.provider}/${event.model} mode=${event.mode}`);
+    else if (event.type === "tool_call") console.log(`${tag} tool_call ${event.toolName}`);
+    else if (event.type === "tool_result") console.log(`${tag} tool_result ${event.toolName}`);
+    else if (event.type === "run_completed") console.log(`${tag} completed iterations=${event.iterations}`);
+    else if (event.type === "run_cancelled") console.log(`${tag} cancelled: ${event.reason ?? ""}`);
+    else if (event.type === "run_error") console.error(`${tag} ERROR: ${event.error}`);
   }
 
   private requiredRun(conversation: Conversation, runId: string) {

@@ -56,7 +56,7 @@ class AiSdkDriver implements ModelDriver {
           apiKey: key,
           baseURL: OPENROUTER_BASE,
           headers: { "HTTP-Referer": "https://stud.dev", "X-OpenRouter-Title": "Stud" },
-        })(this.model);
+        }).chat(this.model);
     const tools = Object.fromEntries(this.tools.list().map((entry) => [
       entry.name,
       tool({ description: entry.description, inputSchema: schema(entry.inputSchema) }),
@@ -69,22 +69,40 @@ class AiSdkDriver implements ModelDriver {
       abortSignal: input.signal,
     });
     let text = "";
+    let reasoning = "";
+    let finishReason: string | undefined;
     const calls: ModelTurn["toolCalls"] = [];
     for await (const event of result.fullStream) {
       if (event.type === "text-delta") {
         text += event.text;
         await input.onTextDelta(event.text);
+      } else if (event.type === "reasoning-delta") {
+        reasoning += event.text ?? "";
       } else if (event.type === "tool-call") {
         calls.push({
           id: event.toolCallId,
           name: event.toolName,
           input: event.input as Record<string, unknown>,
         });
+      } else if (event.type === "finish-step" || event.type === "finish") {
+        finishReason = event.finishReason;
       } else if (event.type === "error") {
-        throw event.error;
+        const err = event.error instanceof Error
+          ? event.error
+          : new Error(typeof event.error === "string" ? event.error : JSON.stringify(event.error));
+        console.error(`[driver] stream error from ${this.provider}/${this.model}:`, err.message);
+        throw err;
+      } else if (event.type === "abort") {
+        throw new Error(`Model stream aborted: ${event.reason ?? "unknown"}`);
       }
     }
-    return { text, toolCalls: calls };
+    if (!text && !calls.length) {
+      const detail = reasoning
+        ? `Model returned reasoning only (no visible output or tool calls). finishReason=${finishReason ?? "unknown"}. This usually means the model is a pure thinking variant or the response was cut off by the provider.`
+        : `Model returned no output and no tool calls. finishReason=${finishReason ?? "unknown"}. The upstream connection likely terminated early.`;
+      throw new Error(detail);
+    }
+    return { text: text || reasoning, toolCalls: calls };
   }
 }
 

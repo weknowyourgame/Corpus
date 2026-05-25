@@ -8,7 +8,7 @@
 import express from "express";
 import cors from "cors";
 import { randomUUID } from "node:crypto";
-import { DevelopmentConversationStore } from "./agent/store.ts";
+import { MemoryConversationStore } from "./agent/store.ts";
 import { AgentRuntime } from "./agent/runtime.ts";
 import { RobloxStudioMcpGateway } from "./agent/tools.ts";
 import { createModelDriverFactory } from "./agent/drivers.ts";
@@ -101,7 +101,7 @@ const relayStudioRequest = async (sessionId, path, body, signal, operationId) =>
 
 const agentTools = new RobloxStudioMcpGateway(relayStudioRequest);
 const agentRuntime = new AgentRuntime(
-  new DevelopmentConversationStore(),
+  new MemoryConversationStore(),
   createModelDriverFactory(agentTools),
   agentTools,
 );
