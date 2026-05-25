@@ -597,7 +597,8 @@ local function jsonDecode(str)
 end
 
 local function getInstanceFromPath(path)
-	if path == "game" then
+	path = tostring(path or ""):match("^%s*(.-)%s*$")
+	if path == "" or path == "game" or path == "game." then
 		return game
 	end
 	local parts = string.split(path, ".")

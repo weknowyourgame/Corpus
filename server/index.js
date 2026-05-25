@@ -14,6 +14,12 @@ import { RobloxStudioMcpGateway } from "./agent/tools.ts";
 import { createModelDriverFactory } from "./agent/drivers.ts";
 import { createAgentRouter } from "./agent/routes.ts";
 
+try {
+  process.loadEnvFile(".env");
+} catch (error) {
+  if (error.code !== "ENOENT") throw error;
+}
+
 const PORT = Number(process.env.PORT) || 3001;
 const REQUEST_TIMEOUT_MS = 15_000;
 const SESSION_ID_PATTERN = /^[A-Za-z0-9]{6,12}$/;
