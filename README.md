@@ -58,8 +58,8 @@ All while you watch it happen in real-time.
 1. You open Stud in your browser and copy your **session code**
 2. Paste the code into the Stud plugin in Roblox Studio and click Connect
 3. You type a message in Stud; the server-owned agent streams run events to the UI
-4. The bridge server queues requested Studio operations; the plugin polls and executes them
-5. Results return to the server loop, which can continue with additional tools or a final response
+4. The server policy pauses mutations for approval and routes authorized `mcp__roblox_studio__*` operations through the Studio gateway
+5. The compatible plugin transport polls and executes approved work; results return to the server loop
 
 *Roblox Studio can only make outgoing HTTP requests, so the plugin polls the bridge.*
 
@@ -105,42 +105,44 @@ Phase 1 chat runs on the server. Configure credentials on the bridge process, ne
 
 The older Settings key/OAuth code remains in source during migration, but the active chat path does not execute with browser-stored credentials. See `docs/phase-1/server-agent-runtime.md` for the run protocol and local validation notes.
 
-### Roblox Cloud API (Optional)
-
-For DataStore access and game publishing:
-1. Go to [Creator Hub > API Keys](https://create.roblox.com/dashboard/credentials)
-2. Create a key with required permissions
-3. Add to Settings in Stud
+DataStore and publishing tools are not yet enabled in the server policy surface.
 
 ## AI Tools
 
 ### Instance Manipulation
 | Tool | What it does |
 |------|-------------|
-| `roblox_create` | Create new instances (Parts, Models, Scripts, etc.) |
-| `roblox_delete` | Remove instances from the game |
-| `roblox_clone` | Duplicate instances |
-| `roblox_move` | Reparent instances to new locations |
-| `roblox_set_property` | Change any property (Position, Color, Name, etc.) |
-| `roblox_get_properties` | Read all properties of an instance |
-| `roblox_get_children` | List children (with recursive option) |
-| `roblox_search` | Find instances by name or class |
-| `roblox_get_selection` | Get what you have selected in Studio |
+| `mcp__roblox_studio__create_instance` | Create instances after approval |
+| `mcp__roblox_studio__delete_instance` | Remove instances after high-risk approval |
+| `mcp__roblox_studio__clone_instance` | Duplicate instances after approval |
+| `mcp__roblox_studio__move_instance` | Reparent instances after high-risk approval |
+| `mcp__roblox_studio__set_property` | Change one property after approval |
+| `mcp__roblox_studio__get_properties` | Read supported instance properties |
+| `mcp__roblox_studio__list_children` | List children, optionally recursively |
+| `mcp__roblox_studio__search_instances` | Find instances by name or class |
+| `mcp__roblox_studio__get_selection` | Get current Studio selection |
 
 ### Script Editing
 | Tool | What it does |
 |------|-------------|
-| `roblox_get_script` | Read script source code |
-| `roblox_set_script` | Replace entire script content |
-| `roblox_edit_script` | Find/replace within scripts |
-| `roblox_run_code` | Execute Luau code immediately |
+| `mcp__roblox_studio__read_script` | Read script source code |
+| `mcp__roblox_studio__write_script` | Replace script content after approval |
+| `mcp__roblox_studio__edit_script` | Find/replace within scripts after approval |
+| `mcp__roblox_studio__execute_luau` | Execute Luau only after high-risk approval |
 
 ### Bulk Operations
 | Tool | What it does |
 |------|-------------|
-| `roblox_bulk_create` | Create many instances at once |
-| `roblox_bulk_delete` | Delete multiple instances |
-| `roblox_bulk_set_property` | Update properties across many instances |
+| `mcp__roblox_studio__bulk_create` | Create many instances after high-risk approval |
+| `mcp__roblox_studio__bulk_delete` | Delete multiple instances after high-risk approval |
+| `mcp__roblox_studio__bulk_set_property` | Update properties after high-risk approval |
+
+### Creator Store
+| Tool | What it does |
+|------|-------------|
+| `roblox_toolbox_search` | Server-side paginated/deduplicated search with thumbnails |
+| `roblox_ask_user` | Displays interactive thumbnail choices in chat |
+| `mcp__roblox_studio__insert_asset` | Inspects selected assets and inserts only after approval, with script stripping available |
 
 ## Example Prompts
 
@@ -171,6 +173,13 @@ npm run build        # Production web build
 npm run start:bridge # Run bridge in production
 ```
 
+Implemented phase notes and the safe starter-world demo are in:
+
+- [`docs/phase-1/server-agent-runtime.md`](docs/phase-1/server-agent-runtime.md)
+- [`docs/phase-2/roblox-studio-mcp-gateway.md`](docs/phase-2/roblox-studio-mcp-gateway.md)
+- [`docs/phase-3/permission-plan-audit.md`](docs/phase-3/permission-plan-audit.md)
+- [`docs/phase-4/toolbox-demo.md`](docs/phase-4/toolbox-demo.md)
+
 ### Project Structure
 
 ```
@@ -200,8 +209,8 @@ stud/
 
 ## Roadmap
 
-- [ ] **Toolbox Search** - Visual asset picker from Creator Store
-- [ ] **Auto-Planning** - AI plans before executing complex tasks
+- [x] **Safe Toolbox Slice** - Server search, visual asset picker, inspection, and approved insertion
+- [x] **Plan and Permissions** - Read-only plan runs and server-gated Studio mutations
 - [ ] **@ Mentions** - Reference instances with `@game.Workspace.Part`
 - [ ] **Diff View** - See script changes before/after
 - [ ] **One-Click Games** - Templates for Obby, Tycoon, FPS, etc.

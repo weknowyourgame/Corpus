@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { AgentRuntime } from "./runtime.ts";
 import { MemoryConversationStore } from "./store.ts";
-import type { AgentToolRegistry, ModelDriver, ModelDriverFactory, ToolExecutionContext } from "./types.ts";
+import type { AgentTool, AgentToolRegistry, ModelDriver, ModelDriverFactory } from "./types.ts";
 
 const waitFor = async (test: () => Promise<boolean>) => {
   for (let attempt = 0; attempt < 30; attempt += 1) {
@@ -12,12 +12,19 @@ const waitFor = async (test: () => Promise<boolean>) => {
   throw new Error("Timed out waiting for runtime state");
 };
 
+const read: AgentTool = {
+  name: "read",
+  description: "read",
+  transport: "studio_mcp",
+  risk: "read",
+  concurrency: "parallel_read",
+  inputSchema: {},
+  scope: (input) => String(input.path ?? "game"),
+  execute: async (input) => ({ executed: "read", input: JSON.stringify(input) }),
+};
 const tools: AgentToolRegistry = {
-  list: () => [],
-  execute: async (name: string, input: Record<string, unknown>, _context: ToolExecutionContext) => ({
-    executed: name,
-    input: JSON.stringify(input),
-  }),
+  list: () => [read],
+  get: (name) => name === read.name ? read : undefined,
 };
 
 describe("AgentRuntime", () => {

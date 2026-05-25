@@ -1055,16 +1055,11 @@ handlers["/code/run"] = function(data)
 	return { output = table.concat(output, "\n") }
 end
 
--- Asset insertion (from Creator Store)
-handlers["/asset/insert"] = function(data)
-	local parent = getInstanceFromPath(data.parent)
-	if not parent then
-		error("Parent not found: " .. data.parent)
-	end
-
-	local assetId = tonumber(data.assetId)
+-- Asset loading stays detached until the server permission flow approves insertion.
+local function loadAssetForReview(assetId)
+	assetId = tonumber(assetId)
 	if not assetId then
-		error("Invalid asset ID: " .. tostring(data.assetId))
+		error("Invalid asset ID: " .. tostring(assetId))
 	end
 
 	-- Use InsertService to get the asset
@@ -1097,12 +1092,80 @@ handlers["/asset/insert"] = function(data)
 		end
 	end
 
+	return model, actualModel
+end
+
+local function assetSafetySummary(actualModel)
+	local scripts = {}
+	local risky = {}
+	local riskyClasses = {
+		RemoteEvent = true,
+		RemoteFunction = true,
+		BindableEvent = true,
+		BindableFunction = true,
+		Tool = true,
+	}
+	local descendants = { actualModel }
+	for _, descendant in ipairs(actualModel:GetDescendants()) do
+		table.insert(descendants, descendant)
+	end
+	for _, descendant in ipairs(descendants) do
+		if descendant:IsA("LuaSourceContainer") then
+			table.insert(scripts, { name = descendant.Name, className = descendant.ClassName })
+		elseif riskyClasses[descendant.ClassName] then
+			table.insert(risky, { name = descendant.Name, className = descendant.ClassName })
+		end
+	end
+	return scripts, risky
+end
+
+handlers["/asset/inspect"] = function(data)
+	local container, actualModel = loadAssetForReview(data.assetId)
+	local scripts, risky = assetSafetySummary(actualModel)
+	local result = {
+		assetId = tonumber(data.assetId),
+		name = actualModel.Name,
+		scriptCount = #scripts,
+		scripts = scripts,
+		riskyDescendantCount = #risky,
+		riskyDescendants = risky,
+		safeWithoutChanges = #scripts == 0 and #risky == 0,
+	}
+	container:Destroy()
+	return result
+end
+
+handlers["/asset/insert"] = function(data)
+	local parent = getInstanceFromPath(data.parent)
+	if not parent then
+		error("Parent not found: " .. data.parent)
+	end
+	local container, actualModel = loadAssetForReview(data.assetId)
+	local scripts = assetSafetySummary(actualModel)
+	local strippedScripts = 0
+	if data.stripScripts == true then
+		if actualModel:IsA("LuaSourceContainer") then
+			container:Destroy()
+			error("Cannot strip scripts when the selected asset is itself a script")
+		end
+		for _, descendant in ipairs(actualModel:GetDescendants()) do
+			if descendant:IsA("LuaSourceContainer") then
+				descendant:Destroy()
+				strippedScripts = strippedScripts + 1
+			end
+		end
+	end
 	actualModel.Parent = parent
+	if container ~= actualModel then
+		container:Destroy()
+	end
 
 	return {
 		success = true,
 		path = getInstancePath(actualModel),
 		name = actualModel.Name,
+		scriptCount = #scripts,
+		strippedScripts = strippedScripts,
 	}
 end
 
@@ -1141,6 +1204,7 @@ local actionNames = {
 	["/instance/search"] = "Search",
 	["/selection/get"] = "Get Selection",
 	["/code/run"] = "Run Code",
+	["/asset/inspect"] = "Inspect Asset",
 	["/asset/insert"] = "Insert Asset",
 }
 

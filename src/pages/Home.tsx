@@ -18,6 +18,7 @@ import { SettingsDialog } from "@/components/settings/SettingsDialog";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { ContextChips, ChipAction } from "@/components/chat/ContextChips";
 import { QuestionPrompt } from "@/components/chat/QuestionPrompt";
+import { ApprovalPrompt } from "@/components/chat/ApprovalPrompt";
 import { InstancePicker } from "@/components/chat/InstancePicker";
 import { ChatActions } from "@/components/QuickActions";
 import { CommandPalette } from "@/components/CommandPalette";
@@ -31,7 +32,10 @@ import {
   clearServerConversation,
   getServerProviderConfig,
   loadServerMessages,
+  resumeServerRun,
   sendServerMessage,
+  type ApprovalDecision,
+  type ApprovalRequest,
 } from "@/lib/ai/server-agent";
 import { useAppShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { improvePrompt } from "@/lib/ai/prompt-improver";
@@ -286,6 +290,8 @@ export function Home() {
   const [isImproving, setIsImproving] = useState(false);
   const [displayedSuggestions, setDisplayedSuggestions] = useState<string[]>([]);
   const [serverProviders, setServerProviders] = useState({ anthropic: false, openrouter: false, codex: false });
+  const [pendingApproval, setPendingApproval] = useState<ApprovalRequest | null>(null);
+  const approvalResolver = useRef<((decision: ApprovalDecision) => void) | null>(null);
   const {
     messages,
     isStreaming,
@@ -306,10 +312,23 @@ export function Home() {
   const { selectedModel, selectedProvider, setSelectedModel } = useSettingsStore();
   const { status: studioStatus, startPolling } = useRobloxStore();
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const handleClearChat = useCallback(() => {
-    void clearServerConversation();
+  const requestApproval = useCallback((approval: ApprovalRequest) => new Promise<ApprovalDecision>((resolve) => {
+    setPendingApproval(approval);
+    approvalResolver.current = resolve;
+  }), []);
+  const answerApproval = useCallback((decision: ApprovalDecision) => {
+    approvalResolver.current?.(decision);
+    approvalResolver.current = null;
+    setPendingApproval(null);
+  }, []);
+  const handleClearChat = useCallback(async () => {
+    await clearServerConversation();
+    if (pendingApproval) answerApproval("deny");
+    if (pendingQuestion) answerQuestion([]);
+    setPendingApproval(null);
+    setPendingQuestion(null);
     clearMessages();
-  }, [clearMessages]);
+  }, [pendingApproval, pendingQuestion, answerApproval, answerQuestion, setPendingQuestion, clearMessages]);
 
   // Keyboard shortcuts
   useAppShortcuts({
@@ -352,10 +371,54 @@ export function Home() {
 
   useEffect(() => {
     if (studioStatus !== "connected" || messages.length) return;
-    void loadServerMessages().then((saved) => {
+    void loadServerMessages().then(async (saved) => {
       if (saved.length) replaceMessages(saved);
+      let assistantId: string | null = null;
+      let fullText = "";
+      const target = () => {
+        assistantId ??= addMessage({ role: "assistant", content: "" });
+        return assistantId;
+      };
+      const resumed = await resumeServerRun({
+        onToken: (token) => {
+          fullText += token;
+          updateMessage(target(), fullText);
+        },
+        onToolCall: (call) => {
+          addToolCall(target(), { id: call.id, name: call.name, args: call.input });
+          updateToolCall(target(), call.id, { status: "running" });
+        },
+        onToolResult: (result) => updateToolCall(target(), result.id, { status: "complete", result: result.output }),
+        onInteraction: (_id, questions) => new Promise((resolve) => {
+          setPendingQuestion({ id: crypto.randomUUID(), toolCallId: "", messageId: target(), questions });
+          setQuestionResolver(resolve);
+        }),
+        onApproval: requestApproval,
+        onFinish: () => {
+          setPendingApproval(null);
+          setStreaming(false);
+        },
+        onError: (failure) => {
+          setError(failure.message);
+          setStreaming(false);
+        },
+      });
+      if (resumed) setStreaming(true);
     });
-  }, [studioStatus, messages.length, replaceMessages]);
+  }, [
+    studioStatus,
+    messages.length,
+    replaceMessages,
+    addMessage,
+    updateMessage,
+    addToolCall,
+    updateToolCall,
+    setPendingQuestion,
+    setQuestionResolver,
+    requestApproval,
+    setStreaming,
+    setError,
+  ]);
 
   const hasConfiguredProvider = serverProviders[selectedProvider];
   const hasAnyServerProvider = Object.values(serverProviders).some(Boolean);
@@ -402,6 +465,7 @@ export function Home() {
     }
     const chipContext = prefixes.join(" ");
     const fullMessage = chipContext ? `${chipContext}\n\n${userMessage}` : userMessage;
+    const mode = activeChips.includes("plan") ? "plan" : "execute";
 
     setInput("");
     setActiveChips([]); // Clear chips after submit
@@ -420,7 +484,7 @@ export function Home() {
     try {
       let fullText = "";
 
-      await sendServerMessage(fullMessage, selectedProvider, selectedModel, {
+      await sendServerMessage(fullMessage, selectedProvider, selectedModel, mode, {
         onToken: (token) => {
           fullText += token;
           updateMessage(assistantId, fullText);
@@ -454,8 +518,10 @@ export function Home() {
             });
             setQuestionResolver(resolve);
           }),
+        onApproval: requestApproval,
         onFinish: () => {
           console.log("[Home] Stream finished, total length:", fullText.length);
+          setPendingApproval(null);
           setStreaming(false);
         },
         onError: (error) => {
@@ -470,7 +536,7 @@ export function Home() {
       setError(errorMessage);
       setStreaming(false);
     }
-  }, [input, isStreaming, activeChips, addMessage, updateMessage, addToolCall, updateToolCall, setStreaming, setError, selectedProvider, selectedModel, setPendingQuestion, setQuestionResolver]);
+  }, [input, isStreaming, activeChips, addMessage, updateMessage, addToolCall, updateToolCall, setStreaming, setError, selectedProvider, selectedModel, setPendingQuestion, setQuestionResolver, requestApproval]);
 
   const handleSuggestionClick = (suggestion: string) => {
     setInput(suggestion);
@@ -490,8 +556,12 @@ export function Home() {
     }
   };
 
-  const handleStop = () => {
-    void cancelServerRun();
+  const handleStop = async () => {
+    await cancelServerRun();
+    if (pendingApproval) answerApproval("deny");
+    if (pendingQuestion) answerQuestion([]);
+    setPendingApproval(null);
+    setPendingQuestion(null);
   };
 
   // Show connection screen if not connected
@@ -721,8 +791,14 @@ export function Home() {
             </div>
           )}
 
+          {pendingApproval && (
+            <div className="max-w-2xl mx-auto">
+              <ApprovalPrompt approval={pendingApproval} onDecision={answerApproval} />
+            </div>
+          )}
+
           {/* Streaming indicator */}
-          {isStreaming && !pendingQuestion && (
+          {isStreaming && !pendingQuestion && !pendingApproval && (
             <div className="flex items-center gap-3 py-3 max-w-fit mx-auto">
               <Loader variant="wave" size="sm" />
               <span className="text-sm" style={{ color: "var(--stud-muted)" }}>

@@ -2,7 +2,14 @@
 
 Date: 2026-05-25
 
-These decisions govern Phase 1 implementation and later Roblox capability work. They are intentionally narrow: Phase 1 establishes server-owned execution and stream recovery, but does not pretend that MCP, permissions, or hosted authentication are already solved.
+These decisions govern the server-owned runtime and Roblox capability work. Phase 1 established server execution and stream recovery; implementation notes below record the Phase 2-4 gateway and permission additions without claiming hosted identity or direct official MCP transport validation.
+
+## Implementation Update: Phases 2-4
+
+- `server/agent/tools.ts` now exposes typed `mcp__roblox_studio__*` tools through a server MCP gateway boundary, backed for compatibility by `server/index.js` and `studio-plugin/stud-bridge.server.lua`.
+- `server/agent/policy.ts` and `server/agent/runtime.ts` now enforce allow/ask/deny decisions, exact execution scopes, read-only plan mode, structured approvals, and persisted audit events.
+- `server/agent/toolbox.ts` and the plugin asset inspection handlers implement server-owned thumbnail discovery and approval-gated safe insertion.
+- Roblox's official built-in `StudioMCP --stdio` connector is documented as the preferred production transport direction; this work does not falsely claim the direct stdio swap was live-tested.
 
 ## ADR-001: Agent Runs Are Server-Owned
 

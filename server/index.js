@@ -7,21 +7,37 @@
 
 import express from "express";
 import cors from "cors";
+import { randomUUID } from "node:crypto";
 import { DevelopmentConversationStore } from "./agent/store.ts";
 import { AgentRuntime } from "./agent/runtime.ts";
-import { TransitionalRobloxTools } from "./agent/tools.ts";
+import { RobloxStudioMcpGateway } from "./agent/tools.ts";
 import { createModelDriverFactory } from "./agent/drivers.ts";
 import { createAgentRouter } from "./agent/routes.ts";
 
 const PORT = Number(process.env.PORT) || 3001;
 const REQUEST_TIMEOUT_MS = 15_000;
 const SESSION_ID_PATTERN = /^[A-Za-z0-9]{6,12}$/;
+const AGENT_RELAY_TOKEN = process.env.STUD_INTERNAL_RELAY_TOKEN || randomUUID();
+const MUTATING_STUDIO_PATHS = new Set([
+  "/script/set",
+  "/script/edit",
+  "/instance/set",
+  "/instance/create",
+  "/instance/delete",
+  "/instance/clone",
+  "/instance/move",
+  "/instance/bulk-create",
+  "/instance/bulk-delete",
+  "/instance/bulk-set",
+  "/code/run",
+  "/asset/insert",
+]);
 
 const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json({ limit: "10mb" }));
 
-/** @type {Map<string, { pending: Map<string, PendingRequest>, lastPoll: number, counter: number }>} */
+/** @type {Map<string, { pending: Map<string, PendingRequest>, completed: Map<string, { response: StudioResponse, completedAt: number }>, lastPoll: number, counter: number }>} */
 const sessions = new Map();
 
 /** @type {{ code: string, state: string, timestamp: number } | null} */
@@ -30,14 +46,14 @@ let oauthCallback = null;
 /**
  * @typedef {{ path: string, body?: string }} StudioRequest
  * @typedef {{ status: number, body: string }} StudioResponse
- * @typedef {{ request: StudioRequest, resolve: (r: StudioResponse) => void, reject: (e: Error) => void, timer: ReturnType<typeof setTimeout> }} PendingRequest
+ * @typedef {{ request: StudioRequest, operationId?: string, resolve: (r: StudioResponse) => void, reject: (e: Error) => void, timer: ReturnType<typeof setTimeout>, createdAt: number }} PendingRequest
  */
 
 const getSession = (sessionId) => {
-  if (!SESSION_ID_PATTERN.test(sessionId)) return null;
+  if (sessionId !== "default" && !SESSION_ID_PATTERN.test(sessionId)) return null;
   let session = sessions.get(sessionId);
   if (!session) {
-    session = { pending: new Map(), lastPoll: 0, counter: 0 };
+    session = { pending: new Map(), completed: new Map(), lastPoll: 0, counter: 0 };
     sessions.set(sessionId, session);
   }
   return session;
@@ -56,6 +72,9 @@ const cleanupSession = (session) => {
       session.pending.delete(id);
     }
   }
+  for (const [id, completed] of session.completed) {
+    if (now - completed.completedAt > 5 * 60_000) session.completed.delete(id);
+  }
 };
 
 const nextRequestId = (session) => {
@@ -63,18 +82,18 @@ const nextRequestId = (session) => {
   return `req_${session.counter}_${timestamp()}`;
 };
 
-const relayStudioRequest = async (sessionId, path, body, signal) => {
+const relayStudioRequest = async (sessionId, path, body, signal, operationId) => {
   const response = await fetch(`http://127.0.0.1:${PORT}/stud/sessions/${sessionId}/request`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path, body: body ? JSON.stringify(body) : undefined }),
+    headers: { "Content-Type": "application/json", "X-Stud-Agent-Relay": AGENT_RELAY_TOKEN },
+    body: JSON.stringify({ path, body: body ? JSON.stringify(body) : undefined, operationId }),
     signal,
   });
   const result = await response.json();
   return response.ok ? result : { error: result.error || `Studio request failed: ${response.status}` };
 };
 
-const agentTools = new TransitionalRobloxTools(relayStudioRequest);
+const agentTools = new RobloxStudioMcpGateway(relayStudioRequest);
 const agentRuntime = new AgentRuntime(
   new DevelopmentConversationStore(),
   createModelDriverFactory(agentTools),
@@ -111,6 +130,25 @@ app.post("/stud/sessions/:sessionId/request", async (req, res) => {
     res.status(400).json({ error: "Missing request path" });
     return;
   }
+  if (MUTATING_STUDIO_PATHS.has(body.path) && req.header("x-stud-agent-relay") !== AGENT_RELAY_TOKEN) {
+    res.status(403).json({ error: "Mutating Studio requests must run through the agent permission gateway" });
+    return;
+  }
+  if (body.operationId && session.completed.has(body.operationId)) {
+    const cached = session.completed.get(body.operationId).response;
+    let parsed;
+    try {
+      parsed = JSON.parse(cached.body);
+    } catch {
+      parsed = { raw: cached.body };
+    }
+    res.status(cached.status).json(parsed);
+    return;
+  }
+  if (body.operationId && [...session.pending.values()].some((pending) => pending.operationId === body.operationId)) {
+    res.status(409).json({ error: "Operation is already pending in Studio" });
+    return;
+  }
 
   const id = nextRequestId(session);
 
@@ -122,11 +160,19 @@ app.post("/stud/sessions/:sessionId/request", async (req, res) => {
 
     session.pending.set(id, {
       request: { path: body.path, body: body.body },
+      operationId: typeof body.operationId === "string" ? body.operationId : undefined,
       resolve,
       reject,
       timer,
       createdAt: timestamp(),
     });
+  });
+  res.on("close", () => {
+    const pending = session.pending.get(id);
+    if (res.writableEnded || !pending) return;
+    clearTimeout(pending.timer);
+    session.pending.delete(id);
+    pending.reject(new Error("Request cancelled before Studio response"));
   });
 
   try {
@@ -139,6 +185,7 @@ app.post("/stud/sessions/:sessionId/request", async (req, res) => {
     }
     res.status(studioResponse.status).json(parsed);
   } catch (e) {
+    if (res.writableEnded || res.destroyed) return;
     const message = e instanceof Error ? e.message : String(e);
     const status = message.includes("timed out") ? 504 : 500;
     res.status(status).json({ error: message });
@@ -185,6 +232,7 @@ app.post("/stud/sessions/:sessionId/respond", (req, res) => {
 
   clearTimeout(pending.timer);
   session.pending.delete(id);
+  if (pending.operationId) session.completed.set(pending.operationId, { response, completedAt: timestamp() });
   pending.resolve(response);
   res.json({ ok: true });
 });
@@ -226,6 +274,10 @@ app.post("/stud/request", async (req, res) => {
   const body = req.body;
   if (!body?.path) {
     res.status(400).json({ error: "Missing request path" });
+    return;
+  }
+  if (MUTATING_STUDIO_PATHS.has(body.path) && req.header("x-stud-agent-relay") !== AGENT_RELAY_TOKEN) {
+    res.status(403).json({ error: "Mutating Studio requests must run through the agent permission gateway" });
     return;
   }
   const id = nextRequestId(session);

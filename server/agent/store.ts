@@ -12,17 +12,20 @@ export class DevelopmentConversationStore implements ConversationStore {
     return join(this.dir, `${id}.json`);
   }
 
-  async create(studioSessionId: string) {
+  async create(studioSessionId: string, accessTokenHash?: string) {
     const timestamp = now();
     const conversation: Conversation = {
       id: randomUUID(),
       studioSessionId,
+      accessTokenHash,
       createdAt: timestamp,
       updatedAt: timestamp,
       nextSequence: 1,
       messages: [],
       runs: [],
       events: [],
+      approvedScopes: [],
+      auditEvents: [],
     };
     await this.save(conversation);
     return conversation;
@@ -51,17 +54,20 @@ export class DevelopmentConversationStore implements ConversationStore {
 export class MemoryConversationStore implements ConversationStore {
   private readonly conversations = new Map<string, Conversation>();
 
-  async create(studioSessionId: string) {
+  async create(studioSessionId: string, accessTokenHash?: string) {
     const timestamp = now();
     const conversation: Conversation = {
       id: randomUUID(),
       studioSessionId,
+      accessTokenHash,
       createdAt: timestamp,
       updatedAt: timestamp,
       nextSequence: 1,
       messages: [],
       runs: [],
       events: [],
+      approvedScopes: [],
+      auditEvents: [],
     };
     this.conversations.set(conversation.id, structuredClone(conversation));
     return conversation;
@@ -77,4 +83,3 @@ export class MemoryConversationStore implements ConversationStore {
     this.conversations.set(conversation.id, structuredClone(conversation));
   }
 }
-

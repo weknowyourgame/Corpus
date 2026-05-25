@@ -1,14 +1,27 @@
 import { z } from "zod";
-import type { AgentQuestion, AgentTool, AgentToolRegistry, JsonValue, ToolExecutionContext } from "./types.ts";
+import { createHash } from "node:crypto";
+import { ToolboxService, toolboxSearchSchema } from "./toolbox.ts";
+import type {
+  AgentQuestion,
+  AgentTool,
+  AgentToolRegistry,
+  JsonValue,
+  ToolExecutionContext,
+  ToolRisk,
+} from "./types.ts";
 
 type StudioRelay = (
   sessionId: string,
   path: string,
   body: Record<string, unknown> | undefined,
   signal: AbortSignal,
+  operationId: string,
 ) => Promise<JsonValue>;
 
 const asJson = (value: unknown) => JSON.parse(JSON.stringify(value)) as JsonValue;
+const path = (input: Record<string, unknown>, key = "path") => String(input[key] ?? "game");
+const stable = (value: unknown) => JSON.stringify(value);
+const fingerprint = (value: unknown) => createHash("sha256").update(stable(value)).digest("hex").slice(0, 12);
 
 const questionSchema = z.object({
   question: z.string(),
@@ -17,7 +30,7 @@ const questionSchema = z.object({
     z.object({
       label: z.string(),
       value: z.string().optional(),
-      imageUrl: z.string().optional(),
+      imageUrl: z.string().nullable().optional(),
       description: z.string().optional(),
     }),
   ])).optional(),
@@ -28,70 +41,92 @@ const studioTools: Array<{
   name: string;
   description: string;
   schema: z.ZodType<Record<string, unknown>>;
-  path: string;
+  endpoint: string;
+  risk: ToolRisk;
+  scope: (input: Record<string, unknown>) => string;
 }> = [
   {
-    name: "roblox_get_script",
+    name: "mcp__roblox_studio__read_script",
     description: "Read source from a Roblox Studio script at a full instance path.",
     schema: z.object({ path: z.string() }),
-    path: "/script/get",
+    endpoint: "/script/get",
+    risk: "read",
+    scope: (input) => path(input),
   },
   {
-    name: "roblox_set_script",
-    description: "Replace all source in a Roblox Studio script.",
+    name: "mcp__roblox_studio__write_script",
+    description: "Replace source in an existing Roblox Studio script.",
     schema: z.object({ path: z.string(), source: z.string() }),
-    path: "/script/set",
+    endpoint: "/script/set",
+    risk: "low_mutation",
+    scope: (input) => `${path(input)}#${fingerprint(input.source)}`,
   },
   {
-    name: "roblox_edit_script",
+    name: "mcp__roblox_studio__edit_script",
     description: "Replace an exact source snippet in an existing Roblox Studio script.",
     schema: z.object({ path: z.string(), oldCode: z.string(), newCode: z.string() }),
-    path: "/script/edit",
+    endpoint: "/script/edit",
+    risk: "low_mutation",
+    scope: (input) => `${path(input)}#${fingerprint({ oldCode: input.oldCode, newCode: input.newCode })}`,
   },
   {
-    name: "roblox_get_children",
+    name: "mcp__roblox_studio__list_children",
     description: "List children of a Roblox instance path, optionally recursively.",
     schema: z.object({ path: z.string(), recursive: z.boolean().optional() }),
-    path: "/instance/children",
+    endpoint: "/instance/children",
+    risk: "read",
+    scope: (input) => path(input),
   },
   {
-    name: "roblox_get_properties",
+    name: "mcp__roblox_studio__get_properties",
     description: "Get supported properties for a Roblox instance path.",
     schema: z.object({ path: z.string() }),
-    path: "/instance/properties",
+    endpoint: "/instance/properties",
+    risk: "read",
+    scope: (input) => path(input),
   },
   {
-    name: "roblox_set_property",
-    description: "Set a property on a Roblox instance path.",
+    name: "mcp__roblox_studio__set_property",
+    description: "Set one property on a Roblox instance.",
     schema: z.object({ path: z.string(), property: z.string(), value: z.string() }),
-    path: "/instance/set",
+    endpoint: "/instance/set",
+    risk: "low_mutation",
+    scope: (input) => `${path(input)}.${String(input.property)}=${String(input.value)}`,
   },
   {
-    name: "roblox_create",
+    name: "mcp__roblox_studio__create_instance",
     description: "Create a Roblox instance beneath a full parent path.",
     schema: z.object({ className: z.string(), parent: z.string(), name: z.string().optional() }),
-    path: "/instance/create",
+    endpoint: "/instance/create",
+    risk: "low_mutation",
+    scope: (input) => `${path(input, "parent")}/${String(input.name ?? input.className)}:${String(input.className)}`,
   },
   {
-    name: "roblox_delete",
+    name: "mcp__roblox_studio__delete_instance",
     description: "Delete a Roblox instance and its descendants.",
     schema: z.object({ path: z.string() }),
-    path: "/instance/delete",
+    endpoint: "/instance/delete",
+    risk: "destructive",
+    scope: (input) => path(input),
   },
   {
-    name: "roblox_clone",
+    name: "mcp__roblox_studio__clone_instance",
     description: "Clone a Roblox instance, optionally into another parent.",
     schema: z.object({ path: z.string(), parent: z.string().optional() }),
-    path: "/instance/clone",
+    endpoint: "/instance/clone",
+    risk: "low_mutation",
+    scope: (input) => `${path(input)} -> ${path(input, "parent")}#${fingerprint(input)}`,
   },
   {
-    name: "roblox_move",
+    name: "mcp__roblox_studio__move_instance",
     description: "Move a Roblox instance to another parent.",
     schema: z.object({ path: z.string(), newParent: z.string() }),
-    path: "/instance/move",
+    endpoint: "/instance/move",
+    risk: "destructive",
+    scope: (input) => `${path(input)} -> ${path(input, "newParent")}`,
   },
   {
-    name: "roblox_search",
+    name: "mcp__roblox_studio__search_instances",
     description: "Search descendants by name or class name.",
     schema: z.object({
       root: z.string().optional(),
@@ -99,123 +134,117 @@ const studioTools: Array<{
       className: z.string().optional(),
       limit: z.number().optional(),
     }),
-    path: "/instance/search",
+    endpoint: "/instance/search",
+    risk: "read",
+    scope: (input) => path(input, "root"),
   },
   {
-    name: "roblox_get_selection",
+    name: "mcp__roblox_studio__get_selection",
     description: "Get currently selected Roblox Studio instances.",
     schema: z.object({}),
-    path: "/selection/get",
+    endpoint: "/selection/get",
+    risk: "read",
+    scope: () => "studio.selection",
   },
   {
-    name: "roblox_run_code",
-    description: "Execute Luau in Studio. Use only when necessary because it can modify the place.",
+    name: "mcp__roblox_studio__execute_luau",
+    description: "Execute Luau in Studio. This can change arbitrary game state.",
     schema: z.object({ code: z.string() }),
-    path: "/code/run",
+    endpoint: "/code/run",
+    risk: "runtime_code",
+    scope: () => "runtime-code",
   },
   {
-    name: "roblox_bulk_create",
+    name: "mcp__roblox_studio__bulk_create",
     description: "Create several Roblox instances in one operation.",
-    schema: z.object({
-      instances: z.array(z.object({ className: z.string(), parent: z.string(), name: z.string().optional() })),
-    }),
-    path: "/instance/bulk-create",
+    schema: z.object({ instances: z.array(z.object({ className: z.string(), parent: z.string(), name: z.string().optional() })) }),
+    endpoint: "/instance/bulk-create",
+    risk: "destructive",
+    scope: (input) => `bulk-create:${stable(input.instances)}`,
   },
   {
-    name: "roblox_bulk_delete",
+    name: "mcp__roblox_studio__bulk_delete",
     description: "Delete several Roblox instance trees in one operation.",
     schema: z.object({ paths: z.array(z.string()) }),
-    path: "/instance/bulk-delete",
+    endpoint: "/instance/bulk-delete",
+    risk: "destructive",
+    scope: (input) => `bulk-delete:${stable(input.paths)}`,
   },
   {
-    name: "roblox_bulk_set_property",
+    name: "mcp__roblox_studio__bulk_set_property",
     description: "Set properties on several Roblox instances in one operation.",
-    schema: z.object({
-      operations: z.array(z.object({ path: z.string(), property: z.string(), value: z.string() })),
-    }),
-    path: "/instance/bulk-set",
-  },
-  {
-    name: "roblox_insert_asset",
-    description: "Insert a Roblox Creator Store asset under a parent path. Assets may contain scripts.",
-    schema: z.object({ assetId: z.number(), parent: z.string().default("game.Workspace") }),
-    path: "/asset/insert",
+    schema: z.object({ operations: z.array(z.object({ path: z.string(), property: z.string(), value: z.string() })) }),
+    endpoint: "/instance/bulk-set",
+    risk: "destructive",
+    scope: (input) => `bulk-set:${stable(input.operations)}`,
   },
 ];
 
-async function searchToolbox(input: Record<string, unknown>, signal: AbortSignal) {
-  const parsed = z.object({
-    query: z.string(),
-    category: z.enum(["Model", "Decal", "Audio", "Plugin", "MeshPart"]).default("Model"),
-    limit: z.number().min(1).max(50).default(10),
-  }).parse(input);
-  const types = { Model: 10, Decal: 13, Audio: 3, Plugin: 38, MeshPart: 40 };
-  const params = new URLSearchParams({
-    Category: "1",
-    Keyword: parsed.query,
-    AssetType: String(types[parsed.category]),
-    Limit: String(parsed.limit),
-    SortType: "0",
-    SortAggregation: "3",
-    SortOrder: "2",
-    IncludeNotForSale: "false",
-  });
-  const response = await fetch(`https://catalog.roblox.com/v1/search/items/details?${params}`, { signal });
-  if (!response.ok) return { error: `Creator Store search failed: ${response.status}` };
-  const data = await response.json() as { data?: Array<Record<string, unknown>> };
-  const raw = data.data ?? [];
-  const ids = raw.map((item) => Number(item.id)).filter(Number.isFinite);
-  const thumbnailParams = new URLSearchParams({
-    assetIds: ids.join(","),
-    size: "150x150",
-    format: "Png",
-    isCircular: "false",
-  });
-  const thumbnailResponse = ids.length
-    ? await fetch(`https://thumbnails.roblox.com/v1/assets?${thumbnailParams}`, { signal })
-    : null;
-  const thumbnails = thumbnailResponse?.ok
-    ? await thumbnailResponse.json() as { data?: Array<{ targetId: number; imageUrl: string }> }
-    : { data: [] };
-  const byId = new Map((thumbnails.data ?? []).map((item) => [item.targetId, item.imageUrl]));
-  return {
-    count: raw.length,
-    results: raw.map((item) => ({
-      id: Number(item.id),
-      name: String(item.name ?? `Asset ${item.id}`),
-      creator: String(item.creatorName ?? "Unknown"),
-      thumbnailUrl: byId.get(Number(item.id)) ?? null,
-    })),
-  };
-}
-
-export class TransitionalRobloxTools implements AgentToolRegistry {
+export class RobloxStudioMcpGateway implements AgentToolRegistry {
   private readonly tools: AgentTool[];
 
-  constructor(private readonly relay: StudioRelay) {
+  constructor(
+    private readonly relay: StudioRelay,
+    toolbox = new ToolboxService(),
+  ) {
     this.tools = studioTools.map((item) => ({
       name: item.name,
       description: item.description,
+      transport: "studio_mcp",
+      risk: item.risk,
+      concurrency: item.risk === "read" ? "parallel_read" : "exclusive_mutation",
       inputSchema: item.schema,
+      scope: item.scope,
       execute: async (input, context) => {
         const parsed = item.schema.parse(input);
-        return this.relay(context.studioSessionId, item.path, parsed, context.signal);
+        return this.relay(context.studioSessionId, item.endpoint, parsed, context.signal, context.operationId);
       },
     }));
     this.tools.push({
-      name: "roblox_toolbox_search",
-      description: "Search Roblox Creator Store assets and return options with thumbnail URLs.",
+      name: "mcp__roblox_studio__insert_asset",
+      description: "Insert a chosen Creator Store asset after safety inspection. Scripts can be removed before parenting.",
+      transport: "studio_mcp",
+      risk: "external_asset",
+      concurrency: "exclusive_mutation",
       inputSchema: z.object({
-        query: z.string(),
-        category: z.enum(["Model", "Decal", "Audio", "Plugin", "MeshPart"]).default("Model"),
-        limit: z.number().min(1).max(50).default(10),
+        assetId: z.number().int(),
+        parent: z.string().default("game.Workspace"),
+        stripScripts: z.boolean().optional(),
       }),
-      execute: async (input, context) => asJson(await searchToolbox(input, context.signal)),
+      scope: (input) => `asset:${String(input.assetId)} -> ${path(input, "parent")}`,
+      preview: async (input, context) => this.relay(
+        context.studioSessionId,
+        "/asset/inspect",
+        { assetId: input.assetId },
+        context.signal,
+        `${context.operationId}:inspect`,
+      ),
+      execute: async (input, context) => this.relay(
+        context.studioSessionId,
+        "/asset/insert",
+        z.object({ assetId: z.number().int(), parent: z.string().default("game.Workspace"), stripScripts: z.boolean().optional() }).parse(input),
+        context.signal,
+        context.operationId,
+      ),
+    });
+    this.tools.push({
+      name: "roblox_toolbox_search",
+      description: "Search Creator Store models server-side with expansion, pagination, deduplication, and thumbnails.",
+      transport: "server",
+      risk: "read",
+      concurrency: "parallel_read",
+      inputSchema: toolboxSearchSchema,
+      scope: (input) => `creator-store:${String(input.query ?? "")}`,
+      execute: (input, context) => toolbox.search(input, context.signal),
     });
     this.tools.push({
       name: "roblox_ask_user",
-      description: "Ask the user one or more run-scoped questions and wait for their answer.",
+      description: "Ask the user one or more run-scoped questions. Use returned thumbnail options from toolbox search.",
+      transport: "server",
+      risk: "read",
+      concurrency: "parallel_read",
       inputSchema: z.object({ questions: z.array(questionSchema).min(1).max(4) }),
+      scope: () => "conversation",
       execute: async (input, context) => {
         const questions = z.array(questionSchema).parse(input.questions) as AgentQuestion[];
         const answers = await context.requestInteraction(questions);
@@ -231,14 +260,7 @@ export class TransitionalRobloxTools implements AgentToolRegistry {
     return this.tools;
   }
 
-  async execute(name: string, input: Record<string, unknown>, context: ToolExecutionContext) {
-    const selected = this.tools.find((tool) => tool.name === name);
-    if (!selected) return { error: `Unknown tool: ${name}` };
-    try {
-      return await selected.execute(input, context);
-    } catch (error) {
-      if (context.signal.aborted) throw error;
-      return { error: error instanceof Error ? error.message : String(error) };
-    }
+  get(name: string) {
+    return this.tools.find((tool) => tool.name === name);
   }
 }

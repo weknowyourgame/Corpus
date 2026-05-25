@@ -2,6 +2,10 @@ export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
 
 export type AgentProvider = "anthropic" | "openrouter" | "codex";
+export type RunMode = "execute" | "plan";
+export type ToolRisk = "read" | "low_mutation" | "destructive" | "runtime_code" | "external_asset" | "secret";
+export type PolicyDecision = "allow" | "ask" | "deny";
+export type ApprovalDecision = "allow_once" | "allow_scope" | "insert_without_scripts" | "deny";
 
 export type AgentToolCall = {
   id: string;
@@ -19,6 +23,7 @@ export type RunStatus = "running" | "completed" | "cancelled" | "error";
 export type AgentRun = {
   id: string;
   status: RunStatus;
+  mode: RunMode;
   provider: AgentProvider;
   model: string;
   startedAt: string;
@@ -35,7 +40,7 @@ export type AgentEventBase = {
 };
 
 export type AgentEventData =
-  | { type: "run_started"; provider: AgentProvider; model: string }
+  | { type: "run_started"; provider: AgentProvider; model: string; mode: RunMode }
   | { type: "text_delta"; text: string }
   | { type: "tool_call"; toolCallId: string; toolName: string; input: Record<string, unknown> }
   | { type: "tool_result"; toolCallId: string; toolName: string; output: JsonValue }
@@ -44,13 +49,21 @@ export type AgentEventData =
       interactionId: string;
       questions: AgentQuestion[];
     }
+  | { type: "interaction_resolved"; interactionId: string }
   | {
       type: "approval_pending";
       approvalId: string;
       toolCallId: string;
+      toolName: string;
+      input: Record<string, unknown>;
       summary: string;
-      risk: "low_mutation" | "destructive" | "runtime_code" | "secret";
+      scope: string;
+      risk: Exclude<ToolRisk, "read">;
+      preview?: JsonValue;
+      allowStripScripts?: boolean;
     }
+  | { type: "approval_resolved"; approvalId: string; decision: ApprovalDecision }
+  | { type: "plan_proposed"; text: string }
   | { type: "run_completed"; text: string; iterations: number }
   | { type: "run_cancelled"; reason: string }
   | { type: "run_error"; error: string };
@@ -72,21 +85,47 @@ export type AgentQuestion = {
 
 export type AgentAnswer = string | string[];
 
+export type ApprovedScope = {
+  id: string;
+  toolName: string;
+  scope: string;
+  approvedAt: string;
+  approvalId: string;
+};
+
+export type AuditEvent = {
+  id: string;
+  timestamp: string;
+  runId: string;
+  type: "prompt" | "tool_requested" | "policy_decision" | "approval_decision" | "tool_outcome" | "plan_proposed";
+  actor: "user" | "model" | "policy" | "tool";
+  toolCallId?: string;
+  toolName?: string;
+  risk?: ToolRisk;
+  decision?: PolicyDecision | ApprovalDecision;
+  summary: string;
+  details?: JsonValue;
+};
+
 export type Conversation = {
   id: string;
   studioSessionId: string;
+  accessTokenHash?: string;
   createdAt: string;
   updatedAt: string;
   nextSequence: number;
   messages: AgentMessage[];
   runs: AgentRun[];
   events: AgentEvent[];
+  approvedScopes: ApprovedScope[];
+  auditEvents: AuditEvent[];
 };
 
 export type StartRunInput = {
   message: string;
   provider: AgentProvider;
   model: string;
+  mode?: RunMode;
 };
 
 export type ModelTurn = {
@@ -112,6 +151,7 @@ export type ModelDriverFactory = (input: {
 export type ToolExecutionContext = {
   conversationId: string;
   runId: string;
+  operationId: string;
   studioSessionId: string;
   signal: AbortSignal;
   requestInteraction: (questions: AgentQuestion[]) => Promise<AgentAnswer[]>;
@@ -120,17 +160,22 @@ export type ToolExecutionContext = {
 export type AgentTool = {
   name: string;
   description: string;
+  transport: "server" | "studio_mcp" | "open_cloud";
+  risk: ToolRisk;
+  concurrency: "parallel_read" | "exclusive_mutation";
   inputSchema: unknown;
+  scope: (input: Record<string, unknown>) => string;
+  preview?: (input: Record<string, unknown>, context: ToolExecutionContext) => Promise<JsonValue>;
   execute: (input: Record<string, unknown>, context: ToolExecutionContext) => Promise<JsonValue>;
 };
 
 export interface AgentToolRegistry {
   list(): AgentTool[];
-  execute(name: string, input: Record<string, unknown>, context: ToolExecutionContext): Promise<JsonValue>;
+  get(name: string): AgentTool | undefined;
 }
 
 export interface ConversationStore {
-  create(studioSessionId: string): Promise<Conversation>;
+  create(studioSessionId: string, accessTokenHash?: string): Promise<Conversation>;
   get(id: string): Promise<Conversation | null>;
   save(conversation: Conversation): Promise<void>;
 }
