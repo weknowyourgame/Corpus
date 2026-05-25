@@ -13,6 +13,7 @@ import { AgentRuntime } from "./agent/runtime.ts";
 import { RobloxStudioMcpGateway } from "./agent/tools.ts";
 import { OpenCloudClient } from "./agent/open-cloud.ts";
 import { createDataStoreTools } from "./agent/datastore-tools.ts";
+import { createSubagentTool } from "./agent/subagent.ts";
 import { createModelDriverFactory } from "./agent/drivers.ts";
 import { createAgentRouter } from "./agent/routes.ts";
 
@@ -140,10 +141,30 @@ class CompositeToolRegistry {
 
 const combinedTools = new CompositeToolRegistry(agentTools, datastoreTools);
 
+// Subagent tool references combinedTools for read-only wrapping
+const subagentTool = createSubagentTool(combinedTools);
+
+class FinalToolRegistry {
+  constructor(base, extra) {
+    this._base = base;
+    this._extra = extra;
+  }
+
+  list() {
+    return [...this._base.list(), this._extra];
+  }
+
+  get(name) {
+    return this._base.get(name) ?? (name === this._extra.name ? this._extra : undefined);
+  }
+}
+
+const allTools = new FinalToolRegistry(combinedTools, subagentTool);
+
 const agentRuntime = new AgentRuntime(
   new MemoryConversationStore(),
-  createModelDriverFactory(combinedTools),
-  combinedTools,
+  createModelDriverFactory(allTools),
+  allTools,
 );
 app.use("/agent", createAgentRouter(agentRuntime));
 

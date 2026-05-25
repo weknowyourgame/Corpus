@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { PermissionPolicy } from "./policy.ts";
 import { parseAtMentions, resolveAtMentions, buildContextBlock } from "./context.ts";
+import { buildRagContext } from "./rag.ts";
 import { RobloxStudioMcpGateway } from "./tools.ts";
 import type {
   AgentAnswer,
@@ -164,18 +165,21 @@ export class AgentRuntime {
         run.iterations = iteration;
         await this.store.save(conversation);
 
-        // On first iteration: resolve @mentions and build context block (only when relay is available and user has @mentions)
+        // On first iteration: build context from @mentions + RAG retrieval
         if (iteration === 1) {
           const relay = this.tools instanceof RobloxStudioMcpGateway ? this.tools.getRelay() : undefined;
+          const lastUser = [...conversation.messages].reverse().find((m) => m.role === "user");
+          const userText = lastUser?.role === "user" ? lastUser.content : "";
+
+          // @mention resolution (requires relay)
+          let mentionBlock: string | undefined;
           if (relay) {
-            const lastUser = [...conversation.messages].reverse().find((m) => m.role === "user");
-            const userText = lastUser?.role === "user" ? lastUser.content : "";
             const mentionPaths = parseAtMentions(userText);
             const mentions: Array<{ path: string; summary: string }> = mentionPaths.length > 0
               ? await resolveAtMentions(mentionPaths, relay, conversation.studioSessionId, active.controller.signal).catch(() => [])
               : [];
             if (mentions.length > 0) {
-              contextBlock = buildContextBlock(true, [], mentions);
+              mentionBlock = buildContextBlock(true, [], mentions);
               await this.emitById(conversationId, runId, {
                 type: "context_snapshot",
                 studioConnected: true,
@@ -184,6 +188,12 @@ export class AgentRuntime {
               });
             }
           }
+
+          // RAG retrieval from script index + docs
+          const ragBlock = buildRagContext(userText, conversation.studioSessionId);
+
+          const parts = [mentionBlock, ragBlock].filter(Boolean);
+          if (parts.length) contextBlock = parts.join("\n\n");
         }
 
         const turn = await driver.generate({

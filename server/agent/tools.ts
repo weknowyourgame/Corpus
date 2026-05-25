@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createHash } from "node:crypto";
 import { ToolboxService, toolboxSearchSchema } from "./toolbox.ts";
 import { ScriptRevisionTracker } from "./conflict.ts";
+import { globalScriptIndexer } from "./retrieval.ts";
 import type {
   AgentQuestion,
   AgentTool,
@@ -206,6 +207,7 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
               ? String((result as Record<string, unknown>).source ?? "")
               : "";
             const revision = this.tracker.record(context.studioSessionId, parsed.path, src);
+            if (src) globalScriptIndexer.index(context.studioSessionId, parsed.path, src);
             return { ...result as Record<string, unknown>, revision } as JsonValue;
           },
         };
@@ -234,6 +236,7 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
             }
             const result = await this.relay(context.studioSessionId, item.endpoint, parsed, context.signal, context.operationId);
             this.tracker.record(context.studioSessionId, parsed.path, parsed.source);
+            globalScriptIndexer.index(context.studioSessionId, parsed.path, parsed.source);
             return { ...result as Record<string, unknown>, transactionId: context.operationId, undoWaypoint: "Stud: write_script" } as JsonValue;
           },
         };
@@ -264,7 +267,10 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
             }
             const result = await this.relay(context.studioSessionId, item.endpoint, parsed, context.signal, context.operationId);
             const afterSource = beforeSource !== undefined ? beforeSource.replace(parsed.oldCode, parsed.newCode) : undefined;
-            if (afterSource !== undefined) this.tracker.record(context.studioSessionId, parsed.path, afterSource);
+            if (afterSource !== undefined) {
+              this.tracker.record(context.studioSessionId, parsed.path, afterSource);
+              globalScriptIndexer.index(context.studioSessionId, parsed.path, afterSource);
+            }
             return {
               ...result as Record<string, unknown>,
               transactionId: context.operationId,

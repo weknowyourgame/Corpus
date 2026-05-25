@@ -10,7 +10,7 @@ Stud started as a React chat app talking directly to AI providers and a custom N
 
 It is now a server-owned agent system with streamed runs, cancellation, persisted conversations, MCP-shaped Studio tools, approval enforcement, plan mode, audit events, a safe Toolbox insertion path, script conflict detection, live context injection, rate limiting, and a server-only Open Cloud DataStore gateway.
 
-**Phases complete: 0–6 of 0–10** (7 of 11 planned phases).
+**Phases complete: 0–8 of 0–10** (9 of 11 planned phases).
 
 By product readiness: strong local foundation with safety architecture intact. Not yet production-ready — live Studio demo validation, real identity/security, and hosted hardening remain.
 
@@ -276,6 +276,92 @@ Write and delete tools fetch the current value first to show the before state in
 
 ---
 
+### Phase 7 — RAG Retrieval Pipeline ✅ (NEW)
+
+Core files:
+
+| File | Role |
+|---|---|
+| `server/agent/retrieval.ts` | `ScriptIndexer` — per-session in-memory script index with symbol extraction, run-side inference, scored retrieval |
+| `server/agent/docs.ts` | Static Roblox API doc chunks (12 topics) with keyword scoring for retrieval |
+| `server/agent/rag.ts` | `buildRagContext` — combines script index + docs into labeled `<roblox_retrieved_context>` block |
+
+#### Script indexer (`retrieval.ts`)
+
+`ScriptIndexer` maintains a per-session `Map<path, ScriptChunk>`. Each chunk stores: path, className, runSide (inferred from path/className), source, SHA-256 revision (12-char), extracted symbols (function defs + table keys), lastSeen timestamp.
+
+Retrieval scores: path match (3pts) > symbol match (2pts) > source content match (1pts). Returns top-N by score.
+
+Populated by the `mcp__roblox_studio__read_script` tool; updated after `write_script` and `edit_script` mutations.
+
+#### Docs retrieval (`docs.ts`)
+
+Static index of 12 Roblox API topics: RemoteEvent, RemoteFunction, Services, task library, ModuleScript, Instance hierarchy, RunService, Players, DataStore, Luau typing, CollectionService, TweenService. Keyword-scored retrieval returns top-N matching chunks.
+
+#### RAG context injection (`runtime.ts`)
+
+On first iteration of each run, `buildRagContext(userText, sessionId)` is called alongside @mention resolution. The combined context block (mentions + RAG) is injected as `systemContext` into the driver. Authority order: live project > official docs.
+
+#### System prompt update (`system-prompt.ts`)
+
+Compacted to ~1800 tokens covering: Roblox execution model, script types, networking rules, modern API guidance, security posture, tool safety model, Toolbox flow, DataStore guidance, retrieved context interpretation, and subagent usage.
+
+#### New tests
+
+| Test file | Coverage |
+|---|---|
+| `server/agent/retrieval.test.ts` | Path retrieval, symbol scoring priority, run-side inference, session isolation, mutation update, empty state, limit enforcement, symbol extraction — 8 tests |
+
+---
+
+### Phase 8 — Specialist Subagents ✅ (NEW)
+
+Core files:
+
+| File | Role |
+|---|---|
+| `server/agent/subagent.ts` | `ReadOnlyToolRegistry`, `SubagentRuntime`, `createSubagentTool`, specialist system prompts |
+
+#### Architecture
+
+`ReadOnlyToolRegistry` wraps the parent tool registry:
+- Passes through tools with `risk === "read"` unchanged
+- Blocks `roblox_spawn_subagent` by name to prevent recursion
+- Wraps all mutation tools (`low_mutation`, `destructive`, `runtime_code`, `external_asset`, `secret`) to return `{ denied: true, planProposal: true }` and record a `SubagentPlanProposal`
+
+`SubagentRuntime.run()`:
+1. Creates `ReadOnlyToolRegistry` from parent tools
+2. Creates a new `createModelDriverFactory(readOnlyRegistry)` — model only sees read tools
+3. Runs a bounded agent loop (max `maxIterations`, default 10)
+4. Returns `SubagentResult` with summary, findings (last 5), planProposals, iteration count, aborted flag
+
+The `roblox_spawn_subagent` tool is exposed to the parent agent with `risk: "read"` and `concurrency: "parallel_read"`.
+
+#### Four specialists
+
+| Specialist | Focus |
+|---|---|
+| `debugger` | Script errors, stack traces, root cause analysis |
+| `ui_specialist` | StarterGui, ScreenGui tree, UI scripts |
+| `combat_specialist` | Damage modules, weapons, combat remotes |
+| `network_specialist` | RemoteEvent security, trust boundaries, client validation |
+
+#### Mutation → plan proposal flow
+
+When a subagent model calls a mutation tool (e.g., `write_script`), the wrapped tool returns a denial and records `{ toolName, input, reason }`. The parent receives the full `SubagentResult` including all `planProposals`, and can then execute the proposed mutations through the normal approval flow.
+
+#### Integration (`server/index.js`)
+
+`createSubagentTool(combinedTools)` is called after `combinedTools` is built. A `FinalToolRegistry` combines `combinedTools + subagentTool`. The runtime and driver factory are created with `allTools`.
+
+#### New tests
+
+| Test file | Coverage |
+|---|---|
+| `server/agent/subagent.test.ts` | Read pass-through, mutation wrapping → proposal, recursion prevention, multi-proposal collection, immediate abort, budget field, type field per specialist — 8 tests |
+
+---
+
 ### Rate Limiting ✅ (NEW, delivered with Phase 5/6)
 
 | File | Role |
@@ -315,8 +401,8 @@ Token bucket refills at `rpm / 60` tokens per second. When a run hits the limit 
 |---|---|
 | `npx tsc --noEmit` (web) | ✅ passes |
 | `npx tsc -p tsconfig.server.json --noEmit` (server) | ✅ passes |
-| `vitest run` — 3 new test suites (22 tests) | ✅ all pass |
-| `vitest run` — 4 pre-existing suites (41 tests) | ✅ all pass |
+| `vitest run` — 5 new test suites (38 tests) | ✅ all pass |
+| `vitest run` — 7 pre-existing suites (41 tests) | ✅ all pass |
 | `npm run build` | ✅ passes (976 KB bundle — performance debt, not a blocker) |
 | Full live AI + Studio demo in real place | ❌ not yet validated |
 
@@ -328,8 +414,6 @@ Token bucket refills at `rpm / 60` tokens per second. When a run hits the limit 
 |---|---|
 | Live 0-4 closeout | Run the real Minecraft-style prompt through provider, approvals, Toolbox inspection, insertion, Studio result, and undo; update capability matrix with live outcomes |
 | Official MCP transport decision | Integrate Roblox built-in `StudioMCP --stdio` or deliberately retain plugin relay as supported transport |
-| Phase 7 | Project retrieval and official Roblox documentation lookup for grounded answers |
-| Phase 8 | Read-only specialist subagents with budgets and parent-owned mutations |
 | Phase 9 | Playtest, logs, observe/fix verification loop |
 | Phase 10 | Authentication, projects/orgs, durable database/workers, expiring plugin pairing, hosted relay security, audit retention, beta readiness |
 
@@ -339,7 +423,7 @@ Token bucket refills at `rpm / 60` tokens per second. When a run hits the limit 
 
 | View | Assessment |
 |---|---|
-| Roadmap count | Phases 0–6 of 0–10 implemented — past the halfway mark |
+| Roadmap count | Phases 0–8 of 0–10 implemented — near the finish line |
 | Product readiness | Strong local foundation; safety architecture is the differentiating achievement; not production-ready because live Studio validation, real identity/security, and hosted hardening remain |
 
 The major achievement: the risky center of the product is no longer a browser calling powerful Roblox mutations. The app now has a server authority layer, typed events, controlled Studio tools, conflict-aware script editing, live context injection, rate limiting, DataStore via server-only credentials, approvals, plan-mode restrictions, audits, and safe asset insertion.
