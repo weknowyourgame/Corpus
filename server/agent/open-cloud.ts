@@ -5,7 +5,7 @@ export const REDACT_SIZE = 500;
 export type Environment = "development" | "staging" | "production";
 
 const SENSITIVE_KEY = /^(?:password|passwd|secret|token|api[_-]?key|authorization|auth|access[_-]?token|refresh[_-]?token|private[_-]?key|cookie|session|cvv|cardnumber|card[_-]?number|ssn|email)$/i;
-const TOKEN_LIKE = /\b(?:eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{6,}|sk-[A-Za-z0-9_-]{20,}|rbx[A-Za-z0-9_-]{20,}|[A-Za-z0-9_-]{40,})\b/g;
+const TOKEN_LIKE = /\b(?:eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{6,}|sk-[A-Za-z0-9_-]{20,}|rbx[A-Za-z0-9_-]{20,}|(?=[A-Za-z0-9_-]{40,}\b)(?=[A-Za-z0-9_-]*[A-Za-z])(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{40,})\b/g;
 const EMAIL_LIKE = /\b[\w._%+-]+@[\w.-]+\.[A-Za-z]{2,}\b/g;
 
 function redactPatterns(value: string): string {

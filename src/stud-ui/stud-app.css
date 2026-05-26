@@ -625,6 +625,7 @@
 
 .stud-icon-btn {
   display: inline-flex;
+  min-width: 34px;
   width: 34px;
   height: 34px;
   align-items: center;
