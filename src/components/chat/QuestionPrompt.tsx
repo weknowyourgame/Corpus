@@ -2,8 +2,12 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { Check, HelpCircle } from "lucide-react";
+import { Check, HelpCircle, BadgeCheck, FileCode, Loader2, RefreshCw, ImageOff } from "lucide-react";
 import type { Question, QuestionOption } from "@/stores/chat";
+
+const META_LOAD_MORE = "__load_more__";
+const META_SEARCH_AGAIN = "__search_again__";
+const isMetaOption = (value?: string) => value === META_LOAD_MORE || value === META_SEARCH_AGAIN;
 
 interface QuestionPromptProps {
   questions: Question[];
@@ -95,51 +99,73 @@ export function QuestionPrompt({ questions, onSubmit, disabled = false }: Questi
 
             {/* Single choice with images - grid layout */}
             {q.type === "single" && q.options && hasImageOptions(q.options) && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[400px] overflow-y-auto p-1">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[480px] overflow-y-auto p-1" data-testid="thumb-grid">
                 {q.options.map((opt) => {
                   const normalized = normalizeOption(opt);
                   const isSelected = answers[qIndex] === normalized.value;
+                  const verified = normalized.description?.includes("(verified)");
+                  const hasScripts = normalized.description?.includes("contains scripts");
+                  const meta = isMetaOption(normalized.value);
                   return (
                     <button
                       key={normalized.value}
                       className={cn(
-                        "relative flex flex-col rounded-lg border-2 overflow-hidden transition-all",
+                        "relative flex flex-col rounded-lg border-2 overflow-hidden transition-all text-left",
                         "hover:border-primary/50 hover:shadow-md",
-                        isSelected
-                          ? "border-primary ring-2 ring-primary/20"
-                          : "border-border"
+                        isSelected ? "border-primary ring-2 ring-primary/20" : "border-border",
+                        meta && "bg-amber-50/40"
                       )}
+                      data-testid={meta ? `meta-${normalized.value}` : `asset-${normalized.value}`}
                       onClick={() => updateAnswer(qIndex, normalized.value!)}
                       disabled={disabled}
                     >
-                      {/* Thumbnail */}
-                      {normalized.imageUrl ? (
-                        <div className="aspect-square bg-muted relative">
+                      <div className="aspect-square bg-muted relative flex items-center justify-center">
+                        {normalized.imageUrl ? (
                           <img
                             src={normalized.imageUrl}
                             alt={normalized.label}
                             className="w-full h-full object-cover"
                             loading="lazy"
+                            onError={(event) => {
+                              const target = event.currentTarget;
+                              target.style.display = "none";
+                              const sibling = target.nextElementSibling as HTMLElement | null;
+                              if (sibling) sibling.style.display = "flex";
+                            }}
                           />
-                          {isSelected && (
-                            <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1">
-                              <Check className="w-3 h-3" />
-                            </div>
+                        ) : null}
+                        <div
+                          className="w-full h-full flex flex-col items-center justify-center gap-1 text-muted-foreground"
+                          style={{ display: normalized.imageUrl ? "none" : "flex" }}
+                        >
+                          {normalized.value === META_LOAD_MORE ? (
+                            <Loader2 className="w-7 h-7" />
+                          ) : normalized.value === META_SEARCH_AGAIN ? (
+                            <RefreshCw className="w-7 h-7" />
+                          ) : (
+                            <>
+                              <ImageOff className="w-6 h-6" />
+                              <span className="text-[10px]">No preview</span>
+                            </>
                           )}
                         </div>
-                      ) : (
-                        <div className="aspect-square bg-muted flex items-center justify-center">
-                          <span className="text-2xl">📦</span>
-                          {isSelected && (
-                            <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1">
-                              <Check className="w-3 h-3" />
-                            </div>
-                          )}
+                        {hasScripts && (
+                          <div className="absolute top-2 left-2 bg-amber-500 text-white rounded-full px-1.5 py-0.5 text-[9px] font-medium flex items-center gap-0.5" title="Asset contains scripts">
+                            <FileCode className="w-2.5 h-2.5" />
+                            scripts
+                          </div>
+                        )}
+                        {isSelected && (
+                          <div className="absolute top-2 right-2 bg-primary text-primary-foreground rounded-full p-1">
+                            <Check className="w-3 h-3" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-2">
+                        <div className="flex items-center gap-1">
+                          <p className="text-xs font-medium truncate flex-1">{normalized.label}</p>
+                          {verified && <BadgeCheck className="w-3 h-3 text-blue-500 shrink-0" />}
                         </div>
-                      )}
-                      {/* Label */}
-                      <div className="p-2 text-left">
-                        <p className="text-xs font-medium truncate">{normalized.label}</p>
                         {normalized.description && (
                           <p className="text-[10px] text-muted-foreground truncate">
                             {normalized.description}

@@ -3,6 +3,7 @@ import { PermissionPolicy } from "./policy.ts";
 import { parseAtMentions, resolveAtMentions, buildContextBlock } from "./context.ts";
 import { buildRagContext } from "./rag.ts";
 import { RobloxStudioMcpGateway } from "./tools.ts";
+import { executeBatches } from "./scheduler.ts";
 import type {
   AgentAnswer,
   AgentEvent,
@@ -10,13 +11,18 @@ import type {
   AgentQuestion,
   AgentRun,
   AgentTool,
+  AgentToolCall,
   AgentToolRegistry,
   ApprovalDecision,
+  ApprovedPlan,
   AuditEvent,
   Conversation,
   ConversationStore,
   JsonValue,
   ModelDriverFactory,
+  PendingApprovalRecord,
+  PendingInteractionRecord,
+  ProposedPlan,
   StartRunInput,
   ToolExecutionContext,
   ToolRisk,
@@ -33,6 +39,7 @@ type ActiveRun = {
   controller: AbortController;
   interactions: Map<string, Pending<AgentAnswer[]>>;
   approvals: Map<string, Pending<ApprovalDecision> & { risk: ToolRisk; allowStripScripts: boolean }>;
+  proposedPlan?: ProposedPlan;
 };
 
 type Listener = (event: AgentEvent) => void;
@@ -48,6 +55,18 @@ export class AgentRuntime {
     private readonly maxIterations = 50,
     private readonly policy = new PermissionPolicy(),
   ) {}
+
+  /**
+   * Should be called once on process bootstrap. Cancels any "running" runs
+   * left behind by a previous process and clears their pending approvals /
+   * interactions so reconnected clients see consistent state.
+   */
+  async recoverFromCrash() {
+    if (typeof this.store.recoverFromCrash === "function") {
+      return this.store.recoverFromCrash();
+    }
+    return [];
+  }
 
   createConversation(studioSessionId: string, accessTokenHash?: string) {
     return this.store.create(studioSessionId, accessTokenHash);
@@ -78,6 +97,8 @@ export class AgentRuntime {
       mode: run.mode,
       message: input.message,
     }));
+    await this.store.save(conversation);
+
     const active: ActiveRun = {
       controller: new AbortController(),
       interactions: new Map(),
@@ -115,7 +136,12 @@ export class AgentRuntime {
     const interaction = active?.interactions.get(interactionId);
     if (!interaction) return false;
     active?.interactions.delete(interactionId);
-    await this.emitById(conversationId, runId, { type: "interaction_resolved", interactionId });
+    const conversation = await this.requiredConversation(conversationId);
+    conversation.pendingInteractions = (conversation.pendingInteractions ?? []).filter(
+      (record) => record.interactionId !== interactionId,
+    );
+    await this.store.save(conversation);
+    await this.emit(conversation, runId, { type: "interaction_resolved", interactionId });
     interaction.resolve(answers);
     return true;
   }
@@ -131,10 +157,51 @@ export class AgentRuntime {
       ...this.audit(runId, "approval_decision", "user", `User selected ${decision}.`, { approvalId }),
       decision,
     });
+    conversation.pendingApprovals = (conversation.pendingApprovals ?? []).filter(
+      (record) => record.approvalId !== approvalId,
+    );
     await this.store.save(conversation);
     active?.approvals.delete(approvalId);
-    await this.emitById(conversationId, runId, { type: "approval_resolved", approvalId, decision });
+    await this.emit(conversation, runId, { type: "approval_resolved", approvalId, decision });
     approval.resolve(decision);
+    return true;
+  }
+
+  /**
+   * Promote the most recently submitted plan to an approved plan. The plan
+   * is identified by id so the UI cannot race-approve an older plan.
+   */
+  async approvePlan(conversationId: string, planId: string) {
+    const conversation = await this.requiredConversation(conversationId);
+    if (!conversation.proposedPlan || conversation.proposedPlan.planId !== planId) return false;
+    const approved: ApprovedPlan = {
+      planId: conversation.proposedPlan.planId,
+      steps: conversation.proposedPlan.steps,
+      summary: conversation.proposedPlan.summary,
+      approvedAt: now(),
+      consumedStepIndices: [],
+    };
+    conversation.approvedPlan = approved;
+    conversation.proposedPlan = undefined;
+    conversation.auditEvents.push({
+      ...this.audit("system", "plan_decision", "user", `User approved plan ${planId}.`, { planId }),
+      decision: "allow_scope",
+    });
+    await this.store.save(conversation);
+    await this.emit(conversation, "system", { type: "plan_approved", planId, steps: approved.steps });
+    return true;
+  }
+
+  async rejectPlan(conversationId: string, planId: string) {
+    const conversation = await this.requiredConversation(conversationId);
+    if (!conversation.proposedPlan || conversation.proposedPlan.planId !== planId) return false;
+    conversation.proposedPlan = undefined;
+    conversation.auditEvents.push({
+      ...this.audit("system", "plan_decision", "user", `User rejected plan ${planId}.`, { planId }),
+      decision: "deny",
+    });
+    await this.store.save(conversation);
+    await this.emit(conversation, "system", { type: "plan_rejected", planId });
     return true;
   }
 
@@ -171,7 +238,6 @@ export class AgentRuntime {
           const lastUser = [...conversation.messages].reverse().find((m) => m.role === "user");
           const userText = lastUser?.role === "user" ? lastUser.content : "";
 
-          // @mention resolution (requires relay)
           let mentionBlock: string | undefined;
           if (relay) {
             const mentionPaths = parseAtMentions(userText);
@@ -189,9 +255,7 @@ export class AgentRuntime {
             }
           }
 
-          // RAG retrieval from script index + docs
           const ragBlock = buildRagContext(userText, conversation.studioSessionId);
-
           const parts = [mentionBlock, ragBlock].filter(Boolean);
           if (parts.length) contextBlock = parts.join("\n\n");
         }
@@ -208,52 +272,36 @@ export class AgentRuntime {
         this.throwIfAborted(active.controller.signal);
 
         const next = await this.requiredConversation(conversationId);
-        next.messages.push({ role: "assistant", content: turn.text, toolCalls: turn.toolCalls });
+        const safeToolCalls = turn.toolCalls.map((call) => ({
+          ...call,
+          input: this.observableInput(call.name, call.input),
+        }));
+        next.messages.push({ role: "assistant", content: turn.text, toolCalls: safeToolCalls });
         await this.store.save(next);
         if (!turn.toolCalls.length) {
           const finished = this.requiredRun(next, runId);
           finished.status = "completed";
           finished.completedAt = now();
+          await this.store.save(next);
           if (finished.mode === "plan") {
             next.auditEvents.push(this.audit(runId, "plan_proposed", "model", "Read-only plan proposed.", { text: fullText }));
+            await this.store.save(next);
             await this.emit(next, runId, { type: "plan_proposed", text: fullText });
+            const captured = active.proposedPlan ?? next.proposedPlan;
+            if (captured) {
+              await this.emit(next, runId, {
+                type: "plan_steps_proposed",
+                planId: captured.planId,
+                steps: captured.steps,
+                summary: captured.summary,
+              });
+            }
           }
           await this.emit(next, runId, { type: "run_completed", text: fullText, iterations: iteration });
           return;
         }
 
-        for (const call of turn.toolCalls) {
-          this.throwIfAborted(active.controller.signal);
-          await this.emitById(conversationId, runId, {
-            type: "tool_call",
-            toolCallId: call.id,
-            toolName: call.name,
-            input: call.input,
-          });
-          const output = await this.handleToolCall(conversationId, runId, call.id, call.name, call.input, active);
-          const withResult = await this.requiredConversation(conversationId);
-          withResult.messages.push({ role: "tool", toolCallId: call.id, toolName: call.name, output });
-          await this.emit(withResult, runId, { type: "tool_result", toolCallId: call.id, toolName: call.name, output });
-
-          // Emit mutation_result if the output has script diff info
-          if (typeof output === "object" && output !== null && !Array.isArray(output)) {
-            const out = output as Record<string, unknown>;
-            const hasDiff = "beforeSource" in out || "afterSource" in out || "before" in out || "after" in out;
-            const hasTransaction = "transactionId" in out;
-            if (hasDiff || hasTransaction) {
-              const p = typeof call.input.path === "string" ? call.input.path : "";
-              await this.emitById(conversationId, runId, {
-                type: "mutation_result",
-                transactionId: typeof out.transactionId === "string" ? out.transactionId : call.id,
-                toolName: call.name,
-                path: p,
-                before: typeof out.beforeSource === "string" ? out.beforeSource : typeof out.before === "string" ? out.before : undefined,
-                after: typeof out.afterSource === "string" ? out.afterSource : typeof out.after === "string" ? out.after : undefined,
-                undoWaypoint: typeof out.undoWaypoint === "string" ? out.undoWaypoint : undefined,
-              });
-            }
-          }
-        }
+        await this.runToolBatch(conversationId, runId, turn.toolCalls, active);
       }
 
       const conversation = await this.requiredConversation(conversationId);
@@ -261,6 +309,7 @@ export class AgentRuntime {
       run.status = "error";
       run.error = `Reached maximum tool iterations (${this.maxIterations})`;
       run.completedAt = now();
+      await this.store.save(conversation);
       await this.emit(conversation, runId, { type: "run_error", error: run.error });
     } catch (error) {
       const conversation = await this.requiredConversation(conversationId);
@@ -269,12 +318,90 @@ export class AgentRuntime {
       run.status = cancelled ? "cancelled" : "error";
       run.completedAt = now();
       if (cancelled) {
+        conversation.pendingApprovals = (conversation.pendingApprovals ?? []).filter(
+          (record) => record.runId !== runId,
+        );
+        conversation.pendingInteractions = (conversation.pendingInteractions ?? []).filter(
+          (record) => record.runId !== runId,
+        );
+      }
+      await this.store.save(conversation);
+      if (cancelled) {
         await this.emit(conversation, runId, { type: "run_cancelled", reason: "Cancelled by user" });
         return;
       }
       run.error = error instanceof Error ? error.message : String(error);
+      await this.store.save(conversation);
       await this.emit(conversation, runId, { type: "run_error", error: run.error });
     }
+  }
+
+  private async runToolBatch(
+    conversationId: string,
+    runId: string,
+    calls: AgentToolCall[],
+    active: ActiveRun,
+  ) {
+    for (const call of calls) {
+      const observableInput = this.observableInput(call.name, call.input);
+      await this.emitById(conversationId, runId, {
+        type: "tool_call",
+        toolCallId: call.id,
+        toolName: call.name,
+        input: observableInput,
+      });
+    }
+
+    const outcomes = await executeBatches(
+      calls,
+      this.tools,
+      (call) => this.handleToolCall(conversationId, runId, call.id, call.name, call.input, active),
+      active.controller.signal,
+    );
+
+    for (const outcome of outcomes) {
+      const next = await this.requiredConversation(conversationId);
+      next.messages.push({
+        role: "tool",
+        toolCallId: outcome.toolCallId,
+        toolName: outcome.toolName,
+        output: outcome.output,
+      });
+      await this.store.save(next);
+      await this.emit(next, runId, {
+        type: "tool_result",
+        toolCallId: outcome.toolCallId,
+        toolName: outcome.toolName,
+        output: outcome.output,
+      });
+      await this.maybeEmitMutationResult(conversationId, runId, outcome.toolCallId, outcome.toolName, calls, outcome.output);
+    }
+  }
+
+  private async maybeEmitMutationResult(
+    conversationId: string,
+    runId: string,
+    toolCallId: string,
+    toolName: string,
+    calls: AgentToolCall[],
+    output: JsonValue,
+  ) {
+    if (typeof output !== "object" || output === null || Array.isArray(output)) return;
+    const out = output as Record<string, unknown>;
+    const hasDiff = "beforeSource" in out || "afterSource" in out || "before" in out || "after" in out;
+    const hasTransaction = "transactionId" in out;
+    if (!hasDiff && !hasTransaction) return;
+    const call = calls.find((item) => item.id === toolCallId);
+    const p = typeof call?.input.path === "string" ? call.input.path : "";
+    await this.emitById(conversationId, runId, {
+      type: "mutation_result",
+      transactionId: typeof out.transactionId === "string" ? out.transactionId : toolCallId,
+      toolName,
+      path: p,
+      before: typeof out.beforeSource === "string" ? out.beforeSource : typeof out.before === "string" ? out.before : undefined,
+      after: typeof out.afterSource === "string" ? out.afterSource : typeof out.after === "string" ? out.after : undefined,
+      undoWaypoint: typeof out.undoWaypoint === "string" ? out.undoWaypoint : undefined,
+    });
   }
 
   private async handleToolCall(
@@ -284,20 +411,24 @@ export class AgentRuntime {
     toolName: string,
     input: Record<string, unknown>,
     active: ActiveRun,
-  ) {
+  ): Promise<JsonValue> {
     const tool = this.tools.get(toolName);
     if (!tool) return { denied: true, reason: `Unknown tool: ${toolName}` };
     const conversation = await this.requiredConversation(conversationId);
     const run = this.requiredRun(conversation, runId);
     const assessment = this.policy.assess(tool, input, conversation, run);
+    const safeInput = this.observableInput(toolName, input);
     conversation.auditEvents.push({
-      ...this.audit(runId, "tool_requested", "model", assessment.summary, asJson(input)),
+      ...this.audit(runId, "tool_requested", "model", assessment.summary, asJson(safeInput)),
       toolCallId,
       toolName,
       risk: tool.risk,
     });
     conversation.auditEvents.push({
-      ...this.audit(runId, "policy_decision", "policy", assessment.reason, { scope: assessment.scope }),
+      ...this.audit(runId, "policy_decision", "policy", assessment.reason, {
+        scope: assessment.scope,
+        planStepIndex: assessment.planStepIndex ?? null,
+      }),
       toolCallId,
       toolName,
       risk: tool.risk,
@@ -358,6 +489,14 @@ export class AgentRuntime {
 
     const output = await tool.execute(executionInput, context);
     const current = await this.requiredConversation(conversationId);
+    if (assessment.planStepIndex !== undefined && current.approvedPlan) {
+      if (!current.approvedPlan.consumedStepIndices.includes(assessment.planStepIndex)) {
+        current.approvedPlan.consumedStepIndices.push(assessment.planStepIndex);
+      }
+      if (current.approvedPlan.consumedStepIndices.length >= current.approvedPlan.steps.length) {
+        current.approvedPlan = undefined;
+      }
+    }
     current.auditEvents.push({
       ...this.audit(runId, "tool_outcome", "tool", `${tool.name} returned a result.`, output),
       toolCallId,
@@ -376,6 +515,26 @@ export class AgentRuntime {
       studioSessionId: conversation.studioSessionId,
       signal: active.controller.signal,
       requestInteraction: (questions) => this.requestInteraction(conversation.id, runId, questions),
+      setProposedPlan: async (plan) => {
+        const current = await this.requiredConversation(conversation.id);
+        current.proposedPlan = plan;
+        current.auditEvents.push(this.audit(runId, "plan_submitted", "model", "Structured plan submitted.", {
+          planId: plan.planId,
+          stepCount: plan.steps.length,
+        }));
+        await this.store.save(current);
+        active.proposedPlan = plan;
+      },
+      emitSubagentProgress: async (progress) => {
+        await this.emitById(conversation.id, runId, {
+          type: "subagent_progress",
+          subagentId: progress.subagentId,
+          subagentType: progress.subagentType,
+          kind: progress.kind,
+          message: progress.message,
+          iteration: progress.iteration,
+        });
+      },
     };
   }
 
@@ -383,11 +542,20 @@ export class AgentRuntime {
     const active = this.active.get(runId);
     if (!active) throw new Error("Run is no longer active");
     const interactionId = randomUUID();
+    const conversation = await this.requiredConversation(conversationId);
+    const record: PendingInteractionRecord = {
+      interactionId,
+      runId,
+      questions,
+      createdAt: now(),
+    };
+    conversation.pendingInteractions = [...(conversation.pendingInteractions ?? []), record];
+    await this.store.save(conversation);
     const answer = new Promise<AgentAnswer[]>((resolve, reject) => {
       active.interactions.set(interactionId, { resolve, reject });
       active.controller.signal.addEventListener("abort", () => reject(new Error("Cancelled by user")), { once: true });
     });
-    await this.emitById(conversationId, runId, { type: "interaction_requested", interactionId, questions });
+    await this.emit(conversation, runId, { type: "interaction_requested", interactionId, questions });
     return answer;
   }
 
@@ -407,23 +575,55 @@ export class AgentRuntime {
     const hasScripts = typeof preview === "object" && preview !== null && !Array.isArray(preview)
       && Number(preview.scriptCount ?? 0) > 0;
     const allowStripScripts = tool.risk === "external_asset" && hasScripts;
+    const previewElevated = typeof preview === "object" && preview !== null && !Array.isArray(preview)
+      && Boolean((preview as Record<string, unknown>).elevated);
+    const elevated = Boolean(tool.isElevated?.(input)) || previewElevated;
+    const safeInput = this.observableInput(tool.name, input);
+    const conversation = await this.requiredConversation(conversationId);
+    const record: PendingApprovalRecord = {
+      approvalId,
+      runId,
+      toolCallId,
+      toolName: tool.name,
+      input: safeInput,
+      summary,
+      scope,
+      risk: tool.risk as Exclude<ToolRisk, "read">,
+      preview,
+      allowStripScripts,
+      elevated,
+      createdAt: now(),
+    };
+    conversation.pendingApprovals = [...(conversation.pendingApprovals ?? []), record];
+    await this.store.save(conversation);
     const response = new Promise<ApprovalDecision>((resolve, reject) => {
       active.approvals.set(approvalId, { resolve, reject, risk: tool.risk, allowStripScripts });
       active.controller.signal.addEventListener("abort", () => reject(new Error("Cancelled by user")), { once: true });
     });
-    await this.emitById(conversationId, runId, {
+    await this.emit(conversation, runId, {
       type: "approval_pending",
       approvalId,
       toolCallId,
       toolName: tool.name,
-      input,
+      input: safeInput,
       summary,
       scope,
-      risk: tool.risk,
+      risk: tool.risk as Exclude<ToolRisk, "read">,
       preview,
       allowStripScripts,
+      elevated,
     });
     return { approvalId, decision: await response };
+  }
+
+  private observableInput(toolName: string, input: Record<string, unknown>): Record<string, unknown> {
+    const tool = this.tools.get(toolName);
+    if (!tool?.redactInput) return input;
+    try {
+      return tool.redactInput(input);
+    } catch {
+      return input;
+    }
   }
 
   private audit(
@@ -455,7 +655,17 @@ export class AgentRuntime {
     } as AgentEvent;
     conversation.nextSequence += 1;
     conversation.events.push(event);
-    await this.store.save(conversation);
+    // Hot path: text deltas go to the append-only event log without
+    // rewriting the snapshot. Everything else triggers a full save so the
+    // snapshot stays in sync.
+    if (typeof this.store.appendEvent === "function") {
+      await this.store.appendEvent(conversation.id, event);
+      if (data.type !== "text_delta") {
+        await this.store.save(conversation);
+      }
+    } else {
+      await this.store.save(conversation);
+    }
     this.log(event);
     for (const listener of this.listeners.get(conversation.id) ?? []) listener(event);
   }
@@ -481,6 +691,8 @@ export class AgentRuntime {
     if (!conversation) throw new Error(`Unknown conversation: ${id}`);
     conversation.approvedScopes ??= [];
     conversation.auditEvents ??= [];
+    conversation.pendingApprovals ??= [];
+    conversation.pendingInteractions ??= [];
     for (const run of conversation.runs) run.mode ??= "execute";
     return conversation;
   }

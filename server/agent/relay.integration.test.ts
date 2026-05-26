@@ -24,7 +24,12 @@ describe("Studio relay operation delivery", () => {
     const base = `http://127.0.0.1:${port}`;
     server = spawn(process.execPath, ["--import", "tsx", "server/index.js"], {
       cwd: process.cwd(),
-      env: { ...process.env, PORT: String(port), STUD_INTERNAL_RELAY_TOKEN: "test-relay-token" },
+      env: {
+        ...process.env,
+        PORT: String(port),
+        STUD_INTERNAL_RELAY_TOKEN: "test-relay-token",
+        STUD_STUDIO_TRANSPORT: "plugin",
+      },
       stdio: "ignore",
     });
     await waitFor(async () => (await fetch(`${base}/health`)).ok ? true : undefined);

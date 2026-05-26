@@ -4,12 +4,13 @@
 
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { isStudioConnected, isBridgeRunning } from "@/lib/roblox/client";
+import { isStudioConnected, isBridgeRunning, getStudioStatus } from "@/lib/roblox/client";
 import { Loader } from "@/components/ui/loader";
 import { CheckCircle2, XCircle, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type ConnectionState = "connected" | "disconnected" | "bridge-only" | "checking";
+type TransportMode = "official_mcp" | "plugin_fallback" | "unknown";
 
 interface ConnectionStatusProps {
   className?: string;
@@ -23,6 +24,7 @@ export function ConnectionStatus({
   showRefresh = false,
 }: ConnectionStatusProps) {
   const [state, setState] = useState<ConnectionState>("checking");
+  const [transport, setTransport] = useState<TransportMode>("unknown");
   const [checking, setChecking] = useState(false);
 
   const checkConnection = async () => {
@@ -31,13 +33,22 @@ export function ConnectionStatus({
       const bridgeUp = await isBridgeRunning();
       if (!bridgeUp) {
         setState("disconnected");
+        setTransport("unknown");
         return;
       }
 
-      const studioUp = await isStudioConnected();
-      setState(studioUp ? "connected" : "bridge-only");
+      const status = await getStudioStatus();
+      if (status) {
+        setState(status.connected ? "connected" : "bridge-only");
+        setTransport(status.effectiveTransport);
+      } else {
+        const studioUp = await isStudioConnected();
+        setState(studioUp ? "connected" : "bridge-only");
+        setTransport("unknown");
+      }
     } catch {
       setState("disconnected");
+      setTransport("unknown");
     } finally {
       setChecking(false);
     }
@@ -82,6 +93,19 @@ export function ConnectionStatus({
 
   const current = config[state];
 
+  const transportLabel =
+    transport === "official_mcp"
+      ? "official MCP"
+      : transport === "plugin_fallback"
+        ? "plugin fallback"
+        : null;
+  const transportTitle =
+    transport === "official_mcp"
+      ? "Studio is connected through Roblox's built-in StudioMCP server (--stdio)"
+      : transport === "plugin_fallback"
+        ? "Studio is connected through the stud-bridge polling plugin (compatibility fallback)"
+        : "Transport not yet determined";
+
   return (
     <div
       className={cn(
@@ -116,6 +140,14 @@ export function ConnectionStatus({
 
         {showLabel && <span>{current.label}</span>}
       </div>
+      {showLabel && state === "connected" && transportLabel && (
+        <span
+          className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded border border-muted text-muted-foreground"
+          title={transportTitle}
+        >
+          {transportLabel}
+        </span>
+      )}
 
       {showRefresh && (
         <Button

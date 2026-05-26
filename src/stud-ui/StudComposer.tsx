@@ -36,6 +36,7 @@ export function StudComposer({
         onValueChange={onValueChange}
         onSubmit={onSubmit}
         isLoading={isLoading}
+        maxHeight={160}
         className={cn("border-0 shadow-none bg-transparent rounded-none", isImproving && "relative stud-shimmer")}
       >
         <div className="stud-composer-inner">

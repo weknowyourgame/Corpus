@@ -64,8 +64,9 @@ export function ModelSelector({ className, disabled, serverProviders }: ModelSel
   const getShortName = () => {
     const all = [...codexModels, ...claudeModels, ...openrouterModels];
     const found = all.find((m) => m.id === selectedModel);
-    if (found) return found.name.split(" ").slice(-1)[0] || found.name;
-    return selectedModel.split("/").pop()?.split("-").slice(-1)[0] ?? selectedModel;
+    if (found) return found.name;
+    if (selectedProvider === "openrouter" && selectedModel === "anthropic/claude-sonnet-4") return "Claude Sonnet 4";
+    return selectedModel;
   };
 
   const allModels = useMemo(() => {
@@ -176,28 +177,29 @@ export function ModelSelector({ className, disabled, serverProviders }: ModelSel
         <Button
           variant="outline"
           size="sm"
-          className={cn("gap-1.5 px-2 h-8 text-xs", className)}
+          className={cn("stud-model-trigger gap-1.5 px-2.5 h-9 text-xs", className)}
+          aria-label={`Choose model. Current model: ${getShortName()}`}
         >
           <ProviderIcon id={providerIconId()} size="xs" />
-          <span className="font-medium max-w-[72px] truncate">{getShortName()}</span>
+          <span className="font-medium max-w-[148px] truncate">{getShortName()}</span>
           <ChevronDown className="w-3 h-3 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="stud-popover w-72 p-0" onOpenAutoFocus={(e) => e.preventDefault()}>
-        <div className="p-2 border-b">
+      <PopoverContent align="end" className="stud-popover stud-model-popover w-80 p-0" onOpenAutoFocus={(e) => e.preventDefault()}>
+        <div className="stud-model-search p-2">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
             <Input
               placeholder="Search models..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-8 pl-8 text-sm rounded-lg"
+              className="stud-model-input h-9 pl-8 text-sm rounded-lg"
               autoFocus
             />
           </div>
         </div>
 
-        <div className="max-h-[320px] overflow-y-auto p-1">
+        <div className="stud-model-list max-h-[340px] overflow-y-auto p-1.5">
           {loading && (
             <div className="flex items-center justify-center py-4">
               <Loader variant="circular" size="sm" />
@@ -220,6 +222,7 @@ export function ModelSelector({ className, disabled, serverProviders }: ModelSel
                   model={model}
                   isSelected={selectedModel === model.id && selectedProvider === "codex"}
                   onClick={() => handleSelect(model.id, "codex")}
+                  disabled={model.disabled}
                 />
               ))}
             </ModelGroup>
@@ -233,6 +236,7 @@ export function ModelSelector({ className, disabled, serverProviders }: ModelSel
                   model={model}
                   isSelected={selectedModel === model.id && selectedProvider === "codex"}
                   onClick={() => handleSelect(model.id, "codex")}
+                  disabled={model.disabled}
                 />
               ))}
             </ModelGroup>
@@ -260,6 +264,7 @@ export function ModelSelector({ className, disabled, serverProviders }: ModelSel
                   model={model}
                   isSelected={selectedModel === model.id && selectedProvider === "openrouter"}
                   onClick={() => handleSelect(model.id, "openrouter")}
+                  disabled={model.disabled}
                 />
               ))}
             </ModelGroup>
@@ -281,7 +286,7 @@ function ModelGroup({
 }) {
   return (
     <div className="mb-1">
-      <div className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+      <div className="stud-model-group flex items-center gap-1.5 px-2 py-1.5 text-[10px] font-medium uppercase tracking-wider">
         {icon}
         {label}
       </div>
@@ -306,11 +311,11 @@ function ModelRow({
       type="button"
       onClick={onClick}
       disabled={disabled}
+      data-selected={isSelected}
       className={cn(
-        "w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-colors",
-        "hover:bg-accent focus:bg-accent focus:outline-none",
-        isSelected && "bg-accent",
-        disabled && "opacity-40 cursor-not-allowed hover:bg-transparent"
+        "stud-model-row w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-colors",
+        isSelected && "is-selected",
+        disabled && "is-disabled"
       )}
     >
       <div className="flex-1 min-w-0">

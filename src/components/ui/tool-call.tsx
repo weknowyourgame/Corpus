@@ -1,13 +1,13 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { Loader } from "./loader";
-import { ChevronDown, ChevronRight, Check, X, Wrench, HelpCircle } from "lucide-react";
+import { ChevronDown, ChevronRight, Check, X, Wrench, HelpCircle, ShieldX } from "lucide-react";
 
 export interface ToolCallProps {
   name: string;
   input?: Record<string, unknown>;
   output?: unknown;
-  status: "pending" | "running" | "complete" | "error" | "waiting";
+  status: "pending" | "running" | "complete" | "error" | "denied" | "waiting";
   error?: string;
   className?: string;
 }
@@ -15,6 +15,7 @@ export interface ToolCallProps {
 // Pretty print tool name (e.g., roblox_get_script -> Get Script)
 function formatToolName(name: string): string {
   return name
+    .replace(/^mcp__roblox_studio__/, "")
     .replace(/^roblox_/, "")
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -52,19 +53,25 @@ export function ToolCall({
     },
     complete: {
       icon: <Check className="w-4 h-4" />,
-      label: "Complete",
+      label: "Succeeded",
       color: "text-green-600",
-      bgColor: "bg-green-50",
+      bgColor: "stud-tool-success",
     },
     error: {
       icon: <X className="w-4 h-4" />,
-      label: "Error",
+      label: "Failed",
       color: "text-red-600",
-      bgColor: "bg-red-50",
+      bgColor: "stud-tool-error",
+    },
+    denied: {
+      icon: <ShieldX className="w-4 h-4" />,
+      label: "Denied",
+      color: "text-amber-700",
+      bgColor: "stud-tool-denied",
     },
   };
 
-  const { icon, color, bgColor } = statusConfig[status];
+  const { icon, color, bgColor, label } = statusConfig[status];
 
   return (
     <div
@@ -101,6 +108,7 @@ export function ToolCall({
         {/* Status indicator */}
         <span className={cn("flex items-center gap-1.5", color)}>
           {icon}
+          <span className="text-xs">{label}</span>
         </span>
       </button>
 
@@ -134,12 +142,12 @@ export function ToolCall({
           )}
 
           {/* Error */}
-          {status === "error" && error && (
+          {(status === "error" || status === "denied") && error && (
             <div className="space-y-1.5">
-              <p className="text-xs font-medium text-red-600 uppercase tracking-wide">
-                Error
+              <p className={cn("text-xs font-medium uppercase tracking-wide", status === "denied" ? "text-amber-700" : "text-red-600")}>
+                {status === "denied" ? "Denied" : "Error"}
               </p>
-              <pre className="text-xs bg-red-50 text-red-700 rounded-lg p-3 overflow-x-auto border border-red-200">
+              <pre className={cn("text-xs rounded-lg p-3 overflow-x-auto border", status === "denied" ? "bg-amber-50 text-amber-800 border-amber-200" : "bg-red-50 text-red-700 border-red-200")}>
                 {error}
               </pre>
             </div>
@@ -157,7 +165,7 @@ export interface ToolCallsProps {
     name: string;
     args: Record<string, unknown>;
     result?: unknown;
-    status: "pending" | "running" | "complete" | "error" | "waiting";
+    status: "pending" | "running" | "complete" | "error" | "denied" | "waiting";
     error?: string;
   }>;
   className?: string;

@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { ToolboxService, toolboxSearchSchema } from "./toolbox.ts";
 import { ScriptRevisionTracker } from "./conflict.ts";
 import { globalScriptIndexer } from "./retrieval.ts";
+import { createSubmitPlanTool } from "./plan.ts";
 import type {
   AgentQuestion,
   AgentTool,
@@ -349,6 +350,7 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
         });
       },
     });
+    this.tools.push(createSubmitPlanTool());
     this.tools.push({
       name: "mcp__roblox_studio__get_live_context",
       description: "Get current Studio selection and live context for a specific instance path.",

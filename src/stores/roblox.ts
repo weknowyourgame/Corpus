@@ -1,10 +1,13 @@
 import { create } from "zustand";
-import { isStudioConnected, isBridgeRunning } from "@/lib/roblox";
+import { getStudioStatus, isBridgeRunning, type StudioTransportStatus } from "@/lib/roblox";
+
+export type { StudioTransportStatus };
 
 export type ConnectionStatus = "disconnected" | "bridge_only" | "connected";
 
 export interface RobloxState {
   status: ConnectionStatus;
+  transport: StudioTransportStatus | null;
   lastCheck: Date | null;
   error: string | null;
   
@@ -16,6 +19,7 @@ export interface RobloxState {
 
 export const useRobloxStore = create<RobloxState>()((set, get) => ({
   status: "disconnected",
+  transport: null,
   lastCheck: null,
   error: null,
 
@@ -26,20 +30,22 @@ export const useRobloxStore = create<RobloxState>()((set, get) => ({
       // First check if bridge is running
       const bridgeUp = await isBridgeRunning();
       if (!bridgeUp) {
-        set({ status: "disconnected", lastCheck: new Date(), error: null });
+        set({ status: "disconnected", transport: null, lastCheck: new Date(), error: null });
         return;
       }
       
       // Then check if Studio is connected
-      const studioUp = await isStudioConnected();
+      const transport = await getStudioStatus();
       set({ 
-        status: studioUp ? "connected" : "bridge_only", 
+        status: transport?.connected ? "connected" : "bridge_only",
+        transport,
         lastCheck: new Date(),
         error: null 
       });
     } catch (e) {
       set({ 
         status: "disconnected", 
+        transport: null,
         lastCheck: new Date(),
         error: e instanceof Error ? e.message : "Unknown error" 
       });
