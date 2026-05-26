@@ -251,7 +251,6 @@ export function ModelSelector({ className, disabled, serverProviders }: ModelSel
                   isSelected={selectedModel === model.id && selectedProvider === "anthropic"}
                   onClick={() => handleSelect(model.id, "anthropic")}
                   disabled={model.disabled}
-                  disabled={model.disabled}
                 />
               ))}
             </ModelGroup>

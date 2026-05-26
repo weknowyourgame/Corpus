@@ -90,6 +90,14 @@ function CheckItem({
             {check.message}
           </p>
         )}
+        {check.id === "api-provider" && check.status === "failed" && (
+          <div className="stud-provider-help mt-3">
+            <p>Configure one server credential in <code>.env</code>:</p>
+            <code>OPENROUTER_API_KEY=sk-or-...</code>
+            <code>ANTHROPIC_API_KEY=sk-ant-...</code>
+            <p>Then restart <code>npm run dev</code>. Credentials are never sent to the browser chat.</p>
+          </div>
+        )}
 
         {isIssue && check.action && (
           <div className="mt-3">
@@ -231,7 +239,7 @@ export function PrereqWizard() {
         </div>
 
         {hasIssues && (
-          <p className="text-center text-xs text-neutral-400 mt-4">
+          <p className="text-center text-xs text-neutral-500 mt-4">
             Some features may not work without completing the required setup.
           </p>
         )}

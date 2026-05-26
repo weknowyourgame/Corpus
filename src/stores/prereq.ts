@@ -116,7 +116,7 @@ export const usePrereqStore = create<PrereqStore>((set, get) => ({
     } else {
       updateCheck("api-provider", {
         status: "failed",
-        message: "No server AI provider configured; set an environment credential and restart",
+        message: "No server AI provider configured. Add a credential to .env and restart npm run dev.",
       });
     }
     set({ checks: [...checks] });

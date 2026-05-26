@@ -255,11 +255,14 @@ export function SettingsDialog({ children }: SettingsDialogProps) {
         <DialogHeader>
           <DialogTitle>AI Providers</DialogTitle>
           <DialogDescription>
-            Codex (ChatGPT), Claude API, or OpenRouter — pick one and choose any model.
+            Choose a model. Agent chat credentials are read by the bridge server, not this browser.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          <div className="stud-provider-help">
+            <p>To enable server chat, set <code>OPENROUTER_API_KEY</code>, <code>ANTHROPIC_API_KEY</code>, or <code>STUD_CODEX_ACCESS_TOKEN</code> in <code>.env</code>, then restart <code>npm run dev</code>.</p>
+          </div>
           <ProviderTabs
             active={tab}
             onChange={(p) => {

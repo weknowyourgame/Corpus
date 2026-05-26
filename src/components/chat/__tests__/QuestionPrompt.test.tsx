@@ -28,13 +28,13 @@ const toolboxQuestion: Question = {
     {
       label: "Load more results",
       value: "__load_more__",
-      imageUrl: null,
+      imageUrl: undefined,
       description: "Fetch the next 10 matches",
     },
     {
       label: "Search again with a different query",
       value: "__search_again__",
-      imageUrl: null,
+      imageUrl: undefined,
       description: "Pick a refined keyword and run a fresh search",
     },
   ],

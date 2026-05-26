@@ -1,9 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { PromptInputAction } from "@/components/ui/prompt-input";
 import { Button } from "@/components/ui/button";
 import {
   ChatContainerRoot,
   ChatContainerContent,
+  ChatContainerFollow,
 } from "@/components/ui/chat-container";
 import { ScrollButton } from "@/components/ui/scroll-button";
 import { MessageContent } from "@/components/ui/message";
@@ -12,21 +12,23 @@ import { Loader } from "@/components/ui/loader";
 import { StudAppHeader } from "@/stud-ui";
 import { StudComposer } from "@/stud-ui/StudComposer";
 import { BotAvatar, UserAvatar } from "@/components/icons/Avatars";
-import { Icon } from "@/components/icons/Icon";
 import { ModelSelector } from "@/components/chat/ModelSelector";
 import { SettingsDialog } from "@/components/settings/SettingsDialog";
-import { SettingsPanel } from "@/components/SettingsPanel";
 import { ContextChips, ChipAction } from "@/components/chat/ContextChips";
 import { QuestionPrompt } from "@/components/chat/QuestionPrompt";
 import { ApprovalPrompt } from "@/components/chat/ApprovalPrompt";
 import { InstancePicker } from "@/components/chat/InstancePicker";
 import { MutationDiff } from "@/components/chat/MutationDiff";
+import { ConnectionBadges } from "@/components/chat/ConnectionBadges";
+import { RecoveryBanner } from "@/components/chat/RecoveryBanner";
+import { RunContextNotice } from "@/components/chat/RunContextNotice";
+import { buildChatSubmission, classifyToolOutput } from "@/components/chat/intents";
 import { ChatActions } from "@/components/QuickActions";
 import { CommandPalette } from "@/components/CommandPalette";
 import { EmptyState } from "@/components/EmptyState";
 import { useChatStore } from "@/stores/chat";
 import { useSettingsStore } from "@/stores/settings";
-import { useRobloxStore, ConnectionStatus } from "@/stores/roblox";
+import { useRobloxStore, ConnectionStatus, type StudioTransportStatus } from "@/stores/roblox";
 import { usePluginStore } from "@/stores/plugin";
 import {
   cancelServerRun,
@@ -40,10 +42,9 @@ import {
   type MutationResult,
 } from "@/lib/ai/server-agent";
 import { useAppShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { improvePrompt } from "@/lib/ai/prompt-improver";
 import { cn } from "@/lib/utils";
 import { SessionCode } from "@/components/SessionCode";
-import { ArrowUp, Square, CheckCircle2, Download, FolderOpen, RefreshCw, Box, FileText, Globe, Play, ListTodo, Settings, Sparkles } from "lucide-react";
+import { ArrowUp, Square, CheckCircle2, Download, FolderOpen, RefreshCw, Box, FileText, Play, ListTodo } from "lucide-react";
 
 const SUGGESTIONS = [
   // Gameplay systems
@@ -116,7 +117,7 @@ function ConnectionStep({
 }
 
 // Connection screen shown when bridge is not connected
-function ConnectionScreen({ status }: { status: ConnectionStatus }) {
+function ConnectionScreen({ status, transport }: { status: ConnectionStatus; transport: StudioTransportStatus | null }) {
   const { 
     status: pluginStatus, 
     isChecking, 
@@ -172,7 +173,7 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
 
   return (
     <div className="stud-app-shell">
-      <StudAppHeader trailing={<SettingsDialog />} />
+      <StudAppHeader status={status} transport={transport} trailing={<SettingsDialog />} />
 
       <main className="stud-connection-layout">
         <div className="stud-connection-stack">
@@ -187,6 +188,7 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
           </div>
 
           <SessionCode />
+          <ConnectionBadges status={status} transport={transport} />
 
           <div className="stud-panel p-6 space-y-5">
             <ConnectionStep
@@ -289,11 +291,11 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
 export function Home() {
   const [input, setInput] = useState("");
   const [activeChips, setActiveChips] = useState<ChipAction[]>([]);
-  const [isImproving, setIsImproving] = useState(false);
   const [displayedSuggestions, setDisplayedSuggestions] = useState<string[]>([]);
   const [serverProviders, setServerProviders] = useState({ anthropic: false, openrouter: false, codex: false });
   const [pendingApproval, setPendingApproval] = useState<ApprovalRequest | null>(null);
   const [mutationResults, setMutationResults] = useState<Array<MutationResult & { id: string }>>([]);
+  const [runNotice, setRunNotice] = useState<string | null>(null);
   const approvalResolver = useRef<((decision: ApprovalDecision) => void) | null>(null);
   const {
     messages,
@@ -313,7 +315,7 @@ export function Home() {
     replaceMessages,
   } = useChatStore();
   const { selectedModel, selectedProvider, setSelectedModel } = useSettingsStore();
-  const { status: studioStatus, startPolling } = useRobloxStore();
+  const { status: studioStatus, transport: studioTransport, startPolling } = useRobloxStore();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const requestApproval = useCallback((approval: ApprovalRequest) => new Promise<ApprovalDecision>((resolve) => {
     setPendingApproval(approval);
@@ -330,8 +332,10 @@ export function Home() {
     if (pendingQuestion) answerQuestion([]);
     setPendingApproval(null);
     setPendingQuestion(null);
+    setRunNotice(null);
+    setError(null);
     clearMessages();
-  }, [pendingApproval, pendingQuestion, answerApproval, answerQuestion, setPendingQuestion, clearMessages]);
+  }, [pendingApproval, pendingQuestion, answerApproval, answerQuestion, setPendingQuestion, setError, clearMessages]);
 
   // Keyboard shortcuts
   useAppShortcuts({
@@ -391,12 +395,18 @@ export function Home() {
           addToolCall(target(), { id: call.id, name: call.name, args: call.input });
           updateToolCall(target(), call.id, { status: "running" });
         },
-        onToolResult: (result) => updateToolCall(target(), result.id, { status: "complete", result: result.output }),
+        onToolResult: (result) => updateToolCall(target(), result.id, { ...classifyToolOutput(result.output), result: result.output }),
         onInteraction: (_id, questions) => new Promise((resolve) => {
           setPendingQuestion({ id: crypto.randomUUID(), toolCallId: "", messageId: target(), questions });
           setQuestionResolver(resolve);
         }),
-        onApproval: requestApproval,
+        onApproval: (approval) => {
+          updateToolCall(target(), approval.toolCallId, { status: "waiting" });
+          return requestApproval(approval);
+        },
+        onMutationResult: (result) => {
+          setMutationResults((prev) => [{ ...result, id: result.transactionId }, ...prev]);
+        },
         onFinish: () => {
           setPendingApproval(null);
           setStreaming(false);
@@ -427,53 +437,14 @@ export function Home() {
   const hasAnyServerProvider = Object.values(serverProviders).some(Boolean);
   const isConnected = studioStatus === "connected";
 
-  // Improve prompt handler
-  const handleImprovePrompt = useCallback(async () => {
-    if (!input.trim() || isImproving || isStreaming) return;
-
-    setIsImproving(true);
-    try {
-      const result = await improvePrompt(input);
-      if (result.improved && result.improved !== input) {
-        setInput(result.improved);
-      }
-      if (result.error) {
-        console.warn("[Home] Prompt improvement error:", result.error);
-      }
-    } catch (err) {
-      console.error("[Home] Failed to improve prompt:", err);
-    } finally {
-      setIsImproving(false);
-    }
-  }, [input, isImproving, isStreaming]);
-
   const handleSubmit = useCallback(async () => {
     if (!input.trim() || isStreaming) return;
 
     const userMessage = input.trim();
-
-    // Build context prefix based on active chips
-    const prefixes: string[] = [];
-    if (activeChips.includes("docs")) {
-      prefixes.push("[Search Roblox documentation first]");
-    }
-    if (activeChips.includes("web")) {
-      prefixes.push("[Search the web for information]");
-    }
-    if (activeChips.includes("search-models")) {
-      prefixes.push("[Search the Creator Store for free models if needed]");
-    }
-    if (activeChips.includes("plan")) {
-      prefixes.push("[Create a detailed plan before making changes]");
-    }
-    const chipContext = prefixes.join(" ");
-    const fullMessage = chipContext ? `${chipContext}\n\n${userMessage}` : userMessage;
-    const mode = activeChips.includes("plan") ? "plan" : "execute";
+    const submission = buildChatSubmission(userMessage, activeChips);
 
     setInput("");
     setActiveChips([]); // Clear chips after submit
-
-    console.log("[Home] Submitting message:", userMessage, "with context:", chipContext);
 
     // Add user message (show without context prefix for cleaner UI, but store chips)
     addMessage({ role: "user", content: userMessage, contextChips: activeChips.length > 0 ? [...activeChips] : undefined });
@@ -483,31 +454,27 @@ export function Home() {
 
     setStreaming(true);
     setError(null);
+    setRunNotice(null);
 
     try {
       let fullText = "";
 
-      await sendServerMessage(fullMessage, selectedProvider, selectedModel, mode, {
+      await sendServerMessage(submission.message, selectedProvider, selectedModel, submission.mode, {
         onToken: (token) => {
           fullText += token;
           updateMessage(assistantId, fullText);
         },
         onToolCall: (toolCall) => {
-          console.log("[Home] Tool call received:", toolCall.name);
-          // Add tool call to the assistant message
           addToolCall(assistantId, {
             id: toolCall.id,
             name: toolCall.name,
             args: toolCall.input,
           });
-          // Mark it as running
           updateToolCall(assistantId, toolCall.id, { status: "running" });
         },
         onToolResult: (toolResult) => {
-          console.log("[Home] Tool result received:", toolResult.id);
-          // Update the tool call with the result
           updateToolCall(assistantId, toolResult.id, {
-            status: "complete",
+            ...classifyToolOutput(toolResult.output),
             result: toolResult.output,
           });
         },
@@ -521,12 +488,14 @@ export function Home() {
             });
             setQuestionResolver(resolve);
           }),
-        onApproval: requestApproval,
+        onApproval: (approval) => {
+          updateToolCall(assistantId, approval.toolCallId, { status: "waiting" });
+          return requestApproval(approval);
+        },
         onMutationResult: (result) => {
           setMutationResults((prev) => [{ ...result, id: result.transactionId }, ...prev]);
         },
         onFinish: () => {
-          console.log("[Home] Stream finished, total length:", fullText.length);
           setPendingApproval(null);
           setStreaming(false);
         },
@@ -568,53 +537,45 @@ export function Home() {
     if (pendingQuestion) answerQuestion([]);
     setPendingApproval(null);
     setPendingQuestion(null);
+    setStreaming(false);
+    setRunNotice("Run cancelled by user.");
   };
 
   // Show connection screen if not connected
   if (!isConnected) {
-    return <ConnectionScreen status={studioStatus} />;
+    return <ConnectionScreen status={studioStatus} transport={studioTransport} />;
   }
 
   const composerActions = (
     <>
       <div className="flex items-center gap-1">
-        <PromptInputAction tooltip="Attach file">
-          <button type="button" className="stud-icon-btn" disabled>
-            <Icon name="link" size="sm" />
-          </button>
-        </PromptInputAction>
         <InstancePicker onSelect={(path) => setInput((prev) => prev + `@${path} `)} />
       </div>
       <div className="flex items-center gap-2">
         <ModelSelector disabled={!hasAnyServerProvider} serverProviders={serverProviders} />
-        <PromptInputAction tooltip="Improve prompt for Stud">
-          <button
-            type="button"
-            className="stud-icon-btn"
-            onClick={handleImprovePrompt}
-            disabled={!input.trim() || isImproving || isStreaming || !hasConfiguredProvider}
-          >
-            {isImproving ? <Loader variant="circular" size="sm" /> : <Sparkles className="h-4 w-4" />}
-          </button>
-        </PromptInputAction>
         <button
           type="button"
           className={cn("stud-icon-btn", input.trim() && !isStreaming && hasConfiguredProvider && "is-primary")}
           onClick={isStreaming ? handleStop : handleSubmit}
-          disabled={!input.trim() || !hasConfiguredProvider}
+          disabled={isStreaming ? false : !input.trim() || !hasConfiguredProvider}
+          aria-label={isStreaming ? "Cancel run" : "Send message"}
         >
           {isStreaming ? <Square className="h-4 w-4 fill-current" /> : <ArrowUp className="h-4 w-4" />}
         </button>
       </div>
     </>
   );
+  const mutationOwner = (result: MutationResult) =>
+    [...messages].reverse().find((message) =>
+      message.toolCalls?.some((toolCall) => toolCall.name === result.toolName)
+    )?.id;
 
   if (messages.length === 0) {
     return (
       <div className="stud-app-shell">
-        <StudAppHeader status={studioStatus} trailing={<SettingsDialog />} />
-        <main className="stud-app-main stud-connection-layout">
-          <div className="w-full max-w-2xl space-y-8">
+        <StudAppHeader status={studioStatus} transport={studioTransport} trailing={<SettingsDialog />} />
+        <main className="stud-app-main stud-welcome-layout">
+          <div className="stud-welcome-card">
             <div className="text-center">
               <h1 className="stud-display-title">What would you like to build?</h1>
               <p className="stud-display-subtitle">
@@ -626,19 +587,17 @@ export function Home() {
               activeChips={activeChips}
               disabled={isStreaming || !hasConfiguredProvider}
             />
+            <RunContextNotice active={activeChips} />
             <StudComposer
               value={input}
               onValueChange={setInput}
               onSubmit={handleSubmit}
               isLoading={isStreaming}
-              isImproving={isImproving}
               disabled={!hasConfiguredProvider}
               placeholder={
-                isImproving
-                  ? "Improving your prompt..."
-                  : hasConfiguredProvider
+                hasConfiguredProvider
                     ? "Ask me anything about Roblox development..."
-                    : "Configure an API key in settings to start..."
+                    : "Configure a server provider in .env to start..."
               }
             >
               {composerActions}
@@ -656,15 +615,7 @@ export function Home() {
               ))}
             </div>
             {!hasConfiguredProvider && (
-              <p className="text-center text-sm" style={{ color: "var(--stud-muted)" }}>
-                <Icon name="key" size="sm" className="inline mr-1" />
-                No AI provider configured.{" "}
-                <SettingsDialog>
-                  <button type="button" className="underline">
-                    Open settings
-                  </button>
-                </SettingsDialog>
-              </p>
+              <RecoveryBanner error="No server AI provider credential configured." />
             )}
           </div>
         </main>
@@ -676,56 +627,26 @@ export function Home() {
     <div className="stud-app-shell">
       <StudAppHeader
         status={studioStatus}
+        transport={studioTransport}
         compact
         trailing={
           <>
             <ChatActions onClear={handleClearChat} disabled={messages.length === 0 || isStreaming} />
-            <SettingsPanel
-              trigger={
-                <button type="button" className="stud-icon-btn" aria-label="Settings">
-                  <Settings className="w-4 h-4" />
-                </button>
-              }
-            />
             <SettingsDialog />
           </>
         }
       />
 
-      <div className="studio-window stud-app-main mx-auto w-[min(100%-40px,920px)] my-4 flex flex-col min-h-0 flex-1">
-        <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--stud-border)]">
+      <div className="studio-window stud-chat-panel">
+        <header className="stud-chat-header">
           <strong style={{ fontFamily: "var(--stud-tech)", fontSize: 13, letterSpacing: "0.12em" }}>
             STUDIO CHAT
           </strong>
+          <ConnectionBadges status={studioStatus} transport={studioTransport} />
         </header>
 
-      <ChatContainerRoot className="flex-1 relative min-h-0">
+      <ChatContainerRoot className="stud-transcript">
         <ChatContainerContent className="stud-chat-scroll space-y-2">
-          {error && (
-            <div className="stud-alert-error flex items-start gap-3">
-              <div className="flex-shrink-0 w-5 h-5 mt-0.5">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="8" x2="12" y2="12" />
-                  <line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <p className="font-medium">Error</p>
-                <p className="text-sm mt-1">{error}</p>
-              </div>
-              <button
-                onClick={() => setError(null)}
-                className="flex-shrink-0 text-red-500 hover:text-red-700"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-          )}
-
           {/* Empty state when no messages */}
           {messages.length === 0 && !isStreaming && (
             <EmptyState className="py-8" />
@@ -740,22 +661,32 @@ export function Home() {
                 <div className="flex items-center gap-1.5 flex-wrap justify-end">
                   {message.contextChips.map((chip) => (
                     <span key={chip} className="stud-suggestion-chip text-xs py-1">
-                      {chip === "search-models" && <><Box className="w-3 h-3 inline mr-1" /> Models</>}
+                      {chip === "toolbox" && <><Box className="w-3 h-3 inline mr-1" /> Toolbox</>}
                       {chip === "docs" && <><FileText className="w-3 h-3 inline mr-1" /> Docs</>}
-                      {chip === "web" && <><Globe className="w-3 h-3 inline mr-1" /> Web</>}
-                      {chip === "run-code" && <><Play className="w-3 h-3 inline mr-1" /> Run</>}
+                      {chip === "run-code" && <><Play className="w-3 h-3 inline mr-1" /> Run Code</>}
                       {chip === "plan" && <><ListTodo className="w-3 h-3 inline mr-1" /> Plan</>}
                     </span>
                   ))}
                 </div>
               )}
 
-              <div className="flex gap-3 items-start">
+              <div className={cn("stud-message-row", message.role === "user" && "is-user")}>
                 {message.role === "assistant" ? <BotAvatar /> : <UserAvatar />}
                 <div className="flex-1 min-w-0">
                   {message.role === "assistant" && message.toolCalls && message.toolCalls.length > 0 && (
                     <div className="stud-tool-card">
                       <ToolCalls toolCalls={message.toolCalls} />
+                      {mutationResults.filter((result) => mutationOwner(result) === message.id).slice(0, 5).map((result) => (
+                        <MutationDiff
+                          key={result.id}
+                          toolName={result.toolName}
+                          path={result.path}
+                          before={result.before}
+                          after={result.after}
+                          transactionId={result.transactionId}
+                          className="mt-2"
+                        />
+                      ))}
                     </div>
                   )}
                   {message.content ? (
@@ -787,9 +718,9 @@ export function Home() {
           ))}
 
           {/* Mutation diffs */}
-          {mutationResults.length > 0 && (
+          {mutationResults.some((result) => !mutationOwner(result)) && (
             <div className="space-y-1.5 px-1">
-              {mutationResults.slice(0, 5).map((r) => (
+              {mutationResults.filter((result) => !mutationOwner(result)).slice(0, 5).map((r) => (
                 <MutationDiff
                   key={r.id}
                   toolName={r.toolName}
@@ -802,9 +733,16 @@ export function Home() {
             </div>
           )}
 
+          {error && (
+            <RecoveryBanner error={error} onDismiss={() => setError(null)} />
+          )}
+          {runNotice && (
+            <RecoveryBanner error={runNotice} onDismiss={() => setRunNotice(null)} />
+          )}
+
           {/* Pending question from AI */}
           {pendingQuestion && (
-            <div className="max-w-2xl mx-auto">
+            <div className="stud-interaction-card">
               <QuestionPrompt
                 questions={pendingQuestion.questions}
                 onSubmit={answerQuestion}
@@ -814,7 +752,7 @@ export function Home() {
           )}
 
           {pendingApproval && (
-            <div className="max-w-2xl mx-auto">
+            <div className="stud-interaction-card">
               <ApprovalPrompt approval={pendingApproval} onDecision={answerApproval} />
             </div>
           )}
@@ -829,20 +767,20 @@ export function Home() {
             </div>
           )}
         </ChatContainerContent>
-        <div className="absolute bottom-28 left-1/2 -translate-x-1/2">
-          <ScrollButton />
-        </div>
+        <ChatContainerFollow submissionCount={messages.filter((message) => message.role === "user").length} />
+        <ScrollButton className="stud-scroll-button" aria-label="Jump to newest message" />
       </ChatContainerRoot>
 
-      <div className="stud-chat-composer px-4 pb-4">
+      <div className="stud-chat-composer">
         <ContextChips onChipClick={handleChipClick} activeChips={activeChips} disabled={isStreaming} />
+        <RunContextNotice active={activeChips} />
         <StudComposer
           value={input}
           onValueChange={setInput}
           onSubmit={handleSubmit}
           isLoading={isStreaming}
-          isImproving={isImproving}
-          placeholder={isImproving ? "Improving your prompt..." : "Ask a follow-up..."}
+          disabled={!hasConfiguredProvider}
+          placeholder={hasConfiguredProvider ? "Ask a follow-up..." : "Configure a server provider in .env to continue..."}
           className="mt-3"
         >
           {composerActions}
