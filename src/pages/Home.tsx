@@ -23,6 +23,7 @@ import { ConnectionBadges } from "@/components/chat/ConnectionBadges";
 import { RecoveryBanner } from "@/components/chat/RecoveryBanner";
 import { RunContextNotice } from "@/components/chat/RunContextNotice";
 import { buildChatSubmission, classifyToolOutput } from "@/components/chat/intents";
+import { compatibleServerSelection } from "@/components/chat/model-routing";
 import { ChatActions } from "@/components/QuickActions";
 import { CommandPalette } from "@/components/CommandPalette";
 import { EmptyState } from "@/components/EmptyState";
@@ -366,16 +367,9 @@ export function Home() {
   }, []);
 
   useEffect(() => {
-    if (serverProviders[selectedProvider]) return;
-    if (selectedProvider === "codex" && serverProviders.openrouter && !selectedModel.includes("/")) {
-      setSelectedModel(`openai/${selectedModel}`, "openrouter");
-    } else if (serverProviders.codex) {
-      setSelectedModel("gpt-4o", "codex");
-    } else if (serverProviders.openrouter) {
-      setSelectedModel("openai/gpt-4o", "openrouter");
-    } else if (serverProviders.anthropic) {
-      setSelectedModel("claude-sonnet-4-20250514", "anthropic");
-    }
+    const selection = compatibleServerSelection(selectedProvider, selectedModel, serverProviders);
+    if (!selection || (selection.provider === selectedProvider && selection.model === selectedModel)) return;
+    setSelectedModel(selection.model, selection.provider);
   }, [serverProviders, selectedModel, selectedProvider, setSelectedModel]);
 
   useEffect(() => {
