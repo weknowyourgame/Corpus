@@ -298,7 +298,7 @@ export function SettingsDialog({ children }: SettingsDialogProps) {
                 helpUrl="https://openrouter.ai/keys"
                 onSaved={() => {
                   fetchOpenRouterModels();
-                  setSelectedModel("anthropic/claude-sonnet-4", "openrouter");
+                  setSelectedModel("openai/gpt-4o", "openrouter");
                 }}
               />
               {useSettingsStore.getState().hasApiKey("openrouter") && (

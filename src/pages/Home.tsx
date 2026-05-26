@@ -367,14 +367,16 @@ export function Home() {
 
   useEffect(() => {
     if (serverProviders[selectedProvider]) return;
-    if (serverProviders.anthropic) {
-      setSelectedModel("claude-sonnet-4-20250514", "anthropic");
-    } else if (serverProviders.openrouter) {
-      setSelectedModel("anthropic/claude-sonnet-4", "openrouter");
+    if (selectedProvider === "codex" && serverProviders.openrouter && !selectedModel.includes("/")) {
+      setSelectedModel(`openai/${selectedModel}`, "openrouter");
     } else if (serverProviders.codex) {
       setSelectedModel("gpt-4o", "codex");
+    } else if (serverProviders.openrouter) {
+      setSelectedModel("openai/gpt-4o", "openrouter");
+    } else if (serverProviders.anthropic) {
+      setSelectedModel("claude-sonnet-4-20250514", "anthropic");
     }
-  }, [serverProviders, selectedProvider, setSelectedModel]);
+  }, [serverProviders, selectedModel, selectedProvider, setSelectedModel]);
 
   useEffect(() => {
     if (studioStatus !== "connected" || messages.length) return;
