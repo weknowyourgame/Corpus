@@ -1,212 +1,290 @@
 import { z } from "zod";
-import { OpenCloudClient, redactValue } from "./open-cloud.ts";
-import type { AgentTool, ApprovalDecision, DataStoreApprovalRequest, JsonValue, ToolExecutionContext } from "./types.ts";
+import { OpenCloudClient, redactValue, type Environment } from "./open-cloud.ts";
+import type { AgentTool, JsonValue } from "./types.ts";
 
-type RequestApproval = (req: DataStoreApprovalRequest) => Promise<ApprovalDecision>;
+const NOT_CONFIGURED: JsonValue = {
+  error: "Open Cloud not configured. Set ROBLOX_OPEN_CLOUD_API_KEY and ROBLOX_UNIVERSE_ID on the bridge.",
+  code: "open_cloud_not_configured",
+};
 
-const NOT_CONFIGURED = { error: "Open Cloud not configured. Set ROBLOX_OPEN_CLOUD_API_KEY and ROBLOX_UNIVERSE_ID on the bridge." };
+const ROLLBACK_NOTE =
+  "Writes overwrite the entry in place. Prior versions are only recoverable via Studio's DataStore Editor (~30 day version history). Increment results cannot be rolled back automatically — they must be balanced with a counter-increment.";
 
-const scope = (s: string | unknown, k: string | unknown) => `datastore:${String(s)}/${String(k)}`;
+const environmentSchema = z.enum(["development", "staging", "production"]).default("development");
 
-export function createDataStoreTools(
+const scopeOf = (env: Environment, store: unknown, key: unknown) =>
+  `datastore:${env}:${String(store)}/${String(key)}`;
+
+const isProduction = (env: Environment): boolean => env === "production";
+
+const previewBase = (
   client: OpenCloudClient,
-  requestApproval: RequestApproval,
-): AgentTool[] {
+  operation: "write" | "delete" | "increment",
+  env: Environment,
+  store: string,
+  scope: string,
+  key: string,
+) => ({
+  operation,
+  environment: env,
+  universe: client.universeId,
+  store,
+  scope,
+  key,
+  elevated: isProduction(env),
+  rollback: ROLLBACK_NOTE,
+});
+
+const safeOldValue = (existing: { value: string | null }) =>
+  existing.value !== null
+    ? { oldValue: redactValue(existing.value), oldBytes: existing.value.length }
+    : { oldValue: null, oldBytes: 0 };
+
+export function createDataStoreTools(client: OpenCloudClient): AgentTool[] {
   const tools: AgentTool[] = [];
 
   tools.push({
     name: "roblox_datastore__list_stores",
-    description: "List all DataStore names for the connected universe.",
+    description: "List DataStore names for the connected universe. Read-only.",
     transport: "open_cloud",
     risk: "read",
     concurrency: "parallel_read",
     inputSchema: z.object({}),
     scope: () => "datastore:list-stores",
-    execute: async (_input, context) => {
+    execute: async (_input, ctx) => {
       if (!client.configured) return NOT_CONFIGURED;
-      const stores = await client.listStores(context.signal);
+      const stores = await client.listStores(ctx.signal);
       return { stores } as JsonValue;
     },
   });
 
+  const listKeysSchema = z.object({
+    store: z.string().min(1),
+    scope: z.string().min(1).default("global"),
+    limit: z.number().int().min(1).max(100).default(50),
+  });
+
   tools.push({
     name: "roblox_datastore__list_keys",
-    description: "List keys in a DataStore, optionally filtered by scope.",
+    description: "List keys in a DataStore (optionally scoped). Read-only.",
     transport: "open_cloud",
     risk: "read",
     concurrency: "parallel_read",
-    inputSchema: z.object({
-      store: z.string(),
-      scope: z.string().optional().default("global"),
-      limit: z.number().int().min(1).max(100).optional().default(50),
-    }),
+    inputSchema: listKeysSchema,
     scope: (input) => `datastore:${String(input.store)}/keys`,
-    execute: async (input, context) => {
+    execute: async (input, ctx) => {
       if (!client.configured) return NOT_CONFIGURED;
-      const parsed = z.object({ store: z.string(), scope: z.string().default("global"), limit: z.number().default(50) }).parse(input);
-      const keys = await client.listKeys(parsed.store, parsed.scope, parsed.limit, context.signal);
-      return { keys } as JsonValue;
+      const parsed = listKeysSchema.parse(input);
+      const keys = await client.listKeys(parsed.store, parsed.scope, parsed.limit, ctx.signal);
+      return { keys, store: parsed.store, scope: parsed.scope } as JsonValue;
     },
+  });
+
+  const readSchema = z.object({
+    store: z.string().min(1),
+    scope: z.string().min(1).default("global"),
+    key: z.string().min(1),
   });
 
   tools.push({
     name: "roblox_datastore__read_key",
-    description: "Read a value from a DataStore key.",
+    description: "Read a value from a DataStore key. Read-only; large values are redacted.",
     transport: "open_cloud",
     risk: "read",
     concurrency: "parallel_read",
-    inputSchema: z.object({
-      store: z.string(),
-      scope: z.string().optional().default("global"),
-      key: z.string(),
-    }),
-    scope: (input) => scope(input.store, input.key),
-    execute: async (input, context) => {
+    inputSchema: readSchema,
+    scope: (input) => `datastore:${String(input.store)}/${String(input.key)}`,
+    execute: async (input, ctx) => {
       if (!client.configured) return NOT_CONFIGURED;
-      const parsed = z.object({ store: z.string(), scope: z.string().default("global"), key: z.string() }).parse(input);
-      const result = await client.readKey(parsed.store, parsed.scope, parsed.key, context.signal);
+      const parsed = readSchema.parse(input);
+      const result = await client.readKey(parsed.store, parsed.scope, parsed.key, ctx.signal);
       return {
+        store: parsed.store,
+        scope: parsed.scope,
         key: parsed.key,
         value: result.value !== null ? redactValue(result.value) : null,
+        bytes: result.value !== null ? result.value.length : 0,
         version: result.version ?? null,
       } as JsonValue;
     },
   });
 
-  const writeInputSchema = z.object({
-    store: z.string(),
-    scope: z.string().optional().default("global"),
-    key: z.string(),
+  const writeSchema = z.object({
+    environment: environmentSchema,
+    store: z.string().min(1),
+    scope: z.string().min(1).default("global"),
+    key: z.string().min(1),
     value: z.string(),
   });
 
   tools.push({
     name: "roblox_datastore__write_key",
-    description: "Write a value to a DataStore key. Requires approval showing old and new values.",
+    description:
+      "Write a value to a DataStore key. Requires approval. Set environment to development|staging|production — production is shown as an elevated action.",
     transport: "open_cloud",
     risk: "destructive",
     concurrency: "exclusive_mutation",
-    inputSchema: writeInputSchema,
-    scope: (input) => scope(input.store, input.key),
-    preview: async (input, context) => {
-      if (!client.configured) return NOT_CONFIGURED;
-      const parsed = writeInputSchema.parse(input);
-      const existing = await client.readKey(parsed.store, parsed.scope, parsed.key, context.signal).catch(() => ({ value: null }));
+    inputSchema: writeSchema,
+    scope: (input) => {
+      const env = environmentSchema.parse((input as { environment?: unknown }).environment);
+      return scopeOf(env, input.store, input.key);
+    },
+    redactInput: (input) => {
+      const parsed = writeSchema.safeParse(input);
+      if (!parsed.success) return { invalid: true };
       return {
-        oldValue: existing.value !== null ? redactValue(existing.value) : null,
+        environment: parsed.data.environment,
+        store: parsed.data.store,
+        scope: parsed.data.scope,
+        key: parsed.data.key,
+        valuePreview: redactValue(parsed.data.value),
+        valueBytes: parsed.data.value.length,
+      };
+    },
+    isElevated: (input) => {
+      const parsed = writeSchema.safeParse(input);
+      return parsed.success && isProduction(parsed.data.environment);
+    },
+    preview: async (input, ctx) => {
+      if (!client.configured) return NOT_CONFIGURED;
+      const parsed = writeSchema.parse(input);
+      const existing = await client
+        .readKey(parsed.store, parsed.scope, parsed.key, ctx.signal)
+        .catch(() => ({ value: null }));
+      return {
+        ...previewBase(client, "write", parsed.environment, parsed.store, parsed.scope, parsed.key),
+        ...safeOldValue(existing),
         newValue: redactValue(parsed.value),
+        newBytes: parsed.value.length,
       } as JsonValue;
     },
-    execute: async (input, context) => {
+    execute: async (input, ctx) => {
       if (!client.configured) return NOT_CONFIGURED;
-      const parsed = writeInputSchema.parse(input);
-      const existing = await client.readKey(parsed.store, parsed.scope, parsed.key, context.signal).catch(() => ({ value: null }));
-      const oldValue = existing.value !== null ? redactValue(existing.value) : null;
-      const newValue = redactValue(parsed.value);
-      const decision = await requestApproval({
-        approvalId: context.operationId,
+      const parsed = writeSchema.parse(input);
+      const result = await client.writeKey(parsed.store, parsed.scope, parsed.key, parsed.value, ctx.signal);
+      return {
+        ok: true,
         operation: "write",
-        universe: client.universeId,
+        environment: parsed.environment,
         store: parsed.store,
         scope: parsed.scope,
         key: parsed.key,
-        oldValue,
-        newValue,
-        risk: "destructive",
-      });
-      if (decision === "deny") return { denied: true, reason: "User denied this DataStore write." } as JsonValue;
-      const result = await client.writeKey(parsed.store, parsed.scope, parsed.key, parsed.value, context.signal);
-      return { ok: true, version: result.version } as JsonValue;
+        version: result.version,
+        valuePreview: redactValue(parsed.value),
+        valueBytes: parsed.value.length,
+      } as JsonValue;
     },
   });
 
-  const deleteInputSchema = z.object({
-    store: z.string(),
-    scope: z.string().optional().default("global"),
-    key: z.string(),
+  const deleteSchema = z.object({
+    environment: environmentSchema,
+    store: z.string().min(1),
+    scope: z.string().min(1).default("global"),
+    key: z.string().min(1),
   });
 
   tools.push({
     name: "roblox_datastore__delete_key",
-    description: "Delete a DataStore key. Requires approval showing the current value.",
+    description: "Delete a DataStore key. Requires approval. Production is shown as elevated.",
     transport: "open_cloud",
     risk: "destructive",
     concurrency: "exclusive_mutation",
-    inputSchema: deleteInputSchema,
-    scope: (input) => scope(input.store, input.key),
-    preview: async (input, context) => {
-      if (!client.configured) return NOT_CONFIGURED;
-      const parsed = deleteInputSchema.parse(input);
-      const existing = await client.readKey(parsed.store, parsed.scope, parsed.key, context.signal).catch(() => ({ value: null }));
-      return { oldValue: existing.value !== null ? redactValue(existing.value) : null } as JsonValue;
+    inputSchema: deleteSchema,
+    scope: (input) => {
+      const env = environmentSchema.parse((input as { environment?: unknown }).environment);
+      return scopeOf(env, input.store, input.key);
     },
-    execute: async (input, context) => {
+    redactInput: (input) => {
+      const parsed = deleteSchema.safeParse(input);
+      return parsed.success ? parsed.data : { invalid: true };
+    },
+    isElevated: (input) => {
+      const parsed = deleteSchema.safeParse(input);
+      return parsed.success && isProduction(parsed.data.environment);
+    },
+    preview: async (input, ctx) => {
       if (!client.configured) return NOT_CONFIGURED;
-      const parsed = deleteInputSchema.parse(input);
-      const existing = await client.readKey(parsed.store, parsed.scope, parsed.key, context.signal).catch(() => ({ value: null }));
-      const oldValue = existing.value !== null ? redactValue(existing.value) : null;
-      const decision = await requestApproval({
-        approvalId: context.operationId,
+      const parsed = deleteSchema.parse(input);
+      const existing = await client
+        .readKey(parsed.store, parsed.scope, parsed.key, ctx.signal)
+        .catch(() => ({ value: null }));
+      return {
+        ...previewBase(client, "delete", parsed.environment, parsed.store, parsed.scope, parsed.key),
+        ...safeOldValue(existing),
+        newValue: null,
+      } as JsonValue;
+    },
+    execute: async (input, ctx) => {
+      if (!client.configured) return NOT_CONFIGURED;
+      const parsed = deleteSchema.parse(input);
+      await client.deleteKey(parsed.store, parsed.scope, parsed.key, ctx.signal);
+      return {
+        ok: true,
         operation: "delete",
-        universe: client.universeId,
+        environment: parsed.environment,
         store: parsed.store,
         scope: parsed.scope,
         key: parsed.key,
-        oldValue,
-        newValue: null,
-        risk: "destructive",
-      });
-      if (decision === "deny") return { denied: true, reason: "User denied this DataStore delete." } as JsonValue;
-      await client.deleteKey(parsed.store, parsed.scope, parsed.key, context.signal);
-      return { ok: true } as JsonValue;
+      } as JsonValue;
     },
   });
 
-  const incrementInputSchema = z.object({
-    store: z.string(),
-    scope: z.string().optional().default("global"),
-    key: z.string(),
+  const incrementSchema = z.object({
+    environment: environmentSchema,
+    store: z.string().min(1),
+    scope: z.string().min(1).default("global"),
+    key: z.string().min(1),
     delta: z.number(),
   });
 
   tools.push({
     name: "roblox_datastore__increment_key",
-    description: "Increment a numeric DataStore key by a delta. Requires approval.",
+    description: "Increment a numeric DataStore key by delta. Requires approval. Cannot be rolled back.",
     transport: "open_cloud",
     risk: "destructive",
     concurrency: "exclusive_mutation",
-    inputSchema: incrementInputSchema,
-    scope: (input) => scope(input.store, input.key),
-    preview: async (input, context) => {
+    inputSchema: incrementSchema,
+    scope: (input) => {
+      const env = environmentSchema.parse((input as { environment?: unknown }).environment);
+      return scopeOf(env, input.store, input.key);
+    },
+    redactInput: (input) => {
+      const parsed = incrementSchema.safeParse(input);
+      return parsed.success ? parsed.data : { invalid: true };
+    },
+    isElevated: (input) => {
+      const parsed = incrementSchema.safeParse(input);
+      return parsed.success && isProduction(parsed.data.environment);
+    },
+    preview: async (input, ctx) => {
       if (!client.configured) return NOT_CONFIGURED;
-      const parsed = incrementInputSchema.parse(input);
-      const existing = await client.readKey(parsed.store, parsed.scope, parsed.key, context.signal).catch(() => ({ value: null }));
+      const parsed = incrementSchema.parse(input);
+      const existing = await client
+        .readKey(parsed.store, parsed.scope, parsed.key, ctx.signal)
+        .catch(() => ({ value: null }));
       const oldNum = existing.value !== null ? Number(existing.value) : null;
-      const newNum = oldNum !== null && !Number.isNaN(oldNum) ? oldNum + parsed.delta : null;
+      const projected = oldNum !== null && Number.isFinite(oldNum) ? oldNum + parsed.delta : null;
       return {
-        oldValue: existing.value !== null ? redactValue(existing.value) : null,
-        newValue: newNum !== null ? String(newNum) : `(current + ${parsed.delta})`,
+        ...previewBase(client, "increment", parsed.environment, parsed.store, parsed.scope, parsed.key),
+        ...safeOldValue(existing),
+        delta: parsed.delta,
+        newValue: projected !== null ? String(projected) : `(current + ${parsed.delta})`,
       } as JsonValue;
     },
-    execute: async (input, context) => {
+    execute: async (input, ctx) => {
       if (!client.configured) return NOT_CONFIGURED;
-      const parsed = incrementInputSchema.parse(input);
-      const existing = await client.readKey(parsed.store, parsed.scope, parsed.key, context.signal).catch(() => ({ value: null }));
-      const oldValue = existing.value !== null ? redactValue(existing.value) : null;
-      const decision = await requestApproval({
-        approvalId: context.operationId,
+      const parsed = incrementSchema.parse(input);
+      const result = await client.incrementKey(parsed.store, parsed.scope, parsed.key, parsed.delta, ctx.signal);
+      return {
+        ok: true,
         operation: "increment",
-        universe: client.universeId,
+        environment: parsed.environment,
         store: parsed.store,
         scope: parsed.scope,
         key: parsed.key,
-        oldValue,
-        newValue: `(${oldValue ?? "?"}) + ${parsed.delta}`,
-        risk: "destructive",
-      });
-      if (decision === "deny") return { denied: true, reason: "User denied this DataStore increment." } as JsonValue;
-      const result = await client.incrementKey(parsed.store, parsed.scope, parsed.key, parsed.delta, context.signal);
-      return { ok: true, value: result.value } as JsonValue;
+        delta: parsed.delta,
+        value: result.value,
+      } as JsonValue;
     },
   });
 

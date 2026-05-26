@@ -7,6 +7,7 @@
 
 import express from "express";
 import cors from "cors";
+import { existsSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { MemoryConversationStore } from "./agent/store.ts";
 import { AgentRuntime } from "./agent/runtime.ts";
@@ -17,6 +18,13 @@ import { createSubagentTool } from "./agent/subagent.ts";
 import { createPlaytestTools } from "./agent/playtest-tools.ts";
 import { createModelDriverFactory } from "./agent/drivers.ts";
 import { createAgentRouter } from "./agent/routes.ts";
+import { StudioMcpClient } from "./agent/mcp-stdio.ts";
+import {
+  CompositeStudioTransport,
+  OfficialMcpTransport,
+  PluginRelayTransport,
+  readConfiguredTransport,
+} from "./agent/studio-transport.ts";
 
 try {
   process.loadEnvFile(".env");
@@ -105,24 +113,64 @@ const relayStudioRequest = async (sessionId, path, body, signal, operationId) =>
   return response.ok ? result : { error: result.error || `Studio request failed: ${response.status}` };
 };
 
-const agentTools = new RobloxStudioMcpGateway(relayStudioRequest);
+// --- Studio transport selection (official MCP stdio vs plugin polling) ---
+const configuredTransport = readConfiguredTransport(process.env);
+const DEFAULT_MCP_BINARY = "/Applications/RobloxStudio.app/Contents/MacOS/StudioMCP";
+const resolvedMcpBinary = process.env.STUD_STUDIO_MCP_BINARY
+  || (existsSync(DEFAULT_MCP_BINARY) ? DEFAULT_MCP_BINARY : undefined);
 
-// DataStore tools via Open Cloud
+const pluginTransport = new PluginRelayTransport(relayStudioRequest);
+/** @type {StudioMcpClient | undefined} */
+let mcpClient;
+/** @type {OfficialMcpTransport | null} */
+let mcpTransport = null;
+
+if (configuredTransport !== "plugin" && resolvedMcpBinary) {
+  mcpClient = new StudioMcpClient({
+    command: resolvedMcpBinary,
+    args: (process.env.STUD_STUDIO_MCP_ARGS ?? "--stdio").split(/\s+/).filter(Boolean),
+    label: "official-mcp",
+  });
+  mcpClient.on("stderr", (chunk) => {
+    if (process.env.STUD_STUDIO_MCP_DEBUG) process.stderr.write(`[studio-mcp] ${chunk}`);
+  });
+  mcpClient.on("exit", (info) =>
+    console.warn(`[studio-mcp] process exited code=${info.code} signal=${info.signal ?? "none"}`),
+  );
+  mcpTransport = new OfficialMcpTransport(mcpClient);
+  mcpClient
+    .connect()
+    .then(() => {
+      const tools = mcpClient.listTools().map((t) => t.name);
+      console.log(`[studio-mcp] connected via ${resolvedMcpBinary}; tools=${tools.join(",")}`);
+    })
+    .catch((err) => {
+      console.warn(`[studio-mcp] connect failed: ${err.message ?? err}`);
+      if (configuredTransport === "mcp") {
+        console.warn("[studio-mcp] STUD_STUDIO_TRANSPORT=mcp set; agent will still try MCP for each call");
+      } else {
+        console.warn("[studio-mcp] auto mode will fall back to plugin polling until MCP connects");
+      }
+    });
+} else if (configuredTransport === "mcp") {
+  console.warn("[studio-mcp] STUD_STUDIO_TRANSPORT=mcp but StudioMCP binary not found; falling back to plugin");
+}
+
+const studioTransport = new CompositeStudioTransport(mcpTransport, pluginTransport, configuredTransport);
+const composedRelay = studioTransport.toRelay();
+
+const agentTools = new RobloxStudioMcpGateway(composedRelay);
+
+// DataStore tools via Open Cloud. Approval is delegated to AgentRuntime, which
+// emits a single `approval_pending` event per destructive mutation and waits
+// for the React approval UI to resolve it.
 const openCloudClient = new OpenCloudClient();
-
-/**
- * @param {import('./agent/types.ts').DataStoreApprovalRequest} req
- * @returns {Promise<import('./agent/types.ts').ApprovalDecision>}
- */
-const datastoreApprovalRequester = async (req) => {
-  // DataStore tools use the existing risk:"destructive" approval flow via runtime,
-  // so this requester is not actually called during normal execution (the runtime
-  // handles destructive tools). This is here as a fallback for standalone use.
-  console.log("[datastore] Approval requested for", req.operation, req.key);
-  return "deny";
-};
-
-const datastoreTools = createDataStoreTools(openCloudClient, datastoreApprovalRequester);
+if (!openCloudClient.configured) {
+  console.warn(
+    "[Stud Bridge] Open Cloud DataStore tools are disabled. Set ROBLOX_OPEN_CLOUD_API_KEY and ROBLOX_UNIVERSE_ID in .env to enable.",
+  );
+}
+const datastoreTools = createDataStoreTools(openCloudClient);
 
 /**
  * Composite registry that combines studio gateway tools with DataStore tools.
@@ -142,7 +190,7 @@ class CompositeToolRegistry {
   }
 }
 
-const playtestTools = createPlaytestTools(relayStudioRequest);
+const playtestTools = createPlaytestTools(composedRelay);
 const combinedTools = new CompositeToolRegistry(agentTools, [...datastoreTools, ...playtestTools]);
 
 // Subagent tool references combinedTools for read-only wrapping
@@ -174,6 +222,32 @@ app.use("/agent", createAgentRouter(agentRuntime));
 
 // --- Session routes (web + plugin) ---
 
+const buildStudioStatus = (session) => {
+  const pluginConnected = isStudioConnected(session);
+  const mcpConnected = mcpClient?.isConnected() ?? false;
+  const preferred = studioTransport.preferred();
+  const effective = mcpConnected
+    ? "official_mcp"
+    : pluginConnected
+      ? "plugin_fallback"
+      : preferred;
+  const tools = mcpClient?.listTools().map((t) => t.name) ?? [];
+  return {
+    connected: pluginConnected || mcpConnected,
+    pluginConnected,
+    mcpConnected,
+    configuredTransport,
+    preferredTransport: preferred,
+    effectiveTransport: effective,
+    lastUsedTransport: studioTransport.lastUsed,
+    mcpServer: mcpClient?.getServerInfo() ?? null,
+    mcpTools: tools,
+    mcpError: mcpClient?.getLastConnectError() ?? null,
+    pending_requests: session.pending.size,
+    last_poll_time: session.lastPoll ? timestamp() - session.lastPoll : null,
+  };
+};
+
 app.get("/stud/sessions/:sessionId/status", (req, res) => {
   const session = getSession(req.params.sessionId);
   if (!session) {
@@ -181,11 +255,7 @@ app.get("/stud/sessions/:sessionId/status", (req, res) => {
     return;
   }
   cleanupSession(session);
-  res.json({
-    connected: isStudioConnected(session),
-    pending_requests: session.pending.size,
-    last_poll_time: session.lastPoll ? timestamp() - session.lastPoll : null,
-  });
+  res.json(buildStudioStatus(session));
 });
 
 app.post("/stud/sessions/:sessionId/request", async (req, res) => {
@@ -379,13 +449,14 @@ app.post("/stud/request", async (req, res) => {
   }
 });
 
-app.get("/stud/status", (req, res) => {
+app.get("/stud/status", (_req, res) => {
   const session = getSession(LEGACY_SESSION);
-  res.json({
-    connected: isStudioConnected(session),
-    pending_requests: session.pending.size,
-    last_poll_time: session.lastPoll ? timestamp() - session.lastPoll : null,
-  });
+  res.json(buildStudioStatus(session));
+});
+
+app.get("/stud/studio/status", (_req, res) => {
+  const session = getSession(LEGACY_SESSION);
+  res.json(buildStudioStatus(session));
 });
 
 // --- OAuth (ChatGPT Plus/Pro) ---

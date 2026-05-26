@@ -1,7 +1,8 @@
-import { BookOpen, Globe, Play, FileText, Box } from "lucide-react";
+import { BookOpen, Play, FileText, Box } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { ChatChipAction } from "./intents";
 
-export type ChipAction = "search-models" | "docs" | "web" | "run-code" | "plan" | "toolbox";
+export type ChipAction = ChatChipAction;
 
 interface ContextChip {
   id: ChipAction;
@@ -12,10 +13,10 @@ interface ContextChip {
 
 const chips: ContextChip[] = [
   {
-    id: "search-models",
-    label: "Models",
+    id: "toolbox",
+    label: "Toolbox",
     icon: <Box className="w-3.5 h-3.5" />,
-    description: "Search free models from Creator Store",
+    description: "Search Creator Store assets and review before inserting",
   },
   {
     id: "docs",
@@ -24,22 +25,16 @@ const chips: ContextChip[] = [
     description: "Search Roblox documentation",
   },
   {
-    id: "web",
-    label: "Web",
-    icon: <Globe className="w-3.5 h-3.5" />,
-    description: "Search the web",
-  },
-  {
     id: "run-code",
-    label: "Run",
+    label: "Run Code",
     icon: <Play className="w-3.5 h-3.5" />,
-    description: "Execute Luau code in Studio",
+    description: "High risk: execute Luau only after explicit approval",
   },
   {
     id: "plan",
     label: "Plan",
     icon: <FileText className="w-3.5 h-3.5" />,
-    description: "Create a plan before building",
+    description: "Read-only plan mode; changes are blocked",
   },
 ];
 
@@ -60,10 +55,11 @@ export function ContextChips({
           <button
             key={chip.id}
             type="button"
-            className={cn("stud-suggestion-chip flex items-center gap-1.5 shrink-0", isActive && "border-[#1a1817]/25 bg-white text-[#1a1817]")}
+            className={cn("stud-action-chip flex items-center gap-1.5 shrink-0", isActive && "is-active")}
             onClick={() => onChipClick(chip.id)}
             disabled={disabled}
             title={chip.description}
+            aria-pressed={isActive}
           >
             {chip.icon}
             {chip.label}

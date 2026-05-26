@@ -16,6 +16,7 @@ export type ApprovalRequest = {
   risk: string;
   preview?: unknown;
   allowStripScripts?: boolean;
+  elevated?: boolean;
 };
 type AgentEvent = {
   sequence: number;
@@ -186,6 +187,7 @@ async function handleEvent(
       risk: event.risk ?? "",
       preview: event.preview,
       allowStripScripts: event.allowStripScripts,
+      elevated: event.elevated,
     });
     await request(`/agent/conversations/${access.id}/runs/${runId}/approvals/${event.approvalId}`, {
       method: "POST",

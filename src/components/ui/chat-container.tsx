@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils"
-import { StickToBottom } from "use-stick-to-bottom"
+import { useEffect, useRef } from "react"
+import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom"
 
 export type ChatContainerRootProps = {
   children: React.ReactNode
@@ -62,4 +63,16 @@ function ChatContainerScrollAnchor({
   )
 }
 
-export { ChatContainerRoot, ChatContainerContent, ChatContainerScrollAnchor }
+function ChatContainerFollow({ submissionCount }: { submissionCount: number }) {
+  const { scrollToBottom } = useStickToBottomContext()
+  const previous = useRef(submissionCount)
+
+  useEffect(() => {
+    if (submissionCount > previous.current) scrollToBottom()
+    previous.current = submissionCount
+  }, [submissionCount, scrollToBottom])
+
+  return null
+}
+
+export { ChatContainerRoot, ChatContainerContent, ChatContainerScrollAnchor, ChatContainerFollow }

@@ -5,7 +5,7 @@ export interface ToolCall {
   name: string;
   args: Record<string, unknown>;
   result?: unknown;
-  status: "pending" | "running" | "complete" | "error" | "waiting";
+  status: "pending" | "running" | "complete" | "error" | "denied" | "waiting";
   error?: string;
 }
 
