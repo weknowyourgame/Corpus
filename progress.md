@@ -416,3 +416,17 @@ The agent applies fixes between calls. Per-session `PlaytestLoopTracker` enforce
 The major achievement: the risky centre of the product is no longer a browser calling powerful Roblox mutations. The system now has a server authority layer, typed streaming events, a controlled Studio tool gateway, conflict-aware script editing, live context + RAG injection, rate limiting, DataStore via server-only credentials, approval gates, plan-mode restrictions, full audit trail, safe asset insertion, read-only specialist subagents, and a bounded playtest observe-fix loop with log sanitization.
 
 The next most important move is running the real end-to-end Minecraft-style demo in Studio, then deciding the official MCP transport path before starting Phase 10.
+
+## 2026-05-27 — Claude Code architecture adoption pass
+
+Inspected `claude-code-opensource/` for license: no LICENSE/NOTICE/COPYING/README; references internal `bun:bundle` and `src/...` paths. Treated as proprietary; no source copied. Patterns reimplemented clean-room. Provenance and the full subsystem mapping live in `docs/phase-3/architecture-adoption.md`.
+
+Delivered in this PR:
+- Snapshot + append-only JSONL persistence (`DevelopmentConversationStore`) replaces whole-file rewrites on every streamed token. Live production path swapped from `MemoryConversationStore` to the durable store (memory store opt-in via `STUD_AGENT_STORE=memory`).
+- Tool scheduler runs `parallel_read` tool calls concurrently and `exclusive_mutation` calls strictly sequentially using existing per-tool concurrency metadata. Cancellation propagates; unscheduled calls return structured cancellation results.
+- Structured plan mode: new `submit_plan` tool captures intended `(toolName, scope)` steps; `POST /agent/conversations/:id/plans/:planId/approve|reject` promotes a plan to `approvedPlan`. `PermissionPolicy` honours approved plan steps as an `allow` tier, marking each step consumed on use so the model cannot reuse a step indefinitely.
+- Pending approvals and AskUserQuestion interactions persist on the conversation; a crash-recovery pass on bridge startup cancels orphaned `running` runs and clears their pendings with `approval_resolved`/`interaction_resolved` events so reconnecting clients see consistent state.
+- Subagent runtime gains progress events (`subagent_progress`), a wall-clock budget, and a `timedOut` field; `roblox_spawn_subagent` forwards progress through the parent run's event stream.
+- Tests: scheduler (parallel/serial/cancel), plan (matching + scope deviation), durability (no per-token snapshot rewrite, crash recovery, malformed log resilience), resume (strict cursor under buffered persistence), subagent progress + cancellation.
+
+Tests, typecheck, and build all green: 153 tests passing.

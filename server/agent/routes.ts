@@ -121,6 +121,24 @@ export function createAgentRouter(runtime: AgentRuntime) {
     res.status(answered ? 202 : 404).json({ answered });
   });
 
+  router.post("/conversations/:conversationId/plans/:planId/approve", async (req, res) => {
+    if (!await authorize(req, req.params.conversationId)) {
+      res.status(404).json({ error: "Conversation not found or unauthorized" });
+      return;
+    }
+    const ok = await runtime.approvePlan(req.params.conversationId, req.params.planId);
+    res.status(ok ? 202 : 404).json({ approved: ok });
+  });
+
+  router.post("/conversations/:conversationId/plans/:planId/reject", async (req, res) => {
+    if (!await authorize(req, req.params.conversationId)) {
+      res.status(404).json({ error: "Conversation not found or unauthorized" });
+      return;
+    }
+    const ok = await runtime.rejectPlan(req.params.conversationId, req.params.planId);
+    res.status(ok ? 202 : 404).json({ rejected: ok });
+  });
+
   router.post("/conversations/:conversationId/runs/:runId/approvals/:approvalId", async (req, res) => {
     if (!await authorize(req, req.params.conversationId)) {
       res.status(404).json({ error: "Conversation not found or unauthorized" });
