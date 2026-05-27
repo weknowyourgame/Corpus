@@ -163,7 +163,7 @@ export function PrereqWizard() {
   // Show loading state while checking
   if (isChecking) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "var(--stud-bg)" }}>
+      <div className="stud-prereq-screen fixed inset-0 z-50 flex items-center justify-center">
         <div className="text-center">
           <Loader variant="wave" size="lg" />
           <p className="mt-4" style={{ color: "var(--stud-muted)" }}>Checking prerequisites...</p>
@@ -173,9 +173,9 @@ export function PrereqWizard() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-auto" style={{ background: "var(--stud-bg)" }}>
-      <div className="max-w-2xl mx-auto px-6 py-12">
-        <div className="text-center mb-8">
+    <div className="stud-prereq-screen fixed inset-0 z-50 overflow-auto">
+      <div className="stud-prereq-content max-w-2xl mx-auto px-6 py-12">
+        <div className="stud-prereq-heading text-center mb-8">
           <StudLogo className="justify-center mb-6" />
           <h1 className="stud-display-title" style={{ fontSize: "2.25rem" }}>Setup Required</h1>
           <p className="stud-display-subtitle">

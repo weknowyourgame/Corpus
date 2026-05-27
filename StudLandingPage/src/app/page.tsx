@@ -1239,8 +1239,14 @@ export default function Home() {
             <StudLogo />
           </a>
           <div className="hero-nav-links" aria-label="Product navigation">
+            <button onClick={() => scrollToId("docs")} type="button">
+              How to
+            </button>
+            <button onClick={() => setWaitlistOpen(true)} type="button">
+              Start
+            </button>
             <button onClick={() => scrollToId("roblox-tools")} type="button">
-              Tools
+              Build
             </button>
             <button onClick={() => scrollToId("permissions")} type="button">
               Safety
@@ -1248,22 +1254,27 @@ export default function Home() {
             <button onClick={() => scrollToId("docs")} type="button">
               Docs
             </button>
+            <button onClick={() => scrollToId("roblox-tools")} type="button">
+              Tools
+            </button>
+            <button onClick={() => setWaitlistOpen(true)} type="button">
+              Pricing
+            </button>
           </div>
           <button
             className="nav-button"
             onClick={() => setWaitlistOpen(true)}
             type="button"
           >
-            Join Waitlist
+            Build a game
           </button>
         </nav>
         <div className="hero-content">
           <h1>
-            Stud lets you build Roblox worlds with agents
+            Stud lets you build an entire Roblox game with agents
           </h1>
           <p>
-            Write Luau, shape live scenes, and approve Studio changes from one
-            focused workspace.
+            Run scripting, worldbuilding, UI, DataStores, and live Studio ops.
           </p>
           <div className="hero-actions">
             <button
@@ -1271,15 +1282,32 @@ export default function Home() {
               onClick={() => setWaitlistOpen(true)}
               type="button"
             >
-              Join waitlist
+              Build a game
             </button>
             <button
               className="hero-button is-secondary"
               onClick={() => scrollToId("roblox-tools")}
               type="button"
             >
-              See Stud in action
+              Check out the launch
             </button>
+          </div>
+        </div>
+        <div className="hero-task-stack" aria-hidden="true">
+          <div className="hero-task-row is-active">
+            <span />
+            <small>Task running</small>
+            <strong>Generate world</strong>
+          </div>
+          <div className="hero-task-row">
+            <span />
+            <small>Task Completed</small>
+            <strong>Write Luau scripts</strong>
+          </div>
+          <div className="hero-task-row">
+            <span />
+            <small>Task Completed</small>
+            <strong>Place assets</strong>
           </div>
         </div>
       </section>

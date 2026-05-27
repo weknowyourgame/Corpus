@@ -1623,3 +1623,187 @@
     font-size: clamp(2.35rem, 11vw, 3rem);
   }
 }
+
+/* Cofounder-style open meadow workspace, retaining real agent controls. */
+.stud-app-shell {
+  background:
+    url("/stud/assets/stud-world-hero.webp") center center / cover no-repeat,
+    #48a5ea;
+}
+
+.stud-atmosphere {
+  background: linear-gradient(90deg, rgba(12, 58, 96, 0.12), transparent 52%);
+}
+
+.stud-welcome-layout {
+  padding: clamp(53px, 8vh, 71px) 20px 28px;
+}
+
+.stud-welcome-card {
+  position: relative;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  gap: 16px;
+}
+
+.stud-welcome-heading {
+  max-width: 600px;
+}
+
+.stud-display-title {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: clamp(2.65rem, 3.65vw, 3.15rem);
+  font-weight: 400;
+  line-height: 1.06;
+}
+
+.stud-display-subtitle {
+  max-width: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.stud-agent-tasks {
+  position: absolute;
+  top: clamp(94px, 14vh, 126px);
+  left: min(59%, 760px);
+  display: grid;
+  width: min(282px, 24vw);
+  gap: 6px;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 10px;
+}
+
+.stud-agent-task {
+  display: grid;
+  grid-template-columns: 7px auto 1fr;
+  align-items: center;
+  gap: 8px;
+  min-height: 39px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 7px;
+  background: rgba(24, 48, 43, 0.57);
+  padding: 0 12px;
+  box-shadow: 0 10px 28px rgba(7, 28, 31, 0.12);
+  backdrop-filter: blur(10px);
+}
+
+.stud-agent-task span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #acd990;
+}
+
+.stud-agent-task strong {
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.stud-prereq-screen {
+  background:
+    linear-gradient(90deg, rgba(12, 58, 96, 0.12), transparent 52%),
+    url("/stud/assets/stud-world-hero.webp") center center / cover no-repeat,
+    #48a5ea !important;
+}
+
+.stud-prereq-content {
+  position: relative;
+  z-index: 1;
+  margin-left: clamp(20px, 5vw, 72px);
+  margin-right: auto;
+  padding-top: clamp(44px, 8vh, 72px);
+}
+
+.stud-prereq-heading {
+  text-align: left;
+}
+
+.stud-prereq-heading .stud-logo {
+  justify-content: flex-start;
+}
+
+.stud-prereq-heading .stud-display-title {
+  margin: 28px 0 10px;
+  color: #fff;
+}
+
+.stud-prereq-heading .stud-display-subtitle {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.stud-prereq-screen .stud-panel {
+  border-color: rgba(255, 255, 255, 0.72);
+  border-radius: 11px;
+  background: rgba(255, 255, 252, 0.94);
+  box-shadow: 0 17px 37px rgba(7, 28, 31, 0.12);
+}
+
+.stud-prereq-screen details > summary {
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.stud-prereq-screen details > summary:hover {
+  color: #fff;
+}
+
+.stud-prereq-screen > div > p {
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.stud-prompt-deck {
+  width: min(100%, 610px);
+  margin-top: 10px;
+  border-radius: 11px;
+  background: rgba(22, 46, 43, 0.43);
+  padding: 8px;
+  box-shadow: 0 14px 30px rgba(7, 28, 31, 0.12);
+}
+
+.stud-welcome-card > .stud-suggestions {
+  width: min(100%, 610px);
+}
+
+.stud-suggestion-chip {
+  padding: 8px 12px;
+  background: rgba(24, 48, 43, 0.48);
+  font-size: 11px;
+}
+
+.stud-chat-workspace {
+  padding-top: 4px;
+}
+
+.stud-session-rail,
+.studio-window.stud-chat-panel {
+  border-radius: 12px;
+}
+
+@media (max-width: 960px) {
+  .stud-agent-tasks {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .stud-app-shell {
+    background-position: 27% center;
+  }
+
+  .stud-welcome-layout {
+    padding: 48px 14px 18px;
+  }
+
+  .stud-display-title {
+    font-size: clamp(2.25rem, 10.7vw, 2.75rem);
+  }
+
+  .stud-prereq-content {
+    margin: 0;
+    padding: 26px 14px;
+  }
+}

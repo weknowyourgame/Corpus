@@ -576,11 +576,15 @@ export function Home() {
           <div className="stud-welcome-card">
             <div className="stud-welcome-heading">
               <span className="stud-eyebrow">STUD FOR ROBLOX STUDIO</span>
-              <h1 className="stud-display-title">Build entire worlds<br />with agents</h1>
+              <h1 className="stud-display-title">Build an entire Roblox<br />game with agents</h1>
               <p className="stud-display-subtitle">
-                Design gameplay, write Luau and shape your live scene.
-                Stud keeps risky changes behind your approval.
+                Run scripting, worldbuilding, UI, DataStores, and live Studio ops.
               </p>
+            </div>
+            <div className="stud-agent-tasks" aria-hidden="true">
+              <div className="stud-agent-task is-active"><span />Task running <strong>Generate world</strong></div>
+              <div className="stud-agent-task"><span />Task Completed <strong>Write Luau scripts</strong></div>
+              <div className="stud-agent-task"><span />Task Completed <strong>Place assets</strong></div>
             </div>
             <section className="stud-prompt-deck">
               <ContextChips

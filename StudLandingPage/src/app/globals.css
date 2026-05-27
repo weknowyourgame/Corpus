@@ -3599,3 +3599,178 @@ svg {
     max-width: 320px;
   }
 }
+
+/* Reference-faithful hero composition: simple controls over an original Stud meadow scene. */
+.hero {
+  min-height: 100svh;
+  background:
+    url("/stud/assets/stud-world-hero.webp") center center / cover no-repeat,
+    #48a5ea;
+}
+
+.hero-noise,
+.hero-light-field,
+.hero-flow-canvas {
+  display: none;
+}
+
+.hero::before {
+  background: linear-gradient(90deg, rgba(12, 58, 96, 0.1), transparent 50%);
+}
+
+.stud-nav {
+  position: absolute;
+  top: 25px;
+  right: 20px;
+  left: 20px;
+  width: auto;
+  margin: 0;
+}
+
+.stud-nav .stud-logo {
+  font-size: 27px;
+  letter-spacing: -0.055em;
+}
+
+.hero-nav-links {
+  border-color: rgba(255, 255, 255, 0.13);
+  border-radius: 8px;
+  background: rgba(30, 59, 56, 0.39);
+  padding: 2px;
+  backdrop-filter: blur(12px);
+}
+
+.hero-nav-links button {
+  border-radius: 6px;
+  padding: 11px 18px;
+  color: rgba(255, 255, 255, 0.91);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.nav-button {
+  min-width: 132px;
+  border-radius: 8px;
+  padding: 13px 18px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+}
+
+.hero-content {
+  min-height: 100svh;
+  width: auto;
+  margin: 0 20px;
+  padding: clamp(110px, 15vh, 126px) 0 54px;
+}
+
+.hero h1 {
+  max-width: 585px;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: clamp(2.65rem, 3.65vw, 3.15rem);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  line-height: 1.06;
+}
+
+.hero p {
+  max-width: none;
+  margin: 23px 0 0;
+  color: rgba(255, 255, 255, 0.92);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.hero-actions {
+  margin-top: 25px;
+}
+
+.hero-button {
+  border-radius: 8px;
+  padding: 13px 17px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 13px;
+}
+
+.hero-button.is-secondary {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(29, 59, 62, 0.38);
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.14),
+    0 7px 16px rgba(12, 31, 38, 0.08);
+}
+
+.hero-task-stack {
+  position: absolute;
+  z-index: 2;
+  top: clamp(205px, 30vh, 255px);
+  left: min(59%, 760px);
+  display: grid;
+  width: min(282px, 24vw);
+  gap: 6px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.hero-task-row {
+  display: grid;
+  grid-template-columns: 7px auto 1fr;
+  align-items: center;
+  gap: 8px;
+  min-height: 39px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 7px;
+  background: rgba(24, 48, 43, 0.57);
+  padding: 0 12px;
+  color: #fff;
+  box-shadow: 0 10px 28px rgba(7, 28, 31, 0.12);
+  backdrop-filter: blur(10px);
+}
+
+.hero-task-row span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #acd990;
+}
+
+.hero-task-row small {
+  color: rgba(255, 255, 255, 0.59);
+  font-size: 10px;
+}
+
+.hero-task-row strong {
+  justify-self: start;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+@media (max-width: 960px) {
+  .hero-nav-links,
+  .hero-task-stack {
+    display: none;
+  }
+}
+
+@media (max-width: 780px) {
+  .hero {
+    background-position: 27% center;
+  }
+
+  .stud-nav {
+    right: 15px;
+    left: 15px;
+  }
+
+  .hero-content {
+    margin: 0 15px;
+    padding-top: 116px;
+  }
+
+  .hero h1 {
+    max-width: 375px;
+    font-size: clamp(2.3rem, 11.2vw, 2.85rem);
+  }
+}
