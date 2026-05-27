@@ -62,7 +62,7 @@ const studioTools: Array<{
     schema: z.object({ path: z.string(), source: z.string() }),
     endpoint: "/script/set",
     risk: "low_mutation",
-    scope: (input) => `${path(input)}#${fingerprint(input.source)}`,
+    scope: (input) => path(input),
   },
   {
     name: "mcp__roblox_studio__edit_script",
@@ -70,7 +70,7 @@ const studioTools: Array<{
     schema: z.object({ path: z.string(), oldCode: z.string(), newCode: z.string() }),
     endpoint: "/script/edit",
     risk: "low_mutation",
-    scope: (input) => `${path(input)}#${fingerprint({ oldCode: input.oldCode, newCode: input.newCode })}`,
+    scope: (input) => path(input),
   },
   {
     name: "mcp__roblox_studio__list_children",
@@ -94,7 +94,7 @@ const studioTools: Array<{
     schema: z.object({ path: z.string(), property: z.string(), value: z.string() }),
     endpoint: "/instance/set",
     risk: "low_mutation",
-    scope: (input) => `${path(input)}.${String(input.property)}=${String(input.value)}`,
+    scope: (input) => `${path(input)}.${String(input.property)}`,
   },
   {
     name: "mcp__roblox_studio__create_instance",
@@ -118,7 +118,7 @@ const studioTools: Array<{
     schema: z.object({ path: z.string(), parent: z.string().optional() }),
     endpoint: "/instance/clone",
     risk: "low_mutation",
-    scope: (input) => `${path(input)} -> ${path(input, "parent")}#${fingerprint(input)}`,
+    scope: (input) => `${path(input)} -> ${path(input, "parent")}`,
   },
   {
     name: "mcp__roblox_studio__move_instance",

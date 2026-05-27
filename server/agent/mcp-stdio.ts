@@ -102,6 +102,8 @@ export class StudioMcpClient extends EventEmitter {
       this.process = child;
       this.stdin = child.stdin!;
       this.stdout = child.stdout!;
+      // Suppress EPIPE so a write-after-child-exit doesn't crash the bridge.
+      child.stdin!.on("error", () => {});
       child.stderr!.on("data", (chunk: Buffer) =>
         this.emit("stderr", chunk.toString("utf8")),
       );
@@ -158,9 +160,9 @@ export class StudioMcpClient extends EventEmitter {
     this.connected = false;
     this.failAll(new Error("MCP client disposed"));
     if (this.process) {
-      try { this.process.kill(); } catch {
-        // ignore
-      }
+      try { this.stdin?.destroy(); } catch { /* ignore */ }
+      try { this.stdout?.destroy(); } catch { /* ignore */ }
+      try { this.process.kill(); } catch { /* ignore */ }
       this.process = undefined;
     }
     this.stdin = undefined;
