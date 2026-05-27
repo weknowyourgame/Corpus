@@ -27,7 +27,8 @@ import {
 } from "./agent/studio-transport.ts";
 
 try {
-  process.loadEnvFile(".env");
+  // Bun auto-loads .env; Node.js needs loadEnvFile (available since 20.12)
+  process.loadEnvFile?.(".env");
 } catch (error) {
   if (error.code !== "ENOENT") throw error;
 }
