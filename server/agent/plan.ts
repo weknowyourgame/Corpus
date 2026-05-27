@@ -15,9 +15,16 @@ const planStepSchema = z.object({
   summary: z.string().min(1).max(280),
 });
 
+// Models sometimes JSON-stringify the steps array instead of sending it
+// as a native array. Preprocess to handle both forms.
+const parseIfString = (val: unknown) => {
+  if (typeof val !== "string") return val;
+  try { return JSON.parse(val); } catch { return val; }
+};
+
 export const submitPlanSchema = z.object({
   summary: z.string().min(1).max(2000),
-  steps: z.array(planStepSchema).min(1).max(32),
+  steps: z.preprocess(parseIfString, z.array(planStepSchema).min(1).max(32)),
 });
 
 export type SubmitPlanInput = z.infer<typeof submitPlanSchema>;
