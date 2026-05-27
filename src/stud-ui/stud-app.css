@@ -1143,3 +1143,305 @@
     min-width: 127px;
   }
 }
+
+/* Premium sky-world treatment for the live workspace. */
+.stud-page {
+  --stud-display: "Stud Kalice", Georgia, serif;
+  --stud-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --stud-tech: "Stud Pixel", "Stud Raster", ui-monospace, monospace;
+  --stud-text: #142329;
+  --stud-muted: #65757a;
+  --stud-green: #207254;
+  --stud-blue: #23669c;
+}
+
+.stud-app-shell {
+  background-position: center bottom;
+}
+
+.stud-atmosphere {
+  background:
+    linear-gradient(90deg, rgba(14, 43, 58, 0.2), rgba(14, 43, 58, 0.02) 50%, transparent 68%),
+    linear-gradient(to top, rgba(245, 247, 241, 0.68), transparent 43%),
+    radial-gradient(circle at 15% 15%, rgba(255, 255, 255, 0.23), transparent 30%);
+}
+
+.stud-app-header {
+  min-height: 62px;
+  margin: 14px clamp(15px, 2.6vw, 29px) 10px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  background: rgba(255, 255, 252, 0.13);
+  padding: 10px 12px 10px 18px;
+  box-shadow: 0 16px 42px rgba(17, 44, 57, 0.08);
+}
+
+.stud-brand-lockup {
+  gap: 16px;
+}
+
+.stud-logo {
+  font-family: var(--stud-tech);
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+}
+
+.stud-brand-subtitle {
+  font-family: var(--stud-sans);
+  font-size: 12px;
+}
+
+.stud-app-header .status-pill,
+.stud-app-header .stud-icon-btn {
+  border-color: rgba(255, 255, 255, 0.48);
+  background: rgba(255, 255, 252, 0.2);
+  color: #fff !important;
+}
+
+.stud-app-header .stud-icon-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 252, 0.32);
+  color: #fff !important;
+}
+
+.stud-welcome-layout {
+  padding: clamp(36px, 8vh, 90px) clamp(22px, 7vw, 88px) 42px;
+}
+
+.stud-welcome-card {
+  width: min(100%, 1240px);
+  gap: 20px;
+}
+
+.stud-welcome-heading {
+  max-width: 700px;
+  gap: 17px;
+}
+
+.stud-eyebrow {
+  padding: 9px 15px;
+  font-family: var(--stud-tech);
+  font-size: 10px;
+  letter-spacing: 0.17em;
+}
+
+.stud-display-title {
+  font-size: clamp(4.1rem, 6.4vw, 5.65rem);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  line-height: 0.94;
+}
+
+.stud-display-subtitle {
+  max-width: 505px;
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 16px;
+}
+
+.stud-prompt-deck {
+  width: min(100%, 716px);
+  gap: 10px;
+  margin-top: 10px;
+  border-color: rgba(255, 255, 255, 0.64);
+  border-radius: 27px;
+  background: rgba(255, 255, 252, 0.68);
+  padding: 9px;
+  box-shadow:
+    0 32px 66px rgba(18, 44, 54, 0.14),
+    inset 0 1px rgba(255, 255, 255, 0.82);
+}
+
+.stud-suggestions {
+  gap: 7px;
+}
+
+.stud-suggestion-chip {
+  border-color: rgba(255, 255, 255, 0.63);
+  background: rgba(255, 255, 252, 0.7);
+  padding: 10px 15px;
+  color: #334b4e;
+}
+
+.stud-chat-workspace {
+  grid-template-columns: 244px minmax(500px, 974px);
+  gap: 14px;
+  padding: 4px clamp(16px, 3vw, 38px) 20px;
+}
+
+.stud-session-rail {
+  gap: 16px;
+  border-color: rgba(255, 255, 255, 0.28);
+  border-radius: 25px;
+  background: rgba(17, 43, 50, 0.58);
+  padding: 24px 19px 16px;
+  color: #fff;
+  box-shadow: 0 26px 64px rgba(12, 35, 46, 0.16);
+}
+
+.stud-rail-status {
+  color: #b3f3cc;
+  font-family: var(--stud-tech);
+}
+
+.stud-session-rail h2 {
+  color: #fff;
+  font-family: var(--stud-display);
+  font-size: 38px;
+  font-weight: 400;
+  line-height: 0.96;
+}
+
+.stud-rail-copy,
+.stud-rail-label {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.stud-rail-divider {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.stud-rail-model {
+  color: #fff;
+}
+
+.stud-rail-routes .stud-route-pill {
+  border-color: rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 252, 0.08);
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.stud-rail-routes .stud-route-pill.is-live {
+  border-color: rgba(112, 224, 159, 0.28);
+  background: rgba(51, 144, 95, 0.2);
+  color: #c9f9db;
+}
+
+.stud-rail-image {
+  min-height: 142px;
+  margin: auto -8px -8px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 17px;
+}
+
+.studio-window.stud-chat-panel {
+  border-color: rgba(255, 255, 255, 0.78);
+  border-radius: 25px;
+  background: rgba(255, 255, 252, 0.9);
+  box-shadow: 0 28px 72px rgba(15, 38, 48, 0.15);
+}
+
+.stud-chat-panel .stud-chat-header {
+  min-height: 64px;
+  padding: 15px 20px 14px 24px;
+  background: rgba(255, 255, 252, 0.77);
+}
+
+.stud-chat-title strong {
+  font-family: var(--stud-tech);
+  font-size: 11px !important;
+  letter-spacing: 0.14em;
+}
+
+.stud-transcript {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(112, 193, 228, 0.08), transparent 34%),
+    #fbfcf8;
+}
+
+.stud-chat-scroll {
+  width: min(calc(100% - 48px), 756px);
+  padding: 30px 0 36px;
+}
+
+.stud-message-label {
+  font-family: var(--stud-tech);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+}
+
+.stud-message-bubble {
+  border-radius: 18px;
+  padding: 15px 17px;
+}
+
+.stud-message-bubble.is-user {
+  border-radius: 18px 5px 18px 18px;
+  background: #e8f1fb;
+}
+
+.stud-message-bubble.is-assistant {
+  border-radius: 5px 18px 18px;
+  background: #fffefb;
+}
+
+.stud-chat-composer {
+  gap: 10px;
+  background: #fffefb;
+  padding: 13px 18px 17px;
+}
+
+.stud-composer-card {
+  border-radius: 18px;
+  background: #f5f8f3;
+  box-shadow: none;
+}
+
+.stud-composer-actions {
+  background: rgba(237, 242, 235, 0.58);
+  padding: 9px 11px;
+}
+
+.stud-action-chip {
+  border-radius: 999px;
+  background: #fffefb;
+}
+
+.stud-panel,
+.stud-panel-soft {
+  border-radius: 20px;
+  background: rgba(255, 255, 252, 0.8);
+  box-shadow: 0 22px 56px rgba(16, 39, 49, 0.11);
+}
+
+.stud-connection-layout {
+  padding-top: clamp(28px, 6vh, 68px);
+}
+
+.stud-connection-stack {
+  width: min(100%, 520px);
+}
+
+.stud-connection-stack .stud-panel,
+.stud-connection-stack .stud-panel-soft {
+  background: rgba(255, 255, 252, 0.87);
+}
+
+@media (max-width: 960px) {
+  .stud-chat-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .stud-app-header {
+    min-height: 54px;
+    margin: 8px;
+    padding: 8px 10px 8px 13px;
+  }
+
+  .stud-welcome-layout {
+    padding-top: 28px;
+  }
+
+  .stud-display-title {
+    font-size: clamp(3.2rem, 15vw, 4rem);
+  }
+
+  .stud-chat-workspace {
+    padding: 2px 7px 7px;
+  }
+
+  .studio-window.stud-chat-panel {
+    border-radius: 18px;
+  }
+}
