@@ -266,7 +266,10 @@ export class AgentRuntime {
           systemContext: iteration === 1 ? contextBlock : undefined,
           onTextDelta: async (text) => {
             fullText += text;
-            await this.emitById(conversationId, runId, { type: "text_delta", text });
+            // Use the captured conversation object directly so nextSequence
+            // increments monotonically in-place, avoiding a store round-trip
+            // per token that could return a stale nextSequence value.
+            await this.emit(conversation, runId, { type: "text_delta", text });
           },
         });
         this.throwIfAborted(active.controller.signal);
