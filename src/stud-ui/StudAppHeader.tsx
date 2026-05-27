@@ -23,7 +23,10 @@ export function StudAppHeader({
 }) {
   return (
     <header className="stud-app-header">
-      <StudLogo large={compact} />
+      <div className="stud-brand-lockup">
+        <StudLogo large={compact} />
+        <span className="stud-brand-subtitle">Roblox Studio Agent</span>
+      </div>
       <div className="stud-app-header-actions">
         {status !== undefined && (
           <StudStatusPill

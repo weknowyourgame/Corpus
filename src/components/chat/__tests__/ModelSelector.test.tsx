@@ -6,12 +6,12 @@ import { useModelsStore } from "@/stores/models";
 
 describe("ModelSelector", () => {
   beforeEach(() => {
-    useSettingsStore.setState({ selectedProvider: "openrouter", selectedModel: "anthropic/claude-sonnet-4" });
+    useSettingsStore.setState({ selectedProvider: "openrouter", selectedModel: "openai/gpt-4o" });
     useModelsStore.setState({
       openrouterModels: [{
-        id: "anthropic/claude-sonnet-4",
-        name: "Claude Sonnet 4",
-        description: "Server-configured OpenRouter",
+        id: "openai/gpt-4o",
+        name: "GPT-4o",
+        description: "Via server-configured OpenRouter",
         provider: "openrouter",
       }],
       isLoading: false,
@@ -23,7 +23,7 @@ describe("ModelSelector", () => {
   it("renders a useful selected label and styled readable rows", () => {
     render(<ModelSelector serverProviders={{ anthropic: false, openrouter: true, codex: false }} />);
 
-    const trigger = screen.getByRole("button", { name: /Current model: Claude Sonnet 4/ });
+    const trigger = screen.getByRole("button", { name: /Current model: GPT-4o/ });
     expect(trigger.className).toContain("stud-model-trigger");
     fireEvent.click(trigger);
 

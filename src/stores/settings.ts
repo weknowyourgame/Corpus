@@ -90,17 +90,23 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: "stud-settings",
-      version: 2,
-      migrate: (persisted) => {
+      version: 3,
+      migrate: (persisted, version) => {
         const p = persisted as PersistedSettings;
         const keys = p.apiKeys ?? {};
         const { openai: _removed, ...rest } = keys;
         let provider = p.selectedProvider as ProviderType | string | undefined;
         if (provider === "openai") provider = "codex";
         provider = provider as ProviderType | undefined;
+        const selectedModel = version < 3
+          && provider === "openrouter"
+          && p.selectedModel === "anthropic/claude-sonnet-4"
+            ? "openai/gpt-4o"
+            : p.selectedModel;
         return {
           ...p,
           apiKeys: rest,
+          selectedModel,
           selectedProvider: provider ?? "codex",
         };
       },

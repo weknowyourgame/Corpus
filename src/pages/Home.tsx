@@ -22,6 +22,7 @@ import { MutationDiff } from "@/components/chat/MutationDiff";
 import { ConnectionBadges } from "@/components/chat/ConnectionBadges";
 import { RecoveryBanner } from "@/components/chat/RecoveryBanner";
 import { RunContextNotice } from "@/components/chat/RunContextNotice";
+import { compatibleServerSelection } from "@/components/chat/model-routing";
 import { buildChatSubmission, classifyToolOutput } from "@/components/chat/intents";
 import { ChatActions } from "@/components/QuickActions";
 import { CommandPalette } from "@/components/CommandPalette";
@@ -172,18 +173,19 @@ function ConnectionScreen({ status, transport }: { status: ConnectionStatus; tra
   const pluginInstalled = pluginStatus?.installed && pluginStatus?.is_current_version;
 
   return (
-    <div className="stud-app-shell">
+    <div className="stud-app-shell stud-workbench">
+      <div className="stud-atmosphere" aria-hidden="true" />
       <StudAppHeader status={status} transport={transport} trailing={<SettingsDialog />} />
 
       <main className="stud-connection-layout">
         <div className="stud-connection-stack">
           <div className="text-center">
-            <Loader variant="wave" size="lg" />
+            <span className="stud-eyebrow">OPEN A LIVE SCENE</span>
             <h1 className="stud-display-title mt-6" style={{ fontSize: "2.25rem" }}>
               Connect Roblox Studio
             </h1>
             <div className="stud-display-subtitle">
-              <Loader variant="terminal" text="Waiting for connection" size="sm" />
+              <Loader variant="terminal" text="Waiting for Roblox Studio" size="sm" />
             </div>
           </div>
 
@@ -366,15 +368,10 @@ export function Home() {
   }, []);
 
   useEffect(() => {
-    if (serverProviders[selectedProvider]) return;
-    if (serverProviders.anthropic) {
-      setSelectedModel("claude-sonnet-4-20250514", "anthropic");
-    } else if (serverProviders.openrouter) {
-      setSelectedModel("anthropic/claude-sonnet-4", "openrouter");
-    } else if (serverProviders.codex) {
-      setSelectedModel("gpt-4o", "codex");
-    }
-  }, [serverProviders, selectedProvider, setSelectedModel]);
+    const selection = compatibleServerSelection(selectedProvider, selectedModel, serverProviders);
+    if (!selection || (selection.provider === selectedProvider && selection.model === selectedModel)) return;
+    setSelectedModel(selection.model, selection.provider);
+  }, [serverProviders, selectedModel, selectedProvider, setSelectedModel]);
 
   useEffect(() => {
     if (studioStatus !== "connected" || messages.length) return;
@@ -572,37 +569,42 @@ export function Home() {
 
   if (messages.length === 0) {
     return (
-      <div className="stud-app-shell">
+      <div className="stud-app-shell stud-workbench">
+        <div className="stud-atmosphere" aria-hidden="true" />
         <StudAppHeader status={studioStatus} transport={studioTransport} trailing={<SettingsDialog />} />
         <main className="stud-app-main stud-welcome-layout">
           <div className="stud-welcome-card">
-            <div className="text-center">
-              <h1 className="stud-display-title">What would you like to build?</h1>
+            <div className="stud-welcome-heading">
+              <span className="stud-eyebrow">STUD FOR ROBLOX STUDIO</span>
+              <h1 className="stud-display-title">Build entire worlds<br />with agents</h1>
               <p className="stud-display-subtitle">
-                Create scripts, design systems, and build games in Roblox Studio.
+                Design gameplay, write Luau and shape your live scene.
+                Stud keeps risky changes behind your approval.
               </p>
             </div>
-            <ContextChips
-              onChipClick={handleChipClick}
-              activeChips={activeChips}
-              disabled={isStreaming || !hasConfiguredProvider}
-            />
-            <RunContextNotice active={activeChips} />
-            <StudComposer
-              value={input}
-              onValueChange={setInput}
-              onSubmit={handleSubmit}
-              isLoading={isStreaming}
-              disabled={!hasConfiguredProvider}
-              placeholder={
-                hasConfiguredProvider
-                    ? "Ask me anything about Roblox development..."
-                    : "Configure a server provider in .env to start..."
-              }
-            >
-              {composerActions}
-            </StudComposer>
-            <div className="flex flex-wrap justify-center gap-2">
+            <section className="stud-prompt-deck">
+              <ContextChips
+                onChipClick={handleChipClick}
+                activeChips={activeChips}
+                disabled={isStreaming || !hasConfiguredProvider}
+              />
+              <RunContextNotice active={activeChips} />
+              <StudComposer
+                value={input}
+                onValueChange={setInput}
+                onSubmit={handleSubmit}
+                isLoading={isStreaming}
+                disabled={!hasConfiguredProvider}
+                placeholder={
+                  hasConfiguredProvider
+                      ? "Describe the world, mechanic, or script you want to build..."
+                      : "Configure a server provider in .env to start..."
+                }
+              >
+                {composerActions}
+              </StudComposer>
+            </section>
+            <div className="stud-suggestions">
               {displayedSuggestions.map((suggestion) => (
                 <button
                   key={suggestion}
@@ -624,7 +626,8 @@ export function Home() {
   }
 
   return (
-    <div className="stud-app-shell">
+    <div className="stud-app-shell stud-workbench">
+      <div className="stud-atmosphere" aria-hidden="true" />
       <StudAppHeader
         status={studioStatus}
         transport={studioTransport}
@@ -637,11 +640,27 @@ export function Home() {
         }
       />
 
-      <div className="studio-window stud-chat-panel">
+      <main className="stud-chat-workspace">
+        <aside className="stud-session-rail">
+          <div className="stud-rail-status"><span /> LIVE WORLD</div>
+          <h2>Scene<br />control</h2>
+          <p className="stud-rail-copy">Your agent is attached to the open Roblox place.</p>
+          <ConnectionBadges status={studioStatus} transport={studioTransport} className="stud-rail-routes" />
+          <div className="stud-rail-divider" />
+          <p className="stud-rail-label">RUNNING MODEL</p>
+          <p className="stud-rail-model">{selectedModel}</p>
+          <p className="stud-rail-label">GUARDRAIL</p>
+          <p className="stud-rail-copy">Writes and code execution stay behind approval.</p>
+          <div className="stud-rail-image" aria-hidden="true" />
+        </aside>
+
+        <div className="studio-window stud-chat-panel">
         <header className="stud-chat-header">
-          <strong style={{ fontFamily: "var(--stud-tech)", fontSize: 13, letterSpacing: "0.12em" }}>
-            STUDIO CHAT
-          </strong>
+          <div className="stud-chat-title">
+            <span className="stud-live-beacon" />
+            <strong>STUD AGENT</strong>
+            <small>live workspace</small>
+          </div>
           <ConnectionBadges status={studioStatus} transport={studioTransport} />
         </header>
 
@@ -673,6 +692,7 @@ export function Home() {
               <div className={cn("stud-message-row", message.role === "user" && "is-user")}>
                 {message.role === "assistant" ? <BotAvatar /> : <UserAvatar />}
                 <div className="flex-1 min-w-0">
+                  <p className="stud-message-label">{message.role === "assistant" ? "STUD" : "YOU"}</p>
                   {message.role === "assistant" && message.toolCalls && message.toolCalls.length > 0 && (
                     <div className="stud-tool-card">
                       <ToolCalls toolCalls={message.toolCalls} />
@@ -786,7 +806,8 @@ export function Home() {
           {composerActions}
         </StudComposer>
       </div>
-      </div>
+        </div>
+      </main>
 
       <CommandPalette
         onCommand={(cmd, payload) => {

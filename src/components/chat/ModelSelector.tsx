@@ -21,6 +21,11 @@ interface ModelSelectorProps {
   serverProviders?: Record<ProviderType, boolean>;
 }
 
+const SERVER_OPENROUTER_MODELS = [
+  { id: "openai/gpt-4o", name: "GPT-4o" },
+  { id: "openai/gpt-4o-mini", name: "GPT-4o Mini" },
+] as const;
+
 export function ModelSelector({ className, disabled, serverProviders }: ModelSelectorProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -65,7 +70,8 @@ export function ModelSelector({ className, disabled, serverProviders }: ModelSel
     const all = [...codexModels, ...claudeModels, ...openrouterModels];
     const found = all.find((m) => m.id === selectedModel);
     if (found) return found.name;
-    if (selectedProvider === "openrouter" && selectedModel === "anthropic/claude-sonnet-4") return "Claude Sonnet 4";
+    const serverDefault = SERVER_OPENROUTER_MODELS.find((m) => m.id === selectedModel);
+    if (selectedProvider === "openrouter" && serverDefault) return serverDefault.name;
     return selectedModel;
   };
 
@@ -124,11 +130,12 @@ export function ModelSelector({ className, disabled, serverProviders }: ModelSel
         });
       });
       if (!openrouterModels.length) {
-        models.push({
-          id: "anthropic/claude-sonnet-4",
-          name: "Claude Sonnet 4",
-          provider: "openrouter",
-          description: "Server-configured OpenRouter",
+        SERVER_OPENROUTER_MODELS.forEach((model) => {
+          models.push({
+            ...model,
+            provider: "openrouter",
+            description: "Via server-configured OpenRouter",
+          });
         });
       }
     }
