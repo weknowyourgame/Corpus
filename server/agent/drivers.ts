@@ -11,10 +11,20 @@ const CODEX_API = "https://chatgpt.com/backend-api/codex/responses";
 const schema = (input: unknown) => input as z.ZodType<Record<string, unknown>>;
 
 function aiMessages(messages: AgentMessage[]) {
-  return messages.map((message) => {
-    if (message.role === "user") return { role: "user", content: message.content };
-    if (message.role === "tool") {
-      return {
+  // Collect every tool call ID that has a result so we can detect orphans
+  // left behind when a previous run was interrupted before results were saved.
+  const resolved = new Set(
+    messages
+      .filter((m): m is Extract<AgentMessage, { role: "tool" }> => m.role === "tool")
+      .map((m) => m.toolCallId),
+  );
+
+  const out: unknown[] = [];
+  for (const message of messages) {
+    if (message.role === "user") {
+      out.push({ role: "user", content: message.content });
+    } else if (message.role === "tool") {
+      out.push({
         role: "tool",
         content: [{
           type: "tool-result",
@@ -22,22 +32,45 @@ function aiMessages(messages: AgentMessage[]) {
           toolName: message.toolName,
           output: { type: "json", value: message.output },
         }],
-      };
+      });
+    } else {
+      // assistant
+      if (!message.toolCalls.length) {
+        out.push({ role: "assistant", content: message.content });
+      } else {
+        out.push({
+          role: "assistant",
+          content: [
+            ...(message.content ? [{ type: "text", text: message.content }] : []),
+            ...message.toolCalls.map((call) => ({
+              type: "tool-call",
+              toolCallId: call.id,
+              toolName: call.name,
+              input: call.input,
+            })),
+          ],
+        });
+        // Inject a stub result for any call that has no recorded result —
+        // this happens when a previous run was killed between the assistant
+        // turn and the tool execution. Without this the AI SDK throws
+        // AI_MissingToolResultsError on the very next generate() call.
+        for (const call of message.toolCalls) {
+          if (!resolved.has(call.id)) {
+            out.push({
+              role: "tool",
+              content: [{
+                type: "tool-result",
+                toolCallId: call.id,
+                toolName: call.name,
+                output: { type: "json", value: { interrupted: true, reason: "Run was cancelled before this tool completed." } },
+              }],
+            });
+          }
+        }
+      }
     }
-    if (!message.toolCalls.length) return { role: "assistant", content: message.content };
-    return {
-      role: "assistant",
-      content: [
-        ...(message.content ? [{ type: "text", text: message.content }] : []),
-        ...message.toolCalls.map((call) => ({
-          type: "tool-call",
-          toolCallId: call.id,
-          toolName: call.name,
-          input: call.input,
-        })),
-      ],
-    };
-  });
+  }
+  return out as never[];
 }
 
 class AiSdkDriver implements ModelDriver {
