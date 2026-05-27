@@ -6,11 +6,11 @@
   "scripts": {
     "dev": "concurrently -n web,bridge -c cyan,magenta \"npm run dev:web\" \"npm run dev:bridge\"",
     "dev:web": "vite",
-    "dev:bridge": "tsx server/index.js",
+    "dev:bridge": "bun server/index.js",
     "build": "tsc && vite build",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.server.json",
     "preview": "vite preview",
-    "start:bridge": "tsx server/index.js",
+    "start:bridge": "bun server/index.js",
     "test": "vitest",
     "test:run": "vitest run",
     "test:ui": "vitest --ui"
