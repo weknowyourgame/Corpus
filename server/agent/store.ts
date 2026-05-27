@@ -85,6 +85,18 @@ export class DevelopmentConversationStore implements ConversationStore {
     const conversation = await this.readSnapshot(id);
     if (!conversation) return null;
     conversation.events = await this.readEventLog(id);
+    // text_delta events update the JSONL log but not the snapshot, so the
+    // snapshot's nextSequence may lag the log. Recompute it from the
+    // observed event log so subsequent emits don't collide.
+    if (conversation.events.length > 0) {
+      let maxSeq = 0;
+      for (const event of conversation.events) {
+        if (event.sequence > maxSeq) maxSeq = event.sequence;
+      }
+      if (maxSeq + 1 > conversation.nextSequence) {
+        conversation.nextSequence = maxSeq + 1;
+      }
+    }
     return conversation;
   }
 
@@ -281,5 +293,8 @@ export class MemoryConversationStore implements ConversationStore {
     const conversation = this.conversations.get(conversationId);
     if (!conversation) return;
     conversation.events.push(structuredClone(event));
+    if (event.sequence + 1 > conversation.nextSequence) {
+      conversation.nextSequence = event.sequence + 1;
+    }
   }
 }

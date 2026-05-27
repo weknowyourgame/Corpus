@@ -9,7 +9,7 @@ import express from "express";
 import cors from "cors";
 import { existsSync } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { MemoryConversationStore } from "./agent/store.ts";
+import { DevelopmentConversationStore, MemoryConversationStore } from "./agent/store.ts";
 import { AgentRuntime } from "./agent/runtime.ts";
 import { RobloxStudioMcpGateway } from "./agent/tools.ts";
 import { OpenCloudClient } from "./agent/open-cloud.ts";
@@ -213,11 +213,20 @@ class FinalToolRegistry {
 
 const allTools = new FinalToolRegistry(combinedTools, subagentTool);
 
+// Durable on-disk snapshot+JSONL conversation store. Tests opt back into
+// MemoryConversationStore by setting STUD_AGENT_STORE=memory.
+const conversationStore = process.env.STUD_AGENT_STORE === "memory"
+  ? new MemoryConversationStore()
+  : new DevelopmentConversationStore();
 const agentRuntime = new AgentRuntime(
-  new MemoryConversationStore(),
+  conversationStore,
   createModelDriverFactory(allTools),
   allTools,
 );
+// Reconcile any runs that were "running" when a previous bridge process exited.
+agentRuntime.recoverFromCrash()
+  .then((ids) => { if (ids.length) console.log(`[agent] recovered ${ids.length} crashed conversation(s)`); })
+  .catch((err) => console.error("[agent] crash recovery failed:", err));
 app.use("/agent", createAgentRouter(agentRuntime));
 
 // --- Session routes (web + plugin) ---
