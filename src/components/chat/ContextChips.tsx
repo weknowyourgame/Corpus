@@ -48,7 +48,7 @@ export function ContextChips({
   disabled?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+    <div className="flex flex-wrap items-center gap-1.5 pb-1">
       {chips.map((chip) => {
         const isActive = activeChips.includes(chip.id);
         return (

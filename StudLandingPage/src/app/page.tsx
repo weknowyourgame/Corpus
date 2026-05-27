@@ -959,7 +959,7 @@ function PermissionsSection() {
   const SelectedIcon = selected.icon;
 
   return (
-    <section className="permission-section">
+    <section className="permission-section" id="permissions">
       <div className="stud-container narrow">
         <h2 className="stud-section-title centered">You&apos;re always in control</h2>
         <p className="stud-section-copy centered-copy">
@@ -1238,13 +1238,17 @@ export default function Home() {
           <a href="#waitlist">
             <StudLogo />
           </a>
-          <button
-            className="docs-link"
-            onClick={() => scrollToId("docs")}
-            type="button"
-          >
-            Docs
-          </button>
+          <div className="hero-nav-links" aria-label="Product navigation">
+            <button onClick={() => scrollToId("roblox-tools")} type="button">
+              Tools
+            </button>
+            <button onClick={() => scrollToId("permissions")} type="button">
+              Safety
+            </button>
+            <button onClick={() => scrollToId("docs")} type="button">
+              Docs
+            </button>
+          </div>
           <button
             className="nav-button"
             onClick={() => setWaitlistOpen(true)}
@@ -1254,32 +1258,29 @@ export default function Home() {
           </button>
         </nav>
         <div className="hero-content">
-          <div className="status-pill">
-            <span />
-            Waitlist Open for Early Access
-          </div>
           <h1>
-            Code smarter
-            <br />
-            for Roblox{" "}
-            <span className="hero-word" aria-label="Studio. updates. tools.">
-              <span>Studio.</span>
-              <span>updates.</span>
-              <span>tools.</span>
-            </span>
+            Stud lets you build Roblox worlds with agents
           </h1>
           <p>
-            Write Luau, edit instances, and ship from one terminal.
-            <br />
-            <mark>Join waitlist for private beta</mark>
+            Write Luau, shape live scenes, and approve Studio changes from one
+            focused workspace.
           </p>
-          <button
-            className="hero-button btn-metal"
-            onClick={() => setWaitlistOpen(true)}
-            type="button"
-          >
-            Join the Waitlist <ChevronRight size={18} />
-          </button>
+          <div className="hero-actions">
+            <button
+              className="hero-button is-primary"
+              onClick={() => setWaitlistOpen(true)}
+              type="button"
+            >
+              Join waitlist
+            </button>
+            <button
+              className="hero-button is-secondary"
+              onClick={() => scrollToId("roblox-tools")}
+              type="button"
+            >
+              See Stud in action
+            </button>
+          </div>
         </div>
       </section>
       <div className="stud-body">

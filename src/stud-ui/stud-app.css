@@ -1445,3 +1445,181 @@
     border-radius: 18px;
   }
 }
+
+/* Cofounder-aligned workspace controls over the original Stud hero scene. */
+.stud-app-shell {
+  background-position: center center;
+}
+
+.stud-atmosphere {
+  background:
+    linear-gradient(90deg, rgba(8, 36, 55, 0.23), rgba(8, 36, 55, 0.02) 53%, transparent 70%),
+    linear-gradient(180deg, rgba(8, 36, 55, 0.06), transparent 32%);
+}
+
+.stud-app-header {
+  min-height: 54px;
+  margin: 16px clamp(20px, 2.2vw, 29px) 9px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.stud-logo {
+  font-family: var(--stud-display);
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: -0.045em;
+}
+
+.stud-logo img {
+  display: none;
+}
+
+.stud-brand-subtitle {
+  border-left: 0;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 13px;
+}
+
+.stud-app-header .status-pill,
+.stud-app-header .stud-icon-btn {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 9px;
+  background: rgba(14, 39, 46, 0.46);
+  color: rgba(255, 255, 255, 0.92) !important;
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.06),
+    0 10px 22px rgba(7, 22, 28, 0.12);
+  backdrop-filter: blur(15px);
+}
+
+.stud-app-header .stud-icon-btn:hover:not(:disabled) {
+  background: rgba(21, 49, 56, 0.62);
+}
+
+.stud-welcome-layout {
+  padding: clamp(62px, 9vh, 90px) clamp(22px, 5vw, 70px) 38px;
+}
+
+.stud-welcome-heading {
+  max-width: 565px;
+  gap: 16px;
+}
+
+.stud-eyebrow {
+  display: none;
+}
+
+.stud-display-title {
+  max-width: 575px;
+  color: #fff;
+  font-family: var(--stud-sans);
+  font-size: clamp(2.95rem, 4.3vw, 3.75rem);
+  font-weight: 470;
+  letter-spacing: -0.065em;
+  line-height: 1.03;
+  text-shadow: 0 2px 15px rgba(4, 33, 50, 0.16);
+}
+
+.stud-display-subtitle {
+  max-width: 425px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 15px;
+  text-shadow: 0 2px 11px rgba(5, 29, 43, 0.15);
+}
+
+.stud-prompt-deck {
+  width: min(100%, 620px);
+  margin-top: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 13px;
+  background: rgba(13, 36, 43, 0.45);
+  padding: 10px;
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.07),
+    0 18px 36px rgba(7, 23, 31, 0.16);
+  backdrop-filter: blur(18px);
+}
+
+.stud-action-chip {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.86);
+  box-shadow: none;
+}
+
+.stud-action-chip:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.stud-action-chip.is-active {
+  border-color: rgba(255, 255, 255, 0.54);
+  background: #fffefb;
+  color: #18242d;
+}
+
+.stud-composer-card {
+  border-radius: 9px;
+  background: rgba(255, 255, 252, 0.97);
+}
+
+.stud-composer-actions {
+  background: rgba(243, 245, 241, 0.78);
+}
+
+.stud-suggestions {
+  max-width: 620px;
+}
+
+.stud-suggestion-chip {
+  border-color: rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  background: rgba(13, 36, 43, 0.39);
+  color: rgba(255, 255, 255, 0.87);
+  box-shadow: 0 9px 19px rgba(7, 23, 31, 0.1);
+  backdrop-filter: blur(12px);
+}
+
+.stud-suggestion-chip:hover {
+  background: rgba(20, 48, 55, 0.57);
+  color: #fff;
+}
+
+.stud-model-input:focus {
+  outline: none;
+  border-color: rgba(46, 113, 178, 0.32);
+  box-shadow: 0 0 0 2px rgba(46, 113, 178, 0.12);
+}
+
+@media (max-width: 720px) {
+  .stud-app-shell {
+    background-position: 34% center;
+  }
+
+  .stud-atmosphere {
+    background: linear-gradient(90deg, rgba(8, 35, 54, 0.32), rgba(8, 35, 54, 0.05) 88%);
+  }
+
+  .stud-app-header {
+    margin: 13px 14px 5px;
+  }
+
+  .stud-brand-subtitle,
+  .stud-app-header .status-pill {
+    display: none;
+  }
+
+  .stud-welcome-layout {
+    padding: 55px 14px 18px;
+  }
+
+  .stud-display-title {
+    font-size: clamp(2.35rem, 11vw, 3rem);
+  }
+}

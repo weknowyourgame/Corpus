@@ -3405,3 +3405,197 @@ svg {
     padding: 19px 16px;
   }
 }
+
+/* Cofounder-aligned hero: original Roblox scene, calm sky and precise glass controls. */
+.stud-body {
+  margin-top: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.hero {
+  background-position: center center;
+}
+
+.hero::before {
+  background:
+    linear-gradient(90deg, rgba(13, 53, 83, 0.18), transparent 45%),
+    linear-gradient(180deg, rgba(8, 34, 53, 0.07), transparent 35%);
+}
+
+.hero::after {
+  display: none;
+}
+
+.stud-nav {
+  top: 19px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 18px;
+  min-height: 50px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.stud-nav .stud-logo {
+  align-self: center;
+  color: #fff;
+  font-family: var(--stud-display);
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: -0.045em;
+}
+
+.stud-nav .stud-logo img {
+  display: none;
+}
+
+.hero-nav-links {
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9px;
+  background: rgba(16, 41, 47, 0.48);
+  padding: 3px;
+  box-shadow:
+    0 1px 2px rgba(8, 21, 26, 0.14),
+    0 12px 25px rgba(8, 21, 26, 0.12),
+    inset 0 1px rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+}
+
+.hero-nav-links button {
+  border-radius: 6px;
+  padding: 9px 22px;
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 13px;
+  transition: background 180ms ease, color 180ms ease;
+}
+
+.hero-nav-links button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.nav-button {
+  justify-self: end;
+  min-width: 128px;
+  border: 1px solid rgba(25, 31, 32, 0.1);
+  border-radius: 9px;
+  background: #fffefb;
+  padding: 13px 20px;
+  color: #222120;
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.96),
+    0 1px 2px rgba(15, 25, 29, 0.15),
+    0 10px 22px rgba(14, 32, 41, 0.13);
+  backdrop-filter: none;
+}
+
+.hero-content {
+  min-height: 100svh;
+  width: min(calc(100% - clamp(36px, 5vw, 46px)), 1396px);
+  justify-content: flex-start;
+  padding: clamp(142px, 15vh, 170px) 0 72px;
+}
+
+.hero h1 {
+  max-width: 575px;
+  color: #fff;
+  font-family: var(--stud-sans);
+  font-size: clamp(2.9rem, 4.2vw, 3.65rem);
+  font-weight: 470;
+  letter-spacing: -0.065em;
+  line-height: 1.03;
+  text-shadow: 0 2px 15px rgba(4, 33, 50, 0.17);
+}
+
+.hero p {
+  max-width: 430px;
+  margin-top: 25px;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 16px;
+  line-height: 1.58;
+  text-shadow: 0 2px 10px rgba(4, 33, 50, 0.14);
+}
+
+.hero-actions {
+  display: flex;
+  gap: 11px;
+  margin-top: 28px;
+}
+
+.hero-button {
+  margin-top: 0;
+  border-radius: 8px;
+  padding: 14px 19px;
+  font-size: 14px;
+  font-weight: 500;
+  animation: hero-item-in 760ms var(--stud-ease) 460ms both;
+}
+
+.hero-button.is-primary {
+  border: 1px solid rgba(22, 29, 31, 0.1);
+  background: #fffefb;
+  color: #222120;
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.96),
+    0 1px 2px rgba(13, 28, 36, 0.16),
+    0 11px 21px rgba(13, 28, 36, 0.13);
+}
+
+.hero-button.is-secondary {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(16, 41, 47, 0.26);
+  color: #fff;
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.06),
+    0 8px 18px rgba(12, 31, 38, 0.1);
+  backdrop-filter: blur(12px);
+}
+
+@media (max-width: 780px) {
+  .hero {
+    background-position: 34% center;
+  }
+
+  .hero::before {
+    background: linear-gradient(90deg, rgba(10, 39, 60, 0.3), rgba(10, 39, 60, 0.04) 83%);
+  }
+
+  .stud-nav {
+    top: 15px;
+    display: flex;
+    padding-inline: 0;
+  }
+
+  .hero-nav-links {
+    display: none;
+  }
+
+  .stud-nav .stud-logo {
+    font-size: 23px;
+  }
+
+  .nav-button {
+    padding: 11px 16px;
+  }
+
+  .hero-content {
+    padding-top: 125px;
+  }
+
+  .hero h1 {
+    max-width: 350px;
+    font-size: clamp(2.45rem, 12vw, 3.2rem);
+  }
+
+  .hero p {
+    max-width: 320px;
+  }
+}
