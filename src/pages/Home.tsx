@@ -191,6 +191,11 @@ function ConnectionScreen({ status, transport }: { status: ConnectionStatus; tra
 
           <SessionCode />
           <ConnectionBadges status={status} transport={transport} />
+          <div className="stud-agent-tasks stud-agent-tasks-connection" aria-hidden="true">
+            <div className="stud-agent-task is-active"><span />Bridge check <strong>Polling Studio</strong></div>
+            <div className="stud-agent-task"><span />Task ready <strong>Install plugin</strong></div>
+            <div className="stud-agent-task"><span />Safety on <strong>Approvals locked</strong></div>
+          </div>
 
           <div className="stud-panel p-6 space-y-5">
             <ConnectionStep
@@ -655,6 +660,11 @@ export function Home() {
           <p className="stud-rail-model">{selectedModel}</p>
           <p className="stud-rail-label">GUARDRAIL</p>
           <p className="stud-rail-copy">Writes and code execution stay behind approval.</p>
+          <div className="stud-session-tasks" aria-label="Agent task status">
+            <div className="stud-session-task is-active"><span />Running <strong>Read Studio state</strong></div>
+            <div className="stud-session-task"><span />Waiting <strong>Human approvals</strong></div>
+            <div className="stud-session-task"><span />Ready <strong>MCP + plugin tools</strong></div>
+          </div>
           <div className="stud-rail-image" aria-hidden="true" />
         </aside>
 

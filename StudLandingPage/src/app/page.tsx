@@ -210,6 +210,36 @@ const permissionCards = [
   },
 ];
 
+const launchDocuments = [
+  {
+    title: "Studio Bridge Setup",
+    meta: "Roblox Studio · Session pairing",
+    body: "Install the plugin, connect your session code, and keep HTTP access visible before any agent run starts.",
+    tag: "Required",
+  },
+  {
+    title: "Place Audit",
+    meta: "Workspace · Scripts · Services",
+    body: "Stud reads the scene tree, open scripts, selected instances, and MCP routes before proposing changes.",
+    tag: "Context",
+  },
+  {
+    title: "Permission Log",
+    meta: "Approvals · Diffs · Rollback",
+    body: "Every risky Studio mutation stays attached to a human decision, with the exact scope preserved.",
+    tag: "Safety",
+  },
+];
+
+const launchTasks = [
+  ["Task running", "Map current Workspace"],
+  ["Approval needed", "Insert toolbox asset"],
+  ["Task completed", "Patch ServerScriptService"],
+  ["Task queued", "Generate Studio checklist"],
+];
+
+const resourcePills = ["MCP", "Studio Plugin", "Toolbox", "DataStores"];
+
 const workflowModes = [
   {
     label: "Roblox",
@@ -694,6 +724,91 @@ function WorkflowCard() {
             Join Waitlist
           </button>
         </aside>
+      </div>
+    </section>
+  );
+}
+
+function LaunchResourcesSection() {
+  return (
+    <section className="stud-section launch-system-section">
+      <div className="stud-container">
+        <div className="launch-system-heading">
+          <h2 className="stud-section-title">
+            A calm control room for Roblox agents
+          </h2>
+          <p className="stud-section-copy">
+            Stud keeps Studio, MCP tools, approvals, and Roblox context visible
+            as file-like artifacts instead of hiding work inside generic chat
+            cards.
+          </p>
+        </div>
+
+        <div className="launch-system-grid">
+          <div className="document-stack" aria-label="Stud setup documents">
+            {launchDocuments.map((document) => (
+              <article className="document-card" key={document.title}>
+                <div className="document-card-top">
+                  <span>{document.tag}</span>
+                  <small>{document.meta}</small>
+                </div>
+                <h3>{document.title}</h3>
+                <p>{document.body}</p>
+                <div className="document-lines" aria-hidden="true">
+                  <i />
+                  <i />
+                  <i />
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <aside className="resource-panel">
+            <div className="resource-panel-head">
+              <span>Launch resources</span>
+              <button onClick={() => scrollToId("docs")} type="button">
+                Open docs
+              </button>
+            </div>
+
+            <div className="resource-pill-row">
+              {resourcePills.map((pill) => (
+                <button
+                  key={pill}
+                  onClick={() =>
+                    scrollToId(pill === "DataStores" ? "roblox-tools" : "docs")
+                  }
+                  type="button"
+                >
+                  {pill}
+                </button>
+              ))}
+            </div>
+
+            <div className="resource-task-list">
+              {launchTasks.map(([state, title], index) => (
+                <div className="resource-task-row" key={title} style={rowStyle(index)}>
+                  <span />
+                  <small>{state}</small>
+                  <strong>{title}</strong>
+                </div>
+              ))}
+            </div>
+
+            <div className="resource-actions">
+              <button onClick={() => scrollToId("permissions")} type="button">
+                Review safety
+              </button>
+              <button
+                className="is-primary"
+                onClick={() => window.dispatchEvent(new Event("open-waitlist"))}
+                type="button"
+              >
+                Join waitlist
+              </button>
+            </div>
+          </aside>
+        </div>
       </div>
     </section>
   );
@@ -1310,9 +1425,18 @@ export default function Home() {
             <strong>Place assets</strong>
           </div>
         </div>
+        <div className="hero-file-card" aria-hidden="true">
+          <small>Studio patch plan</small>
+          <strong>CombatController.luau</strong>
+          <span>+18 lines · approval ready</span>
+        </div>
+        <div className="hero-resource-pill" aria-hidden="true">
+          MCP route · Studio live
+        </div>
       </section>
       <div className="stud-body">
         <FeatureShowcase />
+        <LaunchResourcesSection />
         <WorkflowCard />
         <ToolsSection />
         <RobloxSection />

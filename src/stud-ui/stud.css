@@ -223,6 +223,14 @@ svg {
   transform: translateY(-1px);
 }
 
+/* Shared Stud product primitives used by the Cofounder-inspired app layer. */
+.stud-page {
+  --stud-glass-dark: rgba(24, 48, 43, 0.55);
+  --stud-glass-line: rgba(255, 255, 255, 0.14);
+  --stud-file-surface: rgba(255, 255, 252, 0.94);
+  --stud-task-green: #acd990;
+}
+
 .btn-dark {
   border: 1px solid rgba(255, 255, 255, 0.14);
   background-image: linear-gradient(#46413cfa 0%, #2b2825fa 100%);

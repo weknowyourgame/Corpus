@@ -59,14 +59,14 @@ function CheckItem({
   const isIssue = check.status === "failed" || check.status === "warning";
 
   return (
-    <div className="stud-panel flex items-start gap-4 p-4">
+    <div className="stud-prereq-check stud-panel flex items-start gap-4 p-4">
       <div
         className={cn(
-          "p-2 rounded-lg",
-          check.status === "failed" && "bg-red-100",
-          check.status === "warning" && "bg-amber-100",
-          check.status === "passed" && "bg-green-100",
-          (check.status === "pending" || check.status === "checking") && "bg-neutral-100"
+          "stud-prereq-check-icon p-2 rounded-lg",
+          check.status === "failed" && "is-failed",
+          check.status === "warning" && "is-warning",
+          check.status === "passed" && "is-passed",
+          (check.status === "pending" || check.status === "checking") && "is-pending"
         )}
       >
         <Icon className="w-5 h-5" />
@@ -188,7 +188,7 @@ export function PrereqWizard() {
         {/* Failed checks (required) */}
         {failedChecks.length > 0 && (
           <div className="mb-6">
-            <h2 className="text-sm font-medium text-red-600 uppercase tracking-wide mb-3">
+            <h2 className="stud-prereq-section-title is-required text-sm font-medium uppercase tracking-wide mb-3">
               Required
             </h2>
             <div className="space-y-3">
@@ -202,7 +202,7 @@ export function PrereqWizard() {
         {/* Warning checks (optional) */}
         {warningChecks.length > 0 && (
           <div className="mb-6">
-            <h2 className="text-sm font-medium text-amber-600 uppercase tracking-wide mb-3">
+            <h2 className="stud-prereq-section-title is-recommended text-sm font-medium uppercase tracking-wide mb-3">
               Recommended
             </h2>
             <div className="space-y-3">
@@ -228,7 +228,7 @@ export function PrereqWizard() {
         </details>
 
         {/* Actions */}
-        <div className="flex items-center justify-center gap-4">
+        <div className="stud-prereq-actions flex items-center justify-center gap-4">
           <Button variant="outline" onClick={() => runAllChecks()}>Re-check</Button>
           {!hasIssues && (
             <Button variant="dark" onClick={dismissWizard}>Continue to Stud</Button>

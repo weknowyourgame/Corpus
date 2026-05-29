@@ -71,8 +71,8 @@ export function QuestionPrompt({ questions, onSubmit, disabled = false }: Questi
   };
 
   return (
-    <div className="rounded-xl border bg-amber-50/50 p-4 space-y-4">
-      <div className="flex items-center gap-2 text-amber-700">
+    <div className="stud-question-card space-y-4">
+      <div className="stud-question-head">
         <HelpCircle className="w-4 h-4" />
         <span className="text-sm font-medium">AI needs your input</span>
       </div>
@@ -88,7 +88,7 @@ export function QuestionPrompt({ questions, onSubmit, disabled = false }: Questi
                 value={answers[qIndex] as string}
                 onChange={(e) => updateAnswer(qIndex, e.target.value)}
                 disabled={disabled}
-                className="bg-white"
+                className="stud-question-input bg-white"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && isComplete) {
                     handleSubmit();
@@ -110,6 +110,7 @@ export function QuestionPrompt({ questions, onSubmit, disabled = false }: Questi
                     <button
                       key={normalized.value}
                       className={cn(
+                        "stud-option-card",
                         "relative flex flex-col rounded-lg border-2 overflow-hidden transition-all text-left",
                         "hover:border-primary/50 hover:shadow-md",
                         isSelected ? "border-primary ring-2 ring-primary/20" : "border-border",
@@ -210,6 +211,7 @@ export function QuestionPrompt({ questions, onSubmit, disabled = false }: Questi
                     <button
                       key={normalized.value}
                       className={cn(
+                        "stud-option-card",
                         "relative flex flex-col rounded-lg border-2 overflow-hidden transition-all",
                         "hover:border-primary/50 hover:shadow-md",
                         isSelected
