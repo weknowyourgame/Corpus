@@ -35,7 +35,7 @@ try {
 
 const PORT = Number(process.env.PORT) || 3001;
 const REQUEST_TIMEOUT_MS = 15_000;
-const POLL_HOLD_MS = 3_000; // long-poll hold time; keeps plugin connected without hammering
+const POLL_HOLD_MS = 500; // long-poll hold time; drops idle rate to ~1.7 req/s vs 10/s
 const SESSION_ID_PATTERN = /^[A-Za-z0-9]{6,12}$/;
 const AGENT_RELAY_TOKEN = process.env.STUD_INTERNAL_RELAY_TOKEN || randomUUID();
 const MUTATING_STUDIO_PATHS = new Set([
@@ -84,7 +84,7 @@ const getSession = (sessionId) => {
 const timestamp = () => Date.now();
 
 // Window is POLL_HOLD_MS + generous buffer so long-polled sessions don't flap
-const isStudioConnected = (session) => session.lastPoll > 0 && timestamp() - session.lastPoll < 8000;
+const isStudioConnected = (session) => session.lastPoll > 0 && timestamp() - session.lastPoll < 3000;
 
 const cleanupSession = (session) => {
   const now = timestamp();
