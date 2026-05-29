@@ -10,22 +10,55 @@ import type {
 } from "./types.ts";
 
 const planStepSchema = z.object({
-  toolName: z.string().min(1),
-  scope: z.string().min(1),
-  summary: z.string().min(1).max(280),
+  toolName: z.string().min(1).default("unknown"),
+  scope: z.string().min(1).default("unknown"),
+  summary: z.string().min(1).max(280).default("Step"),
 });
 
-// Models sometimes JSON-stringify the steps array instead of sending it
-// as a native array. Preprocess to handle both forms.
-const parseIfString = (val: unknown) => {
+const tryParseJson = (val: unknown) => {
   if (typeof val !== "string") return val;
   try { return JSON.parse(val); } catch { return val; }
 };
 
-export const submitPlanSchema = z.object({
-  summary: z.string().min(1).max(2000),
-  steps: z.preprocess(parseIfString, z.array(planStepSchema).min(1).max(32)),
-});
+// Normalize a raw step entry — handles plain strings and objects missing fields.
+const coerceStep = (raw: unknown): Record<string, unknown> => {
+  if (typeof raw === "string") return { toolName: "unknown", scope: "unknown", summary: raw.slice(0, 280) };
+  if (typeof raw === "object" && raw !== null) return raw as Record<string, unknown>;
+  return { toolName: "unknown", scope: "unknown", summary: String(raw).slice(0, 280) };
+};
+
+export const submitPlanSchema = z.preprocess(
+  (raw) => {
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return raw;
+    const obj = { ...(raw as Record<string, unknown>) };
+
+    // Parse steps if it arrived as a JSON string
+    if (typeof obj.steps === "string") {
+      const parsed = tryParseJson(obj.steps);
+      // If it still isn't an array (bad JSON or plain text), wrap it as one step
+      obj.steps = Array.isArray(parsed) ? parsed : [{ toolName: "unknown", scope: "unknown", summary: String(obj.steps).slice(0, 280) }];
+    }
+
+    // Coerce each step entry so missing fields get defaults
+    if (Array.isArray(obj.steps)) {
+      obj.steps = obj.steps.map(coerceStep);
+    }
+
+    // Auto-generate summary if the model forgot it
+    if (!obj.summary || typeof obj.summary !== "string") {
+      const steps = Array.isArray(obj.steps) ? obj.steps as Array<Record<string, unknown>> : [];
+      obj.summary = steps.length > 0
+        ? `Plan: ${steps.map((s) => String(s.summary ?? s.toolName ?? "step")).join("; ").slice(0, 200)}`
+        : "Proposed plan";
+    }
+
+    return obj;
+  },
+  z.object({
+    summary: z.string().min(1).max(2000),
+    steps: z.array(planStepSchema).min(1).max(32),
+  }),
+);
 
 export type SubmitPlanInput = z.infer<typeof submitPlanSchema>;
 
