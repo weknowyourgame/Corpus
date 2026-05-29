@@ -151,7 +151,7 @@ if (configuredTransport !== "plugin" && resolvedMcpBinary) {
       if (process.env.STUD_STUDIO_MCP_DEBUG) process.stderr.write(`[studio-mcp] ${chunk}`);
     });
     try {
-      await client.connect();
+      await client.connect(15_000);
       mcpRetryCount = 0;
       mcpTransport.setClient(client);
       const tools = client.listTools().map((t) => t.name);
