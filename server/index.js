@@ -294,6 +294,13 @@ app.post("/stud/sessions/:sessionId/request", async (req, res) => {
   }
   cleanupSession(session);
 
+  // Fail fast if Studio isn't connected — no point queueing a request that will
+  // just time out after 15s and confuse the user.
+  if (!isStudioConnected(session)) {
+    res.status(503).json({ error: "Roblox Studio is not connected. Open Studio and click Connect in the Stud plugin." });
+    return;
+  }
+
   const body = req.body;
   if (!body?.path) {
     res.status(400).json({ error: "Missing request path" });
