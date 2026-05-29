@@ -249,14 +249,15 @@ app.use("/agent", createAgentRouter(agentRuntime));
 
 const buildStudioStatus = (session) => {
   const pluginConnected = isStudioConnected(session);
-  const mcpConnected = mcpClient?.isConnected() ?? false;
+  const mcpConnected = mcpTransport?.isReady() ?? false;
   const preferred = studioTransport.preferred();
   const effective = mcpConnected
     ? "official_mcp"
     : pluginConnected
       ? "plugin_fallback"
       : preferred;
-  const tools = mcpClient?.listTools().map((t) => t.name) ?? [];
+  const activeClient = mcpTransport?.getClient?.() ?? null;
+  const tools = activeClient?.listTools().map((t) => t.name) ?? [];
   return {
     connected: pluginConnected || mcpConnected,
     pluginConnected,
@@ -265,7 +266,7 @@ const buildStudioStatus = (session) => {
     preferredTransport: preferred,
     effectiveTransport: effective,
     lastUsedTransport: studioTransport.lastUsed,
-    mcpServer: mcpClient?.getServerInfo() ?? null,
+    mcpServer: activeClient?.getServerInfo() ?? null,
     mcpTools: tools,
     mcpError: mcpClient?.getLastConnectError() ?? null,
     pending_requests: session.pending.size,
