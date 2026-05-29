@@ -297,6 +297,10 @@ export class OfficialMcpTransport {
     this.client = client;
   }
 
+  getClient(): StudioMcpClient | null {
+    return this.client;
+  }
+
   supports(path: string) {
     return MCP_SUPPORTED_PATHS.has(path);
   }
