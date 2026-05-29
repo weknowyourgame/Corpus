@@ -1360,7 +1360,7 @@ end
 -- Polling loop
 local function pollServer()
 	local failCount = 0
-	local maxFails = 3
+	local maxFails = 10
 	
 	while pollingEnabled do
 		local success, response = pcall(function()

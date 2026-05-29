@@ -35,6 +35,7 @@ try {
 
 const PORT = Number(process.env.PORT) || 3001;
 const REQUEST_TIMEOUT_MS = 15_000;
+const POLL_HOLD_MS = 3_000; // long-poll hold time; keeps plugin connected without hammering
 const SESSION_ID_PATTERN = /^[A-Za-z0-9]{6,12}$/;
 const AGENT_RELAY_TOKEN = process.env.STUD_INTERNAL_RELAY_TOKEN || randomUUID();
 const MUTATING_STUDIO_PATHS = new Set([
@@ -74,7 +75,7 @@ const getSession = (sessionId) => {
   if (sessionId !== "default" && !SESSION_ID_PATTERN.test(sessionId)) return null;
   let session = sessions.get(sessionId);
   if (!session) {
-    session = { pending: new Map(), completed: new Map(), lastPoll: 0, counter: 0 };
+    session = { pending: new Map(), completed: new Map(), lastPoll: 0, counter: 0, pollWakeup: null };
     sessions.set(sessionId, session);
   }
   return session;
@@ -82,7 +83,8 @@ const getSession = (sessionId) => {
 
 const timestamp = () => Date.now();
 
-const isStudioConnected = (session) => session.lastPoll > 0 && timestamp() - session.lastPoll < 2000;
+// Window is POLL_HOLD_MS + generous buffer so long-polled sessions don't flap
+const isStudioConnected = (session) => session.lastPoll > 0 && timestamp() - session.lastPoll < 8000;
 
 const cleanupSession = (session) => {
   const now = timestamp();
@@ -333,6 +335,13 @@ app.post("/stud/sessions/:sessionId/request", async (req, res) => {
       timer,
       createdAt: timestamp(),
     });
+
+    // Wake up any plugin that's waiting in a long-poll
+    if (session.pollWakeup) {
+      const wakeup = session.pollWakeup;
+      session.pollWakeup = null;
+      wakeup({ id, request: { path: body.path, body: body.body } });
+    }
   });
   res.on("close", () => {
     const pending = session.pending.get(id);
@@ -368,14 +377,31 @@ app.get("/stud/sessions/:sessionId/poll", (req, res) => {
   session.lastPoll = timestamp();
   cleanupSession(session);
 
+  // Serve any already-queued request immediately
   const entry = session.pending.entries().next();
-  if (entry.done) {
-    res.json({ id: null, request: null });
+  if (!entry.done) {
+    const [id, pending] = entry.value;
+    res.json({ id, request: pending.request });
     return;
   }
 
-  const [id, pending] = entry.value;
-  res.json({ id, request: pending.request });
+  // Long-poll: hold the connection open until a request arrives or timeout
+  let settled = false;
+  const settle = (payload) => {
+    if (settled) return;
+    settled = true;
+    session.pollWakeup = null;
+    if (!res.writableEnded) res.json(payload);
+  };
+
+  const timer = setTimeout(() => settle({ id: null, request: null }), POLL_HOLD_MS);
+  session.pollWakeup = settle;
+
+  req.on("close", () => {
+    settled = true;
+    clearTimeout(timer);
+    session.pollWakeup = null;
+  });
 });
 
 app.post("/stud/sessions/:sessionId/respond", (req, res) => {
