@@ -29,7 +29,7 @@ import { CommandPalette } from "@/components/CommandPalette";
 import { EmptyState } from "@/components/EmptyState";
 import { useChatStore } from "@/stores/chat";
 import { useSettingsStore } from "@/stores/settings";
-import { useRobloxStore, ConnectionStatus, type StudioTransportStatus } from "@/stores/roblox";
+import { useRobloxStore, ConnectionStatus } from "@/stores/roblox";
 import { usePluginStore } from "@/stores/plugin";
 import {
   cancelServerRun,
@@ -118,7 +118,7 @@ function ConnectionStep({
 }
 
 // Connection screen shown when bridge is not connected
-function ConnectionScreen({ status, transport }: { status: ConnectionStatus; transport: StudioTransportStatus | null }) {
+function ConnectionScreen({ status }: { status: ConnectionStatus }) {
   const { 
     status: pluginStatus, 
     isChecking, 
@@ -175,7 +175,7 @@ function ConnectionScreen({ status, transport }: { status: ConnectionStatus; tra
   return (
     <div className="stud-app-shell stud-workbench">
       <div className="stud-atmosphere" aria-hidden="true" />
-      <StudAppHeader status={status} transport={transport} trailing={<SettingsDialog />} />
+      <StudAppHeader status={status} trailing={<SettingsDialog />} />
 
       <main className="stud-connection-layout">
         <div className="stud-connection-stack">
@@ -190,7 +190,7 @@ function ConnectionScreen({ status, transport }: { status: ConnectionStatus; tra
           </div>
 
           <SessionCode />
-          <ConnectionBadges status={status} transport={transport} />
+          <ConnectionBadges status={status} />
           <div className="stud-agent-tasks stud-agent-tasks-connection" aria-hidden="true">
             <div className="stud-agent-task is-active"><span />Bridge check <strong>Polling Studio</strong></div>
             <div className="stud-agent-task"><span />Task ready <strong>Install plugin</strong></div>
@@ -545,7 +545,7 @@ export function Home() {
 
   // Show connection screen if not connected
   if (!isConnected) {
-    return <ConnectionScreen status={studioStatus} transport={studioTransport} />;
+    return <ConnectionScreen status={studioStatus} />;
   }
 
   const composerActions = (
@@ -654,7 +654,7 @@ export function Home() {
           <div className="stud-rail-status"><span /> LIVE WORLD</div>
           <h2>Scene<br />control</h2>
           <p className="stud-rail-copy">Your agent is attached to the open Roblox place.</p>
-          <ConnectionBadges status={studioStatus} transport={studioTransport} className="stud-rail-routes" />
+          <ConnectionBadges status={studioStatus} className="stud-rail-routes" />
           <div className="stud-rail-divider" />
           <p className="stud-rail-label">RUNNING MODEL</p>
           <p className="stud-rail-model">{selectedModel}</p>
@@ -675,7 +675,7 @@ export function Home() {
             <strong>STUD AGENT</strong>
             <small>live workspace</small>
           </div>
-          <ConnectionBadges status={studioStatus} transport={studioTransport} />
+          <ConnectionBadges status={studioStatus} />
         </header>
 
       <ChatContainerRoot className="stud-transcript">

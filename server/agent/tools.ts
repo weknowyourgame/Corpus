@@ -22,9 +22,43 @@ type StudioRelay = (
 ) => Promise<JsonValue>;
 
 const asJson = (value: unknown) => JSON.parse(JSON.stringify(value)) as JsonValue;
-const path = (input: Record<string, unknown>, key = "path") => String(input[key] ?? "game");
 const stable = (value: unknown) => JSON.stringify(value);
+
+// Normalize a Roblox path: bare service names like "ReplicatedStorage" become
+// "game.ReplicatedStorage" so the plugin's getInstanceFromPath always gets a
+// fully-qualified path starting with "game".
+const normalizePath = (raw: string): string => {
+  if (!raw || raw === "game") return "game";
+  if (raw.startsWith("game.") || raw.startsWith("game/")) return raw;
+  return `game.${raw}`;
+};
+
+const path = (input: Record<string, unknown>, key = "path") =>
+  normalizePath(String(input[key] ?? "game"));
 const fingerprint = (value: unknown) => createHash("sha256").update(stable(value)).digest("hex").slice(0, 12);
+
+const normalizeBody = (body: Record<string, unknown>): Record<string, unknown> => {
+  const result = { ...body };
+  for (const key of ["path", "parent", "newParent", "root"]) {
+    if (typeof result[key] === "string") result[key] = normalizePath(result[key] as string);
+  }
+  if (Array.isArray(result.paths)) {
+    result.paths = (result.paths as string[]).map(normalizePath);
+  }
+  if (Array.isArray(result.instances)) {
+    result.instances = (result.instances as Array<Record<string, unknown>>).map((inst) => ({
+      ...inst,
+      parent: typeof inst.parent === "string" ? normalizePath(inst.parent) : inst.parent,
+    }));
+  }
+  if (Array.isArray(result.operations)) {
+    result.operations = (result.operations as Array<Record<string, unknown>>).map((op) => ({
+      ...op,
+      path: typeof op.path === "string" ? normalizePath(op.path) : op.path,
+    }));
+  }
+  return result;
+};
 
 const questionSchema = z.object({
   question: z.string(),
@@ -74,8 +108,8 @@ const studioTools: Array<{
   },
   {
     name: "mcp__roblox_studio__list_children",
-    description: "List children of a Roblox instance path, optionally recursively.",
-    schema: z.object({ path: z.string(), recursive: z.boolean().optional() }),
+    description: "List children of a Roblox instance path (e.g. \"game.Workspace\"), optionally recursively. Omit path to list root.",
+    schema: z.object({ path: z.string().optional().default("game"), recursive: z.boolean().optional() }),
     endpoint: "/instance/children",
     risk: "read",
     scope: (input) => path(input),
@@ -98,7 +132,7 @@ const studioTools: Array<{
   },
   {
     name: "mcp__roblox_studio__create_instance",
-    description: "Create a Roblox instance beneath a full parent path.",
+    description: "Create a Roblox instance beneath a parent. Use full paths like \"game.ReplicatedStorage\" or bare service names like \"ReplicatedStorage\" — both are accepted.",
     schema: z.object({ className: z.string(), parent: z.string(), name: z.string().optional() }),
     endpoint: "/instance/create",
     risk: "low_mutation",
@@ -203,6 +237,7 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
           scope: item.scope,
           execute: async (input: Record<string, unknown>, context: ToolExecutionContext) => {
             const parsed = item.schema.parse(input) as { path: string };
+            parsed.path = normalizePath(parsed.path);
             const result = await this.relay(context.studioSessionId, item.endpoint, parsed, context.signal, context.operationId);
             const src = typeof result === "object" && result !== null && !Array.isArray(result) && "source" in result
               ? String((result as Record<string, unknown>).source ?? "")
@@ -224,6 +259,7 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
           scope: item.scope,
           execute: async (input: Record<string, unknown>, context: ToolExecutionContext) => {
             const parsed = item.schema.parse(input) as { path: string; source: string };
+            parsed.path = normalizePath(parsed.path);
             // Check current source first
             const currentResult = await this.relay(context.studioSessionId, "/script/get", { path: parsed.path }, context.signal, `${context.operationId}:check`).catch(() => null);
             if (currentResult) {
@@ -253,6 +289,7 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
           scope: item.scope,
           execute: async (input: Record<string, unknown>, context: ToolExecutionContext) => {
             const parsed = item.schema.parse(input) as { path: string; oldCode: string; newCode: string };
+            parsed.path = normalizePath(parsed.path);
             const currentResult = await this.relay(context.studioSessionId, "/script/get", { path: parsed.path }, context.signal, `${context.operationId}:check`).catch(() => null);
             let beforeSource: string | undefined;
             if (currentResult) {
@@ -292,7 +329,7 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
         scope: item.scope,
         execute: async (input: Record<string, unknown>, context: ToolExecutionContext) => {
           const parsed = item.schema.parse(input);
-          return this.relay(context.studioSessionId, item.endpoint, parsed, context.signal, context.operationId);
+          return this.relay(context.studioSessionId, item.endpoint, normalizeBody(parsed), context.signal, context.operationId);
         },
       };
     });
@@ -315,13 +352,10 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
         context.signal,
         `${context.operationId}:inspect`,
       ),
-      execute: async (input, context) => this.relay(
-        context.studioSessionId,
-        "/asset/insert",
-        z.object({ assetId: z.number().int(), parent: z.string().default("game.Workspace"), stripScripts: z.boolean().optional() }).parse(input),
-        context.signal,
-        context.operationId,
-      ),
+      execute: async (input, context) => {
+        const parsed = z.object({ assetId: z.number().int(), parent: z.string().default("game.Workspace"), stripScripts: z.boolean().optional() }).parse(input);
+        return this.relay(context.studioSessionId, "/asset/insert", normalizeBody(parsed), context.signal, context.operationId);
+      },
     });
     this.tools.push({
       name: "roblox_toolbox_search",
@@ -362,8 +396,9 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
       execute: async (input, context) => {
         const selection = await this.relay(context.studioSessionId, "/selection/get", undefined, context.signal, `${context.operationId}:sel`).catch(() => null);
         if (input.path) {
-          const children = await this.relay(context.studioSessionId, "/instance/children", { path: input.path }, context.signal, `${context.operationId}:ctx`).catch(() => null);
-          return asJson({ selection, instanceContext: { path: input.path, children } });
+          const normalizedPath = normalizePath(String(input.path));
+          const children = await this.relay(context.studioSessionId, "/instance/children", { path: normalizedPath }, context.signal, `${context.operationId}:ctx`).catch(() => null);
+          return asJson({ selection, instanceContext: { path: normalizedPath, children } });
         }
         return asJson({ selection });
       },

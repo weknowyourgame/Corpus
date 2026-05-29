@@ -149,6 +149,12 @@ type CodexInput =
   | { type: "function_call_output"; call_id: string; output: string };
 
 function codexMessages(messages: AgentMessage[]): CodexInput[] {
+  const resolved = new Set(
+    messages
+      .filter((m): m is Extract<AgentMessage, { role: "tool" }> => m.role === "tool")
+      .map((m) => m.toolCallId),
+  );
+
   return messages.flatMap((message) => {
     if (message.role === "user") {
       return [{ role: "user", content: [{ type: "input_text", text: message.content }] }];
@@ -156,14 +162,23 @@ function codexMessages(messages: AgentMessage[]): CodexInput[] {
     if (message.role === "tool") {
       return [{ type: "function_call_output", call_id: message.toolCallId, output: JSON.stringify(message.output) }];
     }
+    const calls = message.toolCalls.map((call) => ({
+      type: "function_call" as const,
+      call_id: call.id,
+      name: call.name,
+      arguments: JSON.stringify(call.input),
+    }));
+    const stubs = message.toolCalls
+      .filter((call) => !resolved.has(call.id))
+      .map((call) => ({
+        type: "function_call_output" as const,
+        call_id: call.id,
+        output: JSON.stringify({ interrupted: true, reason: "Run was cancelled before this tool completed." }),
+      }));
     return [
       ...(message.content ? [{ role: "assistant", content: [{ type: "output_text", text: message.content }] }] : []),
-      ...message.toolCalls.map((call) => ({
-        type: "function_call" as const,
-        call_id: call.id,
-        name: call.name,
-        arguments: JSON.stringify(call.input),
-      })),
+      ...calls,
+      ...stubs,
     ] as CodexInput[];
   });
 }
