@@ -3615,7 +3615,7 @@ svg {
 }
 
 .hero::before {
-  background: linear-gradient(90deg, rgba(12, 58, 96, 0.1), transparent 50%);
+  background: linear-gradient(90deg, rgba(8, 42, 65, 0.22), rgba(8, 42, 65, 0.08) 42%, transparent 67%);
 }
 
 .stud-nav {
@@ -3785,6 +3785,11 @@ svg {
 .hero p,
 .stud-nav .stud-logo {
   text-wrap: balance;
+}
+
+.hero h1 {
+  letter-spacing: -0.04em;
+  line-height: 1.11;
 }
 
 .hero-task-row,
@@ -4108,5 +4113,72 @@ svg {
 
   .hero-actions {
     flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 780px) {
+  html,
+  body,
+  .stud-page {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .hero {
+    overflow: hidden;
+  }
+
+  .stud-nav {
+    right: 15px;
+    left: 15px;
+    width: auto !important;
+    max-width: none;
+    box-sizing: border-box;
+  }
+
+  .stud-nav .nav-button {
+    position: absolute;
+    top: 0;
+    right: 0;
+    min-width: 0;
+    max-width: 128px;
+    padding-inline: 14px;
+  }
+
+  .hero-content {
+    box-sizing: border-box;
+    width: calc(100% - 30px);
+    max-width: calc(100vw - 30px);
+    margin-inline: 15px;
+  }
+
+  .hero h1 {
+    max-width: min(375px, 100%);
+    overflow-wrap: break-word;
+    text-shadow: 0 2px 18px rgba(4, 33, 50, 0.22);
+  }
+
+  .hero p {
+    width: 100%;
+    max-width: min(344px, 100%);
+    overflow-wrap: break-word;
+  }
+
+  .hero-actions {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .hero h1 {
+    font-size: clamp(2.28rem, 10.6vw, 2.72rem);
+  }
+
+  .hero-button {
+    padding-inline: 14px;
+  }
+
+  .hero-button.is-secondary {
+    flex: 1 1 170px;
   }
 }

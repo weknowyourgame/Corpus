@@ -185,7 +185,7 @@ function ConnectionScreen({ status, transport }: { status: ConnectionStatus; tra
               Connect Roblox Studio
             </h1>
             <div className="stud-display-subtitle">
-              <Loader variant="terminal" text="Waiting for Roblox Studio" size="sm" />
+              Waiting for Roblox Studio to pair through the Stud bridge.
             </div>
           </div>
 

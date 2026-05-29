@@ -1655,7 +1655,8 @@
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: clamp(2.65rem, 3.65vw, 3.15rem);
   font-weight: 400;
-  line-height: 1.06;
+  letter-spacing: -0.04em;
+  line-height: 1.11;
 }
 
 .stud-display-subtitle {
@@ -2397,5 +2398,100 @@
   .stud-recovery-actions {
     width: 100%;
     margin-left: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .stud-app-shell,
+  .stud-prereq-screen,
+  .stud-connection-layout,
+  .stud-chat-workspace,
+  .studio-window {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  .stud-connection-layout {
+    width: 100%;
+    align-items: stretch;
+    box-sizing: border-box;
+    padding-inline: 12px;
+  }
+
+  .stud-connection-stack,
+  .stud-connection-stack .stud-panel,
+  .stud-connection-stack .stud-panel-soft,
+  .stud-prereq-screen .stud-panel {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .stud-connection-stack .stud-display-title {
+    max-width: 100%;
+    font-size: clamp(2rem, 9.8vw, 2.25rem) !important;
+    overflow-wrap: normal;
+    text-wrap: balance;
+  }
+
+  .stud-connection-stack .stud-display-subtitle {
+    max-width: 100%;
+    font-size: 13.5px;
+    overflow-wrap: break-word;
+  }
+
+  .stud-connection-stack .stud-route-row {
+    width: 100%;
+    max-width: 100%;
+    justify-content: flex-start;
+    overflow: hidden;
+  }
+
+  .stud-connection-stack .stud-route-pill {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .stud-connection-stack .stud-panel.p-6 {
+    padding: 18px !important;
+  }
+
+  .stud-step-row,
+  .stud-step-row > div:not(.stud-step-num),
+  .stud-connection-stack .stud-panel-soft > div {
+    min-width: 0;
+  }
+
+  .stud-step-row h3,
+  .stud-step-row p {
+    max-width: 100%;
+    white-space: normal !important;
+    overflow-wrap: break-word;
+  }
+
+  .stud-connection-stack .stud-panel-soft span.font-mono {
+    min-width: 0;
+    font-size: 1.25rem;
+    letter-spacing: 0.22em;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 420px) {
+  .stud-connection-layout {
+    padding-inline: 12px;
+  }
+
+  .stud-connection-stack .stud-route-pill {
+    font-size: 9px;
+    padding-inline: 8px;
+  }
+
+  .stud-connection-stack .stud-panel-soft span.font-mono {
+    font-size: 1.18rem;
+    letter-spacing: 0.18em;
   }
 }
