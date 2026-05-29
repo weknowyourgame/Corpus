@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -n web,bridge -c cyan,magenta \"npm run dev:web\" \"npm run dev:bridge\"",
+    "dev": "concurrently --kill-others-on-fail -n web,bridge -c cyan,magenta \"npm run dev:web\" \"npm run dev:bridge\"",
     "dev:web": "vite",
     "dev:bridge": "bun server/index.js",
     "build": "tsc && vite build",
