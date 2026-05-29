@@ -387,7 +387,9 @@ export class OfficialMcpTransport {
   }
 
   private async runCodeWrapper(luau: string, signal: AbortSignal): Promise<JsonValue> {
-    const result = await this.client.callTool("run_code", { command: luau }, signal);
+    const client = this.client;
+    if (!client) throw new Error("MCP transport is not connected");
+    const result = await client.callTool("run_code", { command: luau }, signal);
     if (result.isError) {
       throw new Error(`MCP run_code reported an error: ${flattenContent(result).slice(0, 500)}`);
     }

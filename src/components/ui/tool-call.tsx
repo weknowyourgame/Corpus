@@ -76,7 +76,7 @@ export function ToolCall({
   return (
     <div
       className={cn(
-        "rounded-xl border transition-all",
+        "stud-tool-call rounded-xl border transition-all",
         bgColor,
         className
       )}
@@ -84,7 +84,7 @@ export function ToolCall({
       {/* Header - always visible */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left"
+        className="stud-tool-call-header w-full flex items-center gap-3 px-4 py-3 text-left"
       >
         {/* Expand/collapse icon */}
         <span className="text-muted-foreground">
@@ -114,14 +114,14 @@ export function ToolCall({
 
       {/* Expanded content */}
       {isExpanded && (
-        <div className="px-4 pb-4 pt-0 space-y-3">
+        <div className="stud-tool-call-body px-4 pb-4 pt-0 space-y-3">
           {/* Input */}
           {input && Object.keys(input).length > 0 && (
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Input
               </p>
-              <pre className="text-xs bg-background/80 rounded-lg p-3 overflow-x-auto border">
+              <pre className="stud-tool-code text-xs bg-background/80 rounded-lg p-3 overflow-x-auto border">
                 {JSON.stringify(input, null, 2)}
               </pre>
             </div>
@@ -133,7 +133,7 @@ export function ToolCall({
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                 Output
               </p>
-              <pre className="text-xs bg-background/80 rounded-lg p-3 overflow-x-auto border max-h-48 overflow-y-auto">
+              <pre className="stud-tool-code text-xs bg-background/80 rounded-lg p-3 overflow-x-auto border max-h-48 overflow-y-auto">
                 {typeof output === "string" 
                   ? output 
                   : JSON.stringify(output, null, 2)}
@@ -147,7 +147,7 @@ export function ToolCall({
               <p className={cn("text-xs font-medium uppercase tracking-wide", status === "denied" ? "text-amber-700" : "text-red-600")}>
                 {status === "denied" ? "Denied" : "Error"}
               </p>
-              <pre className={cn("text-xs rounded-lg p-3 overflow-x-auto border", status === "denied" ? "bg-amber-50 text-amber-800 border-amber-200" : "bg-red-50 text-red-700 border-red-200")}>
+              <pre className={cn("stud-tool-code text-xs rounded-lg p-3 overflow-x-auto border", status === "denied" ? "is-denied" : "is-error")}>
                 {error}
               </pre>
             </div>
