@@ -301,6 +301,10 @@ export class OfficialMcpTransport {
     return this.client;
   }
 
+  getLastConnectError(): string | undefined {
+    return this.client?.getLastConnectError();
+  }
+
   supports(path: string) {
     return MCP_SUPPORTED_PATHS.has(path);
   }

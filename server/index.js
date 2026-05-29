@@ -268,7 +268,7 @@ const buildStudioStatus = (session) => {
     lastUsedTransport: studioTransport.lastUsed,
     mcpServer: activeClient?.getServerInfo() ?? null,
     mcpTools: tools,
-    mcpError: mcpClient?.getLastConnectError() ?? null,
+    mcpError: mcpTransport?.getLastConnectError() ?? null,
     pending_requests: session.pending.size,
     last_poll_time: session.lastPoll ? timestamp() - session.lastPoll : null,
   };
