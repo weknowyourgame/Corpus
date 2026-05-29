@@ -121,38 +121,53 @@ const resolvedMcpBinary = process.env.STUD_STUDIO_MCP_BINARY
   || (existsSync(DEFAULT_MCP_BINARY) ? DEFAULT_MCP_BINARY : undefined);
 
 const pluginTransport = new PluginRelayTransport(relayStudioRequest);
-/** @type {StudioMcpClient | undefined} */
-let mcpClient;
 /** @type {OfficialMcpTransport | null} */
 let mcpTransport = null;
 
 if (configuredTransport !== "plugin" && resolvedMcpBinary) {
-  mcpClient = new StudioMcpClient({
-    command: resolvedMcpBinary,
-    args: (process.env.STUD_STUDIO_MCP_ARGS ?? "--stdio").split(/\s+/).filter(Boolean),
-    label: "official-mcp",
-  });
-  mcpClient.on("stderr", (chunk) => {
-    if (process.env.STUD_STUDIO_MCP_DEBUG) process.stderr.write(`[studio-mcp] ${chunk}`);
-  });
-  mcpClient.on("exit", (info) =>
-    console.warn(`[studio-mcp] process exited code=${info.code} signal=${info.signal ?? "none"}`),
-  );
-  mcpTransport = new OfficialMcpTransport(mcpClient);
-  mcpClient
-    .connect()
-    .then(() => {
-      const tools = mcpClient.listTools().map((t) => t.name);
-      console.log(`[studio-mcp] connected via ${resolvedMcpBinary}; tools=${tools.join(",")}`);
-    })
-    .catch((err) => {
-      console.warn(`[studio-mcp] connect failed: ${err.message ?? err}`);
-      if (configuredTransport === "mcp") {
-        console.warn("[studio-mcp] STUD_STUDIO_TRANSPORT=mcp set; agent will still try MCP for each call");
-      } else {
-        console.warn("[studio-mcp] auto mode will fall back to plugin polling until MCP connects");
-      }
+  mcpTransport = new OfficialMcpTransport(); // client is null until first successful connect
+
+  const MCP_BACKOFF_MS = [2000, 4000, 8000, 16000, 30000];
+  let mcpRetryCount = 0;
+  let mcpReconnectScheduled = false;
+
+  const scheduleMcpReconnect = () => {
+    if (mcpReconnectScheduled) return;
+    mcpReconnectScheduled = true;
+    const delay = MCP_BACKOFF_MS[Math.min(mcpRetryCount, MCP_BACKOFF_MS.length - 1)];
+    mcpRetryCount++;
+    console.log(`[studio-mcp] retrying in ${delay / 1000}s (attempt ${mcpRetryCount})`);
+    setTimeout(attemptMcpConnect, delay);
+  };
+
+  const attemptMcpConnect = async () => {
+    mcpReconnectScheduled = false;
+    const client = new StudioMcpClient({
+      command: resolvedMcpBinary,
+      args: (process.env.STUD_STUDIO_MCP_ARGS ?? "--stdio").split(/\s+/).filter(Boolean),
+      label: "official-mcp",
     });
+    client.on("stderr", (chunk) => {
+      if (process.env.STUD_STUDIO_MCP_DEBUG) process.stderr.write(`[studio-mcp] ${chunk}`);
+    });
+    try {
+      await client.connect();
+      mcpRetryCount = 0;
+      mcpTransport.setClient(client);
+      const tools = client.listTools().map((t) => t.name);
+      console.log(`[studio-mcp] connected via ${resolvedMcpBinary}; tools=${tools.join(",")}`);
+      // Reconnect automatically if Studio closes or MCP process dies
+      client.once("exit", (info) => {
+        console.warn(`[studio-mcp] process exited code=${info.code} signal=${info.signal ?? "none"} — will reconnect`);
+        scheduleMcpReconnect();
+      });
+    } catch (err) {
+      console.warn(`[studio-mcp] connect failed: ${err.message ?? err}`);
+      scheduleMcpReconnect();
+    }
+  };
+
+  attemptMcpConnect();
 } else if (configuredTransport === "mcp") {
   console.warn("[studio-mcp] STUD_STUDIO_TRANSPORT=mcp but StudioMCP binary not found; falling back to plugin");
 }

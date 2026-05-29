@@ -287,14 +287,21 @@ export class PluginRelayTransport {
 
 export class OfficialMcpTransport {
   readonly mode: TransportMode = "official_mcp";
+  private client: StudioMcpClient | null;
 
-  constructor(private readonly client: StudioMcpClient) {}
+  constructor(client: StudioMcpClient | null = null) {
+    this.client = client;
+  }
+
+  setClient(client: StudioMcpClient | null): void {
+    this.client = client;
+  }
 
   supports(path: string) {
     return MCP_SUPPORTED_PATHS.has(path);
   }
 
-  isReady() { return this.client.isConnected(); }
+  isReady() { return this.client?.isConnected() ?? false; }
 
   async request(
     _sessionId: string,
@@ -304,7 +311,7 @@ export class OfficialMcpTransport {
     _operationId: string,
   ): Promise<JsonValue> {
     if (!this.supports(path)) throw new Error(`MCP transport does not implement ${path}`);
-    if (!this.client.isConnected()) throw new Error("MCP transport is not connected");
+    if (!this.client || !this.client.isConnected()) throw new Error("MCP transport is not connected");
 
     const data = body ?? {};
     switch (path) {
