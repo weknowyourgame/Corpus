@@ -29,8 +29,12 @@ const stable = (value: unknown) => JSON.stringify(value);
 // fully-qualified path starting with "game".
 const normalizePath = (raw: string): string => {
   if (!raw || raw === "game") return "game";
-  if (raw.startsWith("game.") || raw.startsWith("game/")) return raw;
-  return `game.${raw}`;
+  // Normalize separators: convert all forward slashes to dots
+  const dotted = raw.replace(/\//g, ".");
+  if (dotted.startsWith("game.")) return dotted;
+  // Strip a leading "game" segment without a separator
+  if (dotted === "game") return "game";
+  return `game.${dotted}`;
 };
 
 const path = (input: Record<string, unknown>, key = "path") =>
@@ -93,7 +97,7 @@ const studioTools: Array<{
   {
     name: "mcp__roblox_studio__write_script",
     description: "Replace source in an existing Roblox Studio script.",
-    schema: z.object({ path: z.string(), source: z.string() }),
+    schema: z.object({ path: z.string(), source: z.string().default("") }),
     endpoint: "/script/set",
     risk: "low_mutation",
     scope: (input) => path(input),

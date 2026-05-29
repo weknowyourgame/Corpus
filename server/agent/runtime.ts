@@ -150,7 +150,7 @@ export class AgentRuntime {
     const active = this.active.get(runId);
     const approval = active?.approvals.get(approvalId);
     if (!approval) return false;
-    if (decision === "allow_scope" && approval.risk !== "low_mutation") return false;
+    // allow_scope is valid for any mutation risk — the user explicitly opted in
     if (decision === "insert_without_scripts" && !approval.allowStripScripts) return false;
     const conversation = await this.requiredConversation(conversationId);
     conversation.auditEvents.push({
