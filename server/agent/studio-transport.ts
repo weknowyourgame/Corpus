@@ -309,7 +309,12 @@ export class OfficialMcpTransport {
     return MCP_SUPPORTED_PATHS.has(path);
   }
 
-  isReady() { return this.client?.isConnected() ?? false; }
+  isReady() {
+    if (!this.client?.isConnected()) return false;
+    // Only consider MCP ready when it has actual tools — empty list means
+    // Studio hasn't fully loaded its MCP server yet.
+    return this.client.listTools().length > 0;
+  }
 
   async request(
     _sessionId: string,

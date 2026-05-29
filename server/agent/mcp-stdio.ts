@@ -286,6 +286,24 @@ export class StudioMcpClient extends EventEmitter {
     }
     if (typeof message.method === "string") {
       this.emit("notification", message);
+      if (message.method === "notifications/tools/list_changed") {
+        void this.refreshTools();
+      }
+    }
+  }
+
+  // Re-fetch the tools list — called when Studio signals its tool set changed.
+  private async refreshTools(): Promise<void> {
+    if (!this.connected || this.disposed) return;
+    try {
+      const controller = new AbortController();
+      const list = await this.requestWithSignal("tools/list", {}, controller.signal, 5000) as
+        | { tools?: McpToolSchema[] }
+        | undefined;
+      this.toolList = list?.tools ?? [];
+      this.emit("tools_updated", { tools: this.toolList });
+    } catch {
+      // non-fatal — tools list stays as-is until next notification
     }
   }
 

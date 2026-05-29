@@ -157,7 +157,17 @@ if (configuredTransport !== "plugin" && resolvedMcpBinary) {
       mcpRetryCount = 0;
       mcpTransport.setClient(client);
       const tools = client.listTools().map((t) => t.name);
-      console.log(`[studio-mcp] connected via ${resolvedMcpBinary}; tools=${tools.join(",")}`);
+      if (tools.length > 0) {
+        console.log(`[studio-mcp] connected via ${resolvedMcpBinary}; tools=${tools.join(",")}`);
+      } else {
+        console.log(`[studio-mcp] connected via ${resolvedMcpBinary}; waiting for Studio to load tools...`);
+      }
+      // When Studio finishes loading it sends notifications/tools/list_changed
+      client.on("tools_updated", ({ tools: updated }) => {
+        if (updated.length > 0) {
+          console.log(`[studio-mcp] tools ready: ${updated.map((t) => t.name).join(",")}`);
+        }
+      });
       // Reconnect automatically if Studio closes or MCP process dies
       client.once("exit", (info) => {
         console.warn(`[studio-mcp] process exited code=${info.code} signal=${info.signal ?? "none"} — will reconnect`);
