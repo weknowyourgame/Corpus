@@ -81,6 +81,10 @@ class AiSdkDriver implements ModelDriver {
   ) {}
 
   async generate(input: Parameters<ModelDriver["generate"]>[0]) {
+    return this.generateWithRetry(input, 2);
+  }
+
+  private async generateWithRetry(input: Parameters<ModelDriver["generate"]>[0], attemptsLeft: number): Promise<ReturnType<ModelDriver["generate"]>> {
     const key = this.provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : process.env.OPENROUTER_API_KEY;
     if (!key) throw new Error(`Set ${this.provider === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENROUTER_API_KEY"} on the bridge server`);
     const model = this.provider === "anthropic"
@@ -133,6 +137,10 @@ class AiSdkDriver implements ModelDriver {
       }
     }
     if (!text && !calls.length) {
+      if (attemptsLeft > 1) {
+        console.warn(`[driver] empty response from ${this.provider}/${this.model} (finishReason=${finishReason ?? "unknown"}), retrying (${attemptsLeft - 1} left)`);
+        return this.generateWithRetry(input, attemptsLeft - 1);
+      }
       const detail = reasoning
         ? `Model returned reasoning only (no visible output or tool calls). finishReason=${finishReason ?? "unknown"}. This usually means the model is a pure thinking variant or the response was cut off by the provider.`
         : `Model returned no output and no tool calls. finishReason=${finishReason ?? "unknown"}. The upstream connection likely terminated early.`;

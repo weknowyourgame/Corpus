@@ -1,9 +1,36 @@
 import { z } from "zod";
 import type { JsonValue } from "./types.ts";
 
+const VALID_CATEGORIES = ["Model", "Decal", "Audio", "Plugin", "MeshPart"] as const;
+type ToolboxCategory = (typeof VALID_CATEGORIES)[number];
+
+const coerceCategory = (val: unknown): ToolboxCategory => {
+  if (typeof val !== "string") return "Model";
+  const normalized = val.charAt(0).toUpperCase() + val.slice(1).toLowerCase();
+  // Common aliases the model uses
+  const aliases: Record<string, ToolboxCategory> = {
+    Models: "Model",
+    Decals: "Decal",
+    Audios: "Audio",
+    Sounds: "Audio",
+    Sound: "Audio",
+    Plugins: "Plugin",
+    Mesh: "MeshPart",
+    Meshes: "MeshPart",
+    Animation: "Model",
+    Animations: "Model",
+    Package: "Model",
+    Packages: "Model",
+    Image: "Decal",
+    Images: "Decal",
+  };
+  if (VALID_CATEGORIES.includes(normalized as ToolboxCategory)) return normalized as ToolboxCategory;
+  return aliases[val] ?? aliases[normalized] ?? "Model";
+};
+
 export const toolboxSearchSchema = z.object({
   query: z.string().min(1),
-  category: z.enum(["Model", "Decal", "Audio", "Plugin", "MeshPart"]).default("Model"),
+  category: z.preprocess(coerceCategory, z.enum(VALID_CATEGORIES)).default("Model"),
   limit: z.number().int().min(1).max(30).default(10),
   cursor: z.string().optional(),
   expand: z.boolean().default(true),
