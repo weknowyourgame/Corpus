@@ -224,6 +224,7 @@ export class AgentRuntime {
       const driver = this.drivers({ provider: input.provider, model: input.model });
       let fullText = "";
       let contextBlock: string | undefined;
+      let codeBlockCorrections = 0;
 
       for (let iteration = 1; iteration <= this.maxIterations; iteration += 1) {
         this.throwIfAborted(active.controller.signal);
@@ -283,6 +284,23 @@ export class AgentRuntime {
         }));
         next.messages.push({ role: "assistant", content: turn.text, toolCalls: safeToolCalls });
         await this.store.save(next);
+
+        // Detect code generation without tool use: the model wrote code blocks for the
+        // user to paste instead of calling write_script/create_instance. Reinject a
+        // correction and loop rather than completing with zero actual work done.
+        const hasCodeBlock = /```[\s\S]{20,}```/.test(turn.text);
+        if (!turn.toolCalls.length && hasCodeBlock && codeBlockCorrections < 3) {
+          codeBlockCorrections += 1;
+          const correction = `You generated code in your response instead of executing it. Do NOT output code blocks. Use mcp__roblox_studio__create_instance to create scripts, then mcp__roblox_studio__write_script to write the source directly into the project. Execute the work now — do not explain it.`;
+          next.messages.push({ role: "user", content: correction });
+          await this.store.save(next);
+          await this.emitById(conversationId, runId, {
+            type: "text_delta",
+            text: "\n\n[Agent used code generation instead of tools — retrying with correction]\n\n",
+          });
+          continue;
+        }
+
         if (!turn.toolCalls.length) {
           const finished = this.requiredRun(next, runId);
           finished.status = "completed";

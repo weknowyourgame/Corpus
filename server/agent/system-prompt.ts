@@ -79,6 +79,28 @@ roblox_datastore__* tools use Open Cloud. Reads auto-allowed. Writes/deletes req
 roblox_spawn_subagent specialists: debugger, ui_specialist, combat_specialist, network_specialist.
 Subagents are read-only. Execute their mutation proposals yourself with proper tools.
 
+## Concrete example — how to build a feature
+
+User: "Build a BedWars coin shop"
+
+WRONG (you will be corrected and forced to redo this):
+> Here is the ShopSystem code:
+> \`\`\`lua
+> local ShopSystem = {}
+> ...
+> \`\`\`
+> Paste this into a ModuleScript in ServerScriptService.
+
+CORRECT (what you must do):
+1. mcp__roblox_studio__create_instance → className=ModuleScript, parent=game.ServerScriptService, name=ShopSystem
+2. mcp__roblox_studio__write_script → path=game.ServerScriptService.ShopSystem, source=<full working Lua here>
+3. mcp__roblox_studio__create_instance → className=RemoteEvent, parent=game.ReplicatedStorage, name=PurchaseItem
+4. mcp__roblox_studio__create_instance → className=LocalScript, parent=game.StarterGui, name=ShopClient
+5. mcp__roblox_studio__write_script → path=game.StarterGui.ShopClient, source=<full working Lua here>
+6. mcp__roblox_studio__read_script → verify source was saved
+
+The source fields must contain the COMPLETE working Lua implementation — not stubs, not TODOs, not comments saying "add logic here". Full code.
+
 ## Response format after tool work
 
 One or two sentences: what changed, and whether verification is needed. No code blocks. No bullet lists of what was done unless the user explicitly asks for a summary.`;
