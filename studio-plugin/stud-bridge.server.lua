@@ -1363,7 +1363,7 @@ local function pollServer()
 			-- No token yet — wait for user to paste one
 			task.wait(1)
 		else
-			local success, response = pcall(function()
+			local ok, response = pcall(function()
 				return HttpService:RequestAsync({
 					Url = getPollUrl(),
 					Method = "GET",
@@ -1374,50 +1374,75 @@ local function pollServer()
 				})
 			end)
 
-			if success and response.Success then
-				if not isConnected then
-					isConnected = true
+			if ok and response then
+				if response.StatusCode == 401 then
+					-- Token rejected — stop polling and tell user
+					pollingEnabled = false
+					isConnected = false
 					isConnecting = false
+					updateUI()
+					addActivity("Invalid token — regenerate in Stud web app", "error")
+					print("[stud-bridge] Token rejected (401). Paste a fresh token from stud.com.")
+					break
+				elseif response.Success then
+					if not isConnected then
+						isConnected = true
+						isConnecting = false
+						failCount = 0
+						updateUI()
+						addActivity("Connected", "success")
+						print("[stud-bridge] Connected to Stud web app")
+					end
+
+					local data = jsonDecode(response.Body)
+
+					if data and data.project then
+						projectInfo = data.project
+						updateUI()
+					end
+
+					if data and data.request then
+						local result = handleRequest(data.request)
+						pcall(function()
+							HttpService:RequestAsync({
+								Url = getRespondUrl(),
+								Method = "POST",
+								Headers = {
+									["X-Stud-Token"] = token,
+									["Content-Type"] = "application/json",
+								},
+								Body = jsonEncode({
+									id = data.id,
+									response = result,
+								}),
+							})
+						end)
+					end
 					failCount = 0
-					updateUI()
-					addActivity("Connected", "success")
-					print("[stud-bridge] Connected to Stud web app")
+				else
+					-- Network error or non-2xx (not 401)
+					failCount = failCount + 1
+					if failCount >= maxFails then
+						if isConnected then
+							isConnected = false
+							isConnecting = true
+							projectInfo = nil
+							updateUI()
+							addActivity("Connection lost — retrying", "error")
+							print("[stud-bridge] Connection lost, retrying...")
+						end
+					end
 				end
-
-				local data = jsonDecode(response.Body)
-
-				if data and data.project then
-					projectInfo = data.project
-					updateUI()
-				end
-
-				if data and data.request then
-					local result = handleRequest(data.request)
-					pcall(function()
-						HttpService:RequestAsync({
-							Url = getRespondUrl(),
-							Method = "POST",
-							Headers = {
-								["X-Stud-Token"] = token,
-								["Content-Type"] = "application/json",
-							},
-							Body = jsonEncode({
-								id = data.id,
-								response = result,
-							}),
-						})
-					end)
-				end
-				failCount = 0
 			else
+				-- pcall itself failed (request threw)
 				failCount = failCount + 1
-				if isConnected and failCount >= maxFails then
+				if failCount >= maxFails and isConnected then
 					isConnected = false
 					isConnecting = true
 					projectInfo = nil
 					updateUI()
-					addActivity("Connection lost", "error")
-					print("[stud-bridge] Connection lost, retrying...")
+					addActivity("Bridge unreachable — retrying", "error")
+					print("[stud-bridge] Bridge unreachable, retrying...")
 				end
 			end
 

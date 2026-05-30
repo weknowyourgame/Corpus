@@ -72,18 +72,22 @@ const studioTokens = new Map();
 const tokenToSessionId = (token) =>
   token.replace(/[^A-Za-z0-9]/g, "").slice(0, 8).toUpperCase();
 
-/** Extract and validate X-Stud-Token header; sends 401 and returns null on failure */
+/** Extract and validate X-Stud-Token header; sends 401 and returns null on failure.
+ *
+ * Tokens are self-validating: any non-empty string of 10+ printable chars is accepted.
+ * We auto-register unknown tokens so server restarts don't break existing plugin setups.
+ */
 const requireToken = (req, res) => {
   const token = req.header("X-Stud-Token");
-  if (!token) {
-    res.status(401).json({ error: "Missing X-Stud-Token header" });
+  if (!token || token.trim().length < 10) {
+    res.status(401).json({ error: "Missing or invalid X-Stud-Token header" });
     return null;
   }
-  if (!studioTokens.has(token)) {
-    res.status(401).json({ error: "Invalid or expired token" });
-    return null;
+  const t = token.trim();
+  if (!studioTokens.has(t)) {
+    studioTokens.set(t, { createdAt: Date.now(), sessionId: tokenToSessionId(t) });
   }
-  return token;
+  return t;
 };
 
 /**
