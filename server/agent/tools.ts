@@ -64,9 +64,14 @@ const normalizeBody = (body: Record<string, unknown>): Record<string, unknown> =
   return result;
 };
 
+const tryParseJson = (val: unknown) => {
+  if (typeof val !== "string") return val;
+  try { return JSON.parse(val); } catch { return val; }
+};
+
 const questionSchema = z.object({
   question: z.string(),
-  options: z.array(z.union([
+  options: z.preprocess(tryParseJson, z.array(z.union([
     z.string(),
     z.object({
       label: z.string(),
@@ -74,7 +79,7 @@ const questionSchema = z.object({
       imageUrl: z.string().nullable().optional(),
       description: z.string().optional(),
     }),
-  ])).optional(),
+  ])).optional()),
   type: z.enum(["single", "multi", "text"]).default("text"),
 });
 
@@ -377,10 +382,10 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
       transport: "server",
       risk: "read",
       concurrency: "parallel_read",
-      inputSchema: z.object({ questions: z.array(questionSchema).min(1).max(4) }),
+      inputSchema: z.object({ questions: z.preprocess(tryParseJson, z.array(questionSchema).min(1).max(4)) }),
       scope: () => "conversation",
       execute: async (input, context) => {
-        const questions = z.array(questionSchema).parse(input.questions) as AgentQuestion[];
+        const questions = z.preprocess(tryParseJson, z.array(questionSchema)).parse(input.questions) as AgentQuestion[];
         const answers = await context.requestInteraction(questions);
         return asJson({
           answered: true,
