@@ -8,7 +8,7 @@
 import express from "express";
 import cors from "cors";
 import { existsSync } from "node:fs";
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 import { DevelopmentConversationStore, MemoryConversationStore } from "./agent/store.ts";
 import { AgentRuntime } from "./agent/runtime.ts";
 import { RobloxStudioMcpGateway } from "./agent/tools.ts";
@@ -63,6 +63,28 @@ const sessions = new Map();
 
 /** @type {{ code: string, state: string, timestamp: number } | null} */
 let oauthCallback = null;
+
+// --- Studio token auth ---
+// Maps token → { createdAt, sessionId }
+const studioTokens = new Map();
+
+/** Derive a stable 8-char session ID from a token (fits SESSION_ID_PATTERN) */
+const tokenToSessionId = (token) =>
+  token.replace(/[^A-Za-z0-9]/g, "").slice(0, 8).toUpperCase();
+
+/** Extract and validate X-Stud-Token header; sends 401 and returns null on failure */
+const requireToken = (req, res) => {
+  const token = req.header("X-Stud-Token");
+  if (!token) {
+    res.status(401).json({ error: "Missing X-Stud-Token header" });
+    return null;
+  }
+  if (!studioTokens.has(token)) {
+    res.status(401).json({ error: "Invalid or expired token" });
+    return null;
+  }
+  return token;
+};
 
 /**
  * @typedef {{ path: string, body?: string }} StudioRequest
@@ -524,6 +546,104 @@ app.get("/stud/status", (_req, res) => {
 
 app.get("/stud/studio/status", (_req, res) => {
   const session = getSession(LEGACY_SESSION);
+  res.json(buildStudioStatus(session));
+});
+
+// --- Studio token endpoints ---
+
+/** Generate a new studio token (web app calls this once per user) */
+app.post("/auth/studio-token/generate", (_req, res) => {
+  const token = randomBytes(32).toString("base64url");
+  const sessionId = tokenToSessionId(token);
+  studioTokens.set(token, { createdAt: Date.now(), sessionId });
+  res.json({ token, sessionId });
+});
+
+/** Validate a token and return studio connection status */
+app.get("/auth/studio-token/validate", (req, res) => {
+  const token = requireToken(req, res);
+  if (!token) return;
+  const { sessionId } = studioTokens.get(token);
+  const session = sessions.get(sessionId);
+  res.json({
+    valid: true,
+    sessionId,
+    studioConnected: session ? isStudioConnected(session) : false,
+  });
+});
+
+/**
+ * Token-based poll endpoint — Studio plugin calls this with X-Stud-Token.
+ * Server maps the token → session, no session ID needed in the URL.
+ */
+app.get("/stud/token/poll", (req, res) => {
+  const token = requireToken(req, res);
+  if (!token) return;
+
+  const { sessionId } = studioTokens.get(token);
+  const session = getSession(sessionId);
+  session.lastPoll = timestamp();
+  cleanupSession(session);
+
+  const entry = session.pending.entries().next();
+  if (!entry.done) {
+    const [id, pending] = entry.value;
+    res.json({ id, request: pending.request });
+    return;
+  }
+
+  let settled = false;
+  const settle = (payload) => {
+    if (settled) return;
+    settled = true;
+    session.pollWakeup = null;
+    if (!res.writableEnded) res.json(payload);
+  };
+
+  const timer = setTimeout(() => settle({ id: null, request: null }), POLL_HOLD_MS);
+  session.pollWakeup = settle;
+  req.on("close", () => {
+    settled = true;
+    clearTimeout(timer);
+    session.pollWakeup = null;
+  });
+});
+
+/** Token-based respond — Studio plugin posts results here */
+app.post("/stud/token/respond", (req, res) => {
+  const token = requireToken(req, res);
+  if (!token) return;
+
+  const { sessionId } = studioTokens.get(token);
+  const session = getSession(sessionId);
+
+  const { id, response } = req.body;
+  if (!id || !response) {
+    res.status(400).json({ error: "Missing id or response" });
+    return;
+  }
+
+  const pending = session.pending.get(id);
+  if (!pending) {
+    res.json({ error: "Request not found" });
+    return;
+  }
+
+  clearTimeout(pending.timer);
+  session.pending.delete(id);
+  if (pending.operationId) session.completed.set(pending.operationId, { response, completedAt: timestamp() });
+  pending.resolve(response);
+  res.json({ ok: true });
+});
+
+/** Token-based status — web app polls this to see if Studio is connected */
+app.get("/stud/token/status", (req, res) => {
+  const token = requireToken(req, res);
+  if (!token) return;
+
+  const { sessionId } = studioTokens.get(token);
+  const session = getSession(sessionId);
+  cleanupSession(session);
   res.json(buildStudioStatus(session));
 });
 

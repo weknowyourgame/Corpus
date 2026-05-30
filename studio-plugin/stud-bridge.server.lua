@@ -32,32 +32,24 @@ local function getBridgeBase()
 	return DEFAULT_BRIDGE
 end
 
-local function getSessionId()
-	local saved = plugin:GetSetting("SessionId")
-	if type(saved) == "string" and #saved >= 6 then
-		return saved:upper()
+local function getToken()
+	local saved = plugin:GetSetting("StudioToken")
+	if type(saved) == "string" and #saved > 0 then
+		return saved
 	end
 	return ""
 end
 
-local function setSessionId(id)
-	plugin:SetSetting("SessionId", id:upper())
+local function setToken(token)
+	plugin:SetSetting("StudioToken", token)
 end
 
 local function getPollUrl()
-	local session = getSessionId()
-	if session == "" then
-		return getBridgeBase() .. "/stud/poll"
-	end
-	return getBridgeBase() .. "/stud/sessions/" .. session .. "/poll"
+	return getBridgeBase() .. "/stud/token/poll"
 end
 
 local function getRespondUrl()
-	local session = getSessionId()
-	if session == "" then
-		return getBridgeBase() .. "/stud/respond"
-	end
-	return getBridgeBase() .. "/stud/sessions/" .. session .. "/respond"
+	return getBridgeBase() .. "/stud/token/respond"
 end
 
 -- State
@@ -73,8 +65,11 @@ local toolbar = plugin:CreateToolbar(PLUGIN_DISPLAY_NAME)
 local toggleButton = toolbar:CreateButton(
 	PLUGIN_DISPLAY_NAME,
 	"Connect to Stud AI",
-	"rbxassetid://4458901886" -- Generic connect icon
+	"rbxassetid://4458901886"
 )
+
+-- Declare tokenInput here so it's accessible to toggleConnection
+local tokenInput
 
 -- Colors (cozy light theme to match Stud app)
 local Colors = {
@@ -367,43 +362,43 @@ local function createWidget()
 		parent = statusCard
 	})
 	
-	-- ========== Session Code ==========
-	local sessionLabel = createLabel({
-		text = "Session code (from Stud web app)",
+	-- ========== Token Input ==========
+	local tokenLabel = createLabel({
+		text = "Token (from stud.com)",
 		color = Colors.textMuted,
 		textSize = 11,
 		font = Enum.Font.GothamBold,
 		size = UDim2.new(1, 0, 0, 16),
 		parent = container
 	})
-	sessionLabel.LayoutOrder = 2
+	tokenLabel.LayoutOrder = 2
 
-	sessionInput = Instance.new("TextBox")
-	sessionInput.Size = UDim2.new(1, 0, 0, 36)
-	sessionInput.BackgroundColor3 = Colors.bgSecondary
-	sessionInput.TextColor3 = Colors.text
-	sessionInput.PlaceholderText = "e.g. ABC12345"
-	sessionInput.PlaceholderColor3 = Colors.textMuted
-	sessionInput.Text = getSessionId()
-	sessionInput.Font = Enum.Font.RobotoMono
-	sessionInput.TextSize = 16
-	sessionInput.ClearTextOnFocus = false
-	sessionInput.Parent = container
-	sessionInput.LayoutOrder = 3
+	tokenInput = Instance.new("TextBox")
+	tokenInput.Size = UDim2.new(1, 0, 0, 36)
+	tokenInput.BackgroundColor3 = Colors.bgSecondary
+	tokenInput.TextColor3 = Colors.text
+	tokenInput.PlaceholderText = "Paste your Stud token here"
+	tokenInput.PlaceholderColor3 = Colors.textMuted
+	tokenInput.Text = getToken()
+	tokenInput.Font = Enum.Font.RobotoMono
+	tokenInput.TextSize = 11
+	tokenInput.ClearTextOnFocus = false
+	tokenInput.Parent = container
+	tokenInput.LayoutOrder = 3
 
-	local sessionCorner = Instance.new("UICorner")
-	sessionCorner.CornerRadius = UDim.new(0, 10)
-	sessionCorner.Parent = sessionInput
+	local tokenCorner = Instance.new("UICorner")
+	tokenCorner.CornerRadius = UDim.new(0, 10)
+	tokenCorner.Parent = tokenInput
 
-	local sessionPad = Instance.new("UIPadding")
-	sessionPad.PaddingLeft = UDim.new(0, 12)
-	sessionPad.PaddingRight = UDim.new(0, 12)
-	sessionPad.Parent = sessionInput
+	local tokenPad = Instance.new("UIPadding")
+	tokenPad.PaddingLeft = UDim.new(0, 12)
+	tokenPad.PaddingRight = UDim.new(0, 12)
+	tokenPad.Parent = tokenInput
 
-	sessionInput.FocusLost:Connect(function()
-		local id = sessionInput.Text:upper():gsub("[^A-Z0-9]", "")
-		sessionInput.Text = id
-		setSessionId(id)
+	tokenInput.FocusLost:Connect(function()
+		local t = tokenInput.Text:gsub("^%s*(.-)%s*$", "%1")
+		tokenInput.Text = t
+		setToken(t)
 	end)
 
 	-- ========== Bridge URL (advanced) ==========
@@ -411,7 +406,7 @@ local function createWidget()
 	bridgeInput.Size = UDim2.new(1, 0, 0, 28)
 	bridgeInput.BackgroundColor3 = Colors.bgTertiary
 	bridgeInput.TextColor3 = Colors.textSecondary
-	bridgeInput.PlaceholderText = "Bridge URL"
+	bridgeInput.PlaceholderText = "Bridge URL (optional)"
 	bridgeInput.Text = getBridgeBase()
 	bridgeInput.Font = Enum.Font.Gotham
 	bridgeInput.TextSize = 11
@@ -1361,64 +1356,75 @@ end
 local function pollServer()
 	local failCount = 0
 	local maxFails = 10
-	
+
 	while pollingEnabled do
-		local success, response = pcall(function()
-			return HttpService:RequestAsync({
-				Url = getPollUrl(),
-				Method = "GET",
-			})
-		end)
-		
-		if success and response.Success then
-			-- Connected!
-			if not isConnected then
-				isConnected = true
-				isConnecting = false
-				failCount = 0
-				updateUI()
-				addActivity("Connected", "success")
-				print("[stud-bridge] Connected to Stud web app")
-			end
-			
-			local data = jsonDecode(response.Body)
-			
-			-- Extract project info if available
-			if data and data.project then
-				projectInfo = data.project
-				updateUI()
-			end
-			
-			if data and data.request then
-				local result = handleRequest(data.request)
-				pcall(function()
-					HttpService:RequestAsync({
-						Url = getRespondUrl(),
-						Method = "POST",
-						Headers = { ["Content-Type"] = "application/json" },
-						Body = jsonEncode({
-							id = data.id,
-							response = result,
-						}),
-					})
-				end)
-			end
-			failCount = 0
+		local token = getToken()
+		if token == "" then
+			-- No token yet — wait for user to paste one
+			task.wait(1)
 		else
-			failCount = failCount + 1
-			if isConnected and failCount >= maxFails then
-				isConnected = false
-				isConnecting = true
-				projectInfo = nil
-				updateUI()
-				addActivity("Connection lost", "error")
-				print("[stud-bridge] Connection lost, retrying...")
+			local success, response = pcall(function()
+				return HttpService:RequestAsync({
+					Url = getPollUrl(),
+					Method = "GET",
+					Headers = {
+						["X-Stud-Token"] = token,
+						["Content-Type"] = "application/json",
+					},
+				})
+			end)
+
+			if success and response.Success then
+				if not isConnected then
+					isConnected = true
+					isConnecting = false
+					failCount = 0
+					updateUI()
+					addActivity("Connected", "success")
+					print("[stud-bridge] Connected to Stud web app")
+				end
+
+				local data = jsonDecode(response.Body)
+
+				if data and data.project then
+					projectInfo = data.project
+					updateUI()
+				end
+
+				if data and data.request then
+					local result = handleRequest(data.request)
+					pcall(function()
+						HttpService:RequestAsync({
+							Url = getRespondUrl(),
+							Method = "POST",
+							Headers = {
+								["X-Stud-Token"] = token,
+								["Content-Type"] = "application/json",
+							},
+							Body = jsonEncode({
+								id = data.id,
+								response = result,
+							}),
+						})
+					end)
+				end
+				failCount = 0
+			else
+				failCount = failCount + 1
+				if isConnected and failCount >= maxFails then
+					isConnected = false
+					isConnecting = true
+					projectInfo = nil
+					updateUI()
+					addActivity("Connection lost", "error")
+					print("[stud-bridge] Connection lost, retrying...")
+				end
 			end
+
+			task.wait(0.1)
 		end
-		
-		task.wait(0.1)
 	end
-	
+
 	-- Stopped polling
 	isConnected = false
 	isConnecting = false
@@ -1429,20 +1435,20 @@ end
 -- Toggle connection
 function toggleConnection()
 	pollingEnabled = not pollingEnabled
-	
+
 	if pollingEnabled then
-		local session = sessionInput and sessionInput.Text:upper():gsub("[^A-Z0-9]", "") or ""
-		if session == "" then
+		local token = tokenInput and tokenInput.Text:gsub("^%s*(.-)%s*$", "%1") or getToken()
+		if token == "" then
 			pollingEnabled = false
-			addActivity("Enter session code", "error")
+			addActivity("Enter your Stud token", "error")
 			return
 		end
-		setSessionId(session)
-		if sessionInput then sessionInput.Text = session end
+		setToken(token)
+		if tokenInput then tokenInput.Text = token end
 		isConnecting = true
 		updateUI()
 		addActivity("Connecting", "pending")
-		print("[stud-bridge] Connecting to", getBridgeBase(), "session", session)
+		print("[stud-bridge] Connecting to", getBridgeBase())
 		task.spawn(pollServer)
 	else
 		isConnected = false
@@ -1460,9 +1466,15 @@ updateUI()
 
 toggleButton.Click:Connect(toggleConnection)
 
--- Show widget when button clicked
 toggleButton.Click:Connect(function()
 	widget.Enabled = true
 end)
 
-print("[stud-bridge] Plugin loaded - Click Connect to start")
+-- Auto-connect if token is already stored (Step 0.3: no manual connect needed)
+local savedToken = getToken()
+if savedToken ~= "" then
+	print("[stud-bridge] Token found, connecting automatically...")
+	toggleConnection()
+else
+	print("[stud-bridge] Plugin loaded - Paste your Stud token and click Connect")
+end

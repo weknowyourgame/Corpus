@@ -44,7 +44,7 @@ import {
 } from "@/lib/ai/server-agent";
 import { useAppShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { cn } from "@/lib/utils";
-import { SessionCode } from "@/components/SessionCode";
+import { StudioToken } from "@/components/StudioToken";
 import { ArrowUp, Square, CheckCircle2, Download, FolderOpen, RefreshCw, Box, FileText, Play, ListTodo } from "lucide-react";
 
 const SUGGESTIONS = [
@@ -189,7 +189,7 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
             </div>
           </div>
 
-          <SessionCode />
+          <StudioToken />
           <ConnectionBadges status={status} />
           <div className="stud-agent-tasks stud-agent-tasks-connection" aria-hidden="true">
             <div className="stud-agent-task is-active"><span />Bridge check <strong>Polling Studio</strong></div>

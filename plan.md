@@ -22,6 +22,7 @@ CLOUD SERVER                                    USER'S MACHINE
 ```
 
 Three audiences talk to the cloud MCP server:
+
 1. The internal AI agent (same process)
 2. The web app (via SSE stream)
 3. External MCP clients — Cursor, Claude Desktop (via MCP HTTP transport)
@@ -31,6 +32,7 @@ Three audiences talk to the cloud MCP server:
 ## What Changes vs What Stays
 
 ### Stays exactly the same
+
 - `server/agent/runtime.ts` — AI agent loop
 - `server/agent/scheduler.ts` — parallel/serial batching
 - `server/agent/plan.ts` — plan/approve flow
@@ -41,6 +43,7 @@ Three audiences talk to the cloud MCP server:
 - The plugin's actual Lua handler bodies (the business logic)
 
 ### Changes
+
 - `studio-plugin/stud-bridge.server.lua` — ONE update, then frozen forever
 - `server/index.js` — add MCP server endpoint, token validation
 - `server/agent/studio-transport.ts` — update plugin relay transport format
@@ -51,14 +54,16 @@ Three audiences talk to the cloud MCP server:
 
 ## Implementation Order
 
-| Week | Phase | Description |
-|------|-------|-------------|
-| 1 | Phase 0 | Auth system — tokens, user accounts |
-| 2 | Phase 1 | Plugin update, submit to Creator Store |
-| 3 | Phase 2 | Cloud MCP server layer |
-| 4 | Phase 3 | Wire AI agent to new tool routing |
-| 5 | Phase 4 | External MCP client support + docs |
-| 6 | — | Deploy + monitor |
+
+| Week | Phase   | Description                            |
+| ---- | ------- | -------------------------------------- |
+| 1    | Phase 0 | Auth system — tokens, user accounts    |
+| 2    | Phase 1 | Plugin update, submit to Creator Store |
+| 3    | Phase 2 | Cloud MCP server layer                 |
+| 4    | Phase 3 | Wire AI agent to new tool routing      |
+| 5    | Phase 4 | External MCP client support + docs     |
+| 6    | —       | Deploy + monitor                       |
+
 
 ---
 
@@ -205,26 +210,28 @@ local handler = handlers[response.tool]
 
 ### Change 4 — Rename Handler Keys to MCP Tool Names
 
-| Old key | New key |
-|---------|---------|
-| `/script/get` | `read_script` |
-| `/script/set` | `write_script` |
-| `/script/edit` | `edit_script` |
-| `/instance/children` | `list_children` |
-| `/instance/properties` | `get_properties` |
-| `/instance/set` | `set_property` |
-| `/instance/create` | `create_instance` |
-| `/instance/delete` | `delete_instance` |
-| `/instance/clone` | `clone_instance` |
-| `/instance/move` | `move_instance` |
-| `/instance/search` | `search_instances` |
-| `/selection/get` | `get_selection` |
-| `/code/run` | `execute_luau` |
-| `/playtest/start` | `start_playtest` |
-| `/playtest/stop` | `stop_playtest` |
-| `/playtest/logs` | `get_logs` |
-| `/playtest/diagnostics` | `get_diagnostics` |
-| `/ping` | `ping` |
+
+| Old key                 | New key            |
+| ----------------------- | ------------------ |
+| `/script/get`           | `read_script`      |
+| `/script/set`           | `write_script`     |
+| `/script/edit`          | `edit_script`      |
+| `/instance/children`    | `list_children`    |
+| `/instance/properties`  | `get_properties`   |
+| `/instance/set`         | `set_property`     |
+| `/instance/create`      | `create_instance`  |
+| `/instance/delete`      | `delete_instance`  |
+| `/instance/clone`       | `clone_instance`   |
+| `/instance/move`        | `move_instance`    |
+| `/instance/search`      | `search_instances` |
+| `/selection/get`        | `get_selection`    |
+| `/code/run`             | `execute_luau`     |
+| `/playtest/start`       | `start_playtest`   |
+| `/playtest/stop`        | `stop_playtest`    |
+| `/playtest/logs`        | `get_logs`         |
+| `/playtest/diagnostics` | `get_diagnostics`  |
+| `/ping`                 | `ping`             |
+
 
 **Handler bodies do not change. Only the keys change.**
 
@@ -272,19 +279,16 @@ CONTEXT:
 
 WHAT TO CHANGE (make all 6 changes in one edit):
 
-1. Change DEFAULT_BRIDGE from "http://127.0.0.1:3001" to "https://PRODUCTION_URL_HERE"
-   (use a placeholder constant STUD_PRODUCTION_URL = "https://PRODUCTION_URL_HERE")
-
-2. Add X-Stud-Token header to every HTTP request the plugin makes.
+1. Add X-Stud-Token header to every HTTP request the plugin makes.
    Token is stored via: plugin:GetSetting("StudioToken")
    If token is empty string or nil, skip polling (user not authenticated).
 
-3. Update the poll response parser:
+2. Update the poll response parser:
    - Old: reads response.request.path and response.request.body
    - New: reads response.tool (string) and response.arguments (table)
    - Update handleRequest() at line ~1299 to dispatch via handlers[response.tool]
 
-4. Rename all handler keys (DO NOT change handler bodies, only the table key strings):
+3. Rename all handler keys (DO NOT change handler bodies, only the table key strings):
    handlers["/script/get"]           → handlers["read_script"]
    handlers["/script/set"]           → handlers["write_script"]
    handlers["/script/edit"]          → handlers["edit_script"]
@@ -304,7 +308,7 @@ WHAT TO CHANGE (make all 6 changes in one edit):
    handlers["/playtest/diagnostics"] → handlers["get_diagnostics"]
    handlers["/ping"]                 → handlers["ping"]
 
-5. Update respond POST body format:
+4. Update respond POST body format:
    Old: { id = id, response = { status = 200, body = HttpService:JSONEncode(result) } }
    New (success): { id = id, result = result, isError = false }
    New (error):   { id = id, result = nil, isError = true, error = tostring(err) }
@@ -349,6 +353,7 @@ type PendingRequest = {
 ```
 
 Poll response the plugin receives:
+
 ```json
 {
   "id": "req_1_1748600000",
@@ -358,6 +363,7 @@ Poll response the plugin receives:
 ```
 
 Respond POST the plugin sends back:
+
 ```json
 {
   "id": "req_1_1748600000",
@@ -662,13 +668,15 @@ Output: updated server/agent/mcp-server.ts and the /mcp/info route addition to s
 
 ## Files Changed Summary
 
-| File | Change | Lines |
-|------|--------|-------|
-| `studio-plugin/stud-bridge.server.lua` | Token auth, new poll/respond format, handler key rename | ~50 |
-| `server/index.js` | Updated pending queue type, `/mcp` endpoint, token validation | ~100 |
-| `server/agent/studio-transport.ts` | `{path,body}` → `{tool,arguments}` in relay | ~30 |
-| `server/agent/tools.ts` | `endpoint` → `mcpTool` in studioTools array | ~20 |
-| `server/agent/mcp-server.ts` | **New file** — MCP protocol handler | ~200 |
+
+| File                                   | Change                                                        | Lines |
+| -------------------------------------- | ------------------------------------------------------------- | ----- |
+| `studio-plugin/stud-bridge.server.lua` | Token auth, new poll/respond format, handler key rename       | ~50   |
+| `server/index.js`                      | Updated pending queue type, `/mcp` endpoint, token validation | ~100  |
+| `server/agent/studio-transport.ts`     | `{path,body}` → `{tool,arguments}` in relay                   | ~30   |
+| `server/agent/tools.ts`                | `endpoint` → `mcpTool` in studioTools array                   | ~20   |
+| `server/agent/mcp-server.ts`           | **New file** — MCP protocol handler                           | ~200  |
+
 
 Everything else — `runtime.ts`, `scheduler.ts`, `plan.ts`, `policy.ts`, `store.ts`, `drivers.ts` — zero changes.
 
@@ -680,10 +688,12 @@ Everything else — `runtime.ts`, `scheduler.ts`, `plan.ts`, `policy.ts`, `store
 
 Right now there are no user accounts — the 6-char session code IS the identity. Options:
 
-| Option | Effort | Best for |
-|--------|--------|----------|
-| Build in-process (simple token table in DB) | Low | Beta / early users |
-| Clerk / Auth0 / Supabase Auth | Medium | Production, social login |
-| API keys issued manually | Minimal | Private beta only |
+
+| Option                                      | Effort  | Best for                 |
+| ------------------------------------------- | ------- | ------------------------ |
+| Build in-process (simple token table in DB) | Low     | Beta / early users       |
+| Clerk / Auth0 / Supabase Auth               | Medium  | Production, social login |
+| API keys issued manually                    | Minimal | Private beta only        |
+
 
 This decision gates everything in Phase 0. Pick before writing any code.
