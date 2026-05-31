@@ -1,13 +1,5 @@
-/**
- * SettingsPanel - Slide-out settings panel
- *
- * Provides access to API keys, UI preferences, and app settings.
- */
-
-import { useState } from "react";
 import { useSettingsStore } from "@/stores/settings";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -19,25 +11,17 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Settings, Key, Palette, Zap, RotateCcw, ExternalLink, Check, Eye, EyeOff } from "lucide-react";
+import { Settings, Palette, RotateCcw } from "lucide-react";
+import { ALL_TIERS, TIER_LABELS, TIER_DESCRIPTIONS } from "@/lib/ai/profiles";
+import type { Tier } from "@/lib/ai/profiles";
+import { cn } from "@/lib/utils";
 
 interface SettingsPanelProps {
   trigger?: React.ReactNode;
 }
 
 export function SettingsPanel({ trigger }: SettingsPanelProps) {
-  const { apiKeys, setApiKey, appSettings, updateAppSettings, resetAppSettings } = useSettingsStore();
-  const [showAnthropicKey, setShowAnthropicKey] = useState(false);
-  const [showOpenRouterKey, setShowOpenRouterKey] = useState(false);
-  const [localAnthropic, setLocalAnthropic] = useState(apiKeys.anthropic || "");
-  const [localOpenRouter, setLocalOpenRouter] = useState(apiKeys.openrouter || "");
-  const [saved, setSaved] = useState<string | null>(null);
-
-  const handleSaveKey = (provider: "anthropic" | "openrouter", value: string) => {
-    setApiKey(provider, value);
-    setSaved(provider);
-    setTimeout(() => setSaved(null), 2000);
-  };
+  const { selectedTier, setTier, appSettings, updateAppSettings, resetAppSettings } = useSettingsStore();
 
   return (
     <Sheet>
@@ -56,121 +40,46 @@ export function SettingsPanel({ trigger }: SettingsPanelProps) {
           </SheetDescription>
         </SheetHeader>
 
-        <Tabs defaultValue="api" className="mt-6">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="api" className="gap-1.5">
-              <Key className="w-3.5 h-3.5" />
-              API Keys
+        <Tabs defaultValue="tier" className="mt-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="tier" className="gap-1.5">
+              AI Tier
             </TabsTrigger>
             <TabsTrigger value="ui" className="gap-1.5">
               <Palette className="w-3.5 h-3.5" />
               Interface
             </TabsTrigger>
-            <TabsTrigger value="behavior" className="gap-1.5">
-              <Zap className="w-3.5 h-3.5" />
-              Behavior
-            </TabsTrigger>
           </TabsList>
 
-          {/* API Keys Tab */}
-          <TabsContent value="api" className="mt-4 space-y-6">
-            {/* Claude (Anthropic) */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="anthropic-key" className="text-sm font-medium">
-                  Claude API Key
-                </Label>
-                <a
-                  href="https://console.anthropic.com/settings/keys"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
-                >
-                  Get key <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Input
-                    id="anthropic-key"
-                    type={showAnthropicKey ? "text" : "password"}
-                    placeholder="sk-ant-..."
-                    value={localAnthropic}
-                    onChange={(e) => setLocalAnthropic(e.target.value)}
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowAnthropicKey(!showAnthropicKey)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {showAnthropicKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+          <TabsContent value="tier" className="mt-4 space-y-3">
+            <p className="text-xs text-muted-foreground">
+              AI credentials are configured server-side in <code>.env</code>.
+            </p>
+            {ALL_TIERS.map((tier: Tier) => (
+              <button
+                key={tier}
+                type="button"
+                onClick={() => setTier(tier)}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-3 rounded-xl border text-left transition-all",
+                  selectedTier === tier
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/40 hover:bg-muted/50"
+                )}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold">{TIER_LABELS[tier]}</span>
+                    {selectedTier === tier && (
+                      <span className="text-xs text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">Active</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">{TIER_DESCRIPTIONS[tier]}</p>
                 </div>
-                <Button
-                  size="sm"
-                  onClick={() => handleSaveKey("anthropic", localAnthropic)}
-                  disabled={localAnthropic === apiKeys.anthropic}
-                  className="gap-1"
-                >
-                  {saved === "anthropic" ? <Check className="w-3.5 h-3.5" /> : "Save"}
-                </Button>
-              </div>
-            </div>
-
-            {/* OpenRouter */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="openrouter-key" className="text-sm font-medium">
-                  OpenRouter API Key
-                </Label>
-                <a
-                  href="https://openrouter.ai/keys"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
-                >
-                  Get key <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Input
-                    id="openrouter-key"
-                    type={showOpenRouterKey ? "text" : "password"}
-                    placeholder="sk-or-..."
-                    value={localOpenRouter}
-                    onChange={(e) => setLocalOpenRouter(e.target.value)}
-                    className="pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowOpenRouterKey(!showOpenRouterKey)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {showOpenRouterKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => handleSaveKey("openrouter", localOpenRouter)}
-                  disabled={localOpenRouter === apiKeys.openrouter}
-                  className="gap-1"
-                >
-                  {saved === "openrouter" ? <Check className="w-3.5 h-3.5" /> : "Save"}
-                </Button>
-              </div>
-            </div>
-
-            <div className="rounded-lg border bg-muted/30 p-4">
-              <h4 className="text-sm font-medium mb-2">Codex (ChatGPT Plus/Pro)</h4>
-              <p className="text-xs text-muted-foreground">
-                Sign in via Settings → Codex tab. OpenRouter unlocks 300+ models with one API key.
-              </p>
-            </div>
+              </button>
+            ))}
           </TabsContent>
 
-          {/* UI Tab */}
           <TabsContent value="ui" className="mt-4 space-y-4">
             <SettingToggle
               label="Animations"
@@ -178,58 +87,26 @@ export function SettingsPanel({ trigger }: SettingsPanelProps) {
               checked={appSettings.animationsEnabled}
               onCheckedChange={(checked) => updateAppSettings({ animationsEnabled: checked })}
             />
-
-            <SettingToggle
-              label="Sound Effects"
-              description="Play sounds for notifications and actions"
-              checked={appSettings.soundEnabled}
-              onCheckedChange={(checked) => updateAppSettings({ soundEnabled: checked })}
-            />
-
-            <SettingToggle
-              label="Compact Mode"
-              description="Reduce spacing for more content on screen"
-              checked={appSettings.compactMode}
-              onCheckedChange={(checked) => updateAppSettings({ compactMode: checked })}
-            />
-
             <SettingToggle
               label="Show Tool Details"
               description="Display expanded tool call information"
               checked={appSettings.showToolDetails}
               onCheckedChange={(checked) => updateAppSettings({ showToolDetails: checked })}
             />
-          </TabsContent>
-
-          {/* Behavior Tab */}
-          <TabsContent value="behavior" className="mt-4 space-y-4">
             <SettingToggle
               label="Auto-scroll Chat"
               description="Automatically scroll to new messages"
               checked={appSettings.autoScrollChat}
               onCheckedChange={(checked) => updateAppSettings({ autoScrollChat: checked })}
             />
-
             <SettingToggle
               label="Confirm Destructive Actions"
               description="Ask before deleting instances or scripts"
               checked={appSettings.confirmDestructiveActions}
               onCheckedChange={(checked) => updateAppSettings({ confirmDestructiveActions: checked })}
             />
-
-            <SettingToggle
-              label="Save Chat History"
-              description="Remember conversations between sessions"
-              checked={appSettings.saveHistory}
-              onCheckedChange={(checked) => updateAppSettings({ saveHistory: checked })}
-            />
-
             <div className="pt-4 border-t">
-              <Button
-                variant="outline"
-                onClick={resetAppSettings}
-                className="w-full gap-2"
-              >
+              <Button variant="outline" onClick={resetAppSettings} className="w-full gap-2">
                 <RotateCcw className="w-4 h-4" />
                 Reset to Defaults
               </Button>
@@ -237,7 +114,6 @@ export function SettingsPanel({ trigger }: SettingsPanelProps) {
           </TabsContent>
         </Tabs>
 
-        {/* Keyboard shortcuts */}
         <div className="mt-8 pt-6 border-t">
           <h3 className="text-sm font-medium mb-3">Keyboard Shortcuts</h3>
           <div className="space-y-2 text-xs">
@@ -280,10 +156,7 @@ function ShortcutRow({ keys, description }: { keys: string[]; description: strin
       <span className="text-muted-foreground">{description}</span>
       <div className="flex items-center gap-1">
         {keys.map((key, i) => (
-          <kbd
-            key={i}
-            className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono border"
-          >
+          <kbd key={i} className="px-1.5 py-0.5 bg-muted rounded text-[10px] font-mono border">
             {key}
           </kbd>
         ))}
@@ -291,3 +164,5 @@ function ShortcutRow({ keys, description }: { keys: string[]; description: strin
     </div>
   );
 }
+
+export default SettingsPanel;

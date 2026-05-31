@@ -46,7 +46,7 @@ describe("permission enforcement", () => {
     });
     const runtime = new AgentRuntime(new MemoryConversationStore(), factory, registry(mutationTool(executions)));
     const conversation = await runtime.createConversation("ABCDEF12");
-    const run = await runtime.startRun(conversation.id, { message: "Create", provider: "anthropic", model: "test" });
+    const run = await runtime.startRun(conversation.id, { message: "Create", tier: "pro" });
     const approval = await waitFor(async () => (await runtime.getConversation(conversation.id))?.events
       .find((event) => event.type === "approval_pending"));
 
@@ -70,7 +70,7 @@ describe("permission enforcement", () => {
     });
     const runtime = new AgentRuntime(new MemoryConversationStore(), factory, registry(mutationTool(executions)));
     const conversation = await runtime.createConversation("ABCDEF12");
-    const run = await runtime.startRun(conversation.id, { message: "Build", provider: "anthropic", model: "test" });
+    const run = await runtime.startRun(conversation.id, { message: "Build", tier: "pro" });
     const first = await waitFor(async () => (await runtime.getConversation(conversation.id))?.events
       .find((event) => event.type === "approval_pending"));
     if (first.type !== "approval_pending") throw new Error("Missing first approval");
@@ -99,7 +99,7 @@ describe("permission enforcement", () => {
       },
     }), registry(mutationTool(executions)));
     const conversation = await runtime.createConversation("ABCDEF12");
-    await runtime.startRun(conversation.id, { message: "Plan", provider: "anthropic", model: "test", mode: "plan" });
+    await runtime.startRun(conversation.id, { message: "Plan", tier: "pro", mode: "plan" });
     await waitFor(async () => (await runtime.getConversation(conversation.id))?.runs[0].status === "completed" ? true : undefined);
     const saved = await runtime.getConversation(conversation.id);
 

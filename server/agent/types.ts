@@ -1,7 +1,7 @@
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
 
-export type AgentProvider = "anthropic" | "openrouter" | "codex";
+export type AgentTier = "free" | "pro" | "hyper" | "super";
 export type RunMode = "execute" | "plan";
 export type ToolRisk = "read" | "low_mutation" | "destructive" | "runtime_code" | "external_asset" | "secret";
 export type PolicyDecision = "allow" | "ask" | "deny";
@@ -24,8 +24,7 @@ export type AgentRun = {
   id: string;
   status: RunStatus;
   mode: RunMode;
-  provider: AgentProvider;
-  model: string;
+  tier: AgentTier;
   startedAt: string;
   completedAt?: string;
   error?: string;
@@ -65,7 +64,7 @@ export type ApprovedPlan = {
 export type SubagentProgressKind = "started" | "iteration" | "finding" | "completed" | "cancelled";
 
 export type AgentEventData =
-  | { type: "run_started"; provider: AgentProvider; model: string; mode: RunMode }
+  | { type: "run_started"; tier: AgentTier; mode: RunMode }
   | { type: "text_delta"; text: string }
   | { type: "tool_call"; toolCallId: string; toolName: string; input: Record<string, unknown> }
   | { type: "tool_result"; toolCallId: string; toolName: string; output: JsonValue }
@@ -181,8 +180,8 @@ export type Conversation = {
 
 export type StartRunInput = {
   message: string;
-  provider: AgentProvider;
-  model: string;
+  tier: AgentTier;
+  devModel?: string;
   mode?: RunMode;
   rateLimiterRelease?: () => void;
 };
@@ -204,8 +203,8 @@ export interface ModelDriver {
 }
 
 export type ModelDriverFactory = (input: {
-  provider: AgentProvider;
-  model: string;
+  tier: AgentTier;
+  devModel?: string;
 }) => ModelDriver;
 
 export type SubagentProgressEvent = {

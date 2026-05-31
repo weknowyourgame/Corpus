@@ -86,8 +86,7 @@ export class AgentRuntime {
       id: randomUUID(),
       status: "running",
       mode: input.mode ?? "execute",
-      provider: input.provider,
-      model: input.model,
+      tier: input.tier,
       startedAt: now(),
       iterations: 0,
     };
@@ -107,8 +106,7 @@ export class AgentRuntime {
     this.active.set(run.id, active);
     await this.emit(conversation, run.id, {
       type: "run_started",
-      provider: input.provider,
-      model: input.model,
+      tier: input.tier,
       mode: run.mode,
     });
 
@@ -221,7 +219,7 @@ export class AgentRuntime {
     const active = this.active.get(runId);
     if (!active) return;
     try {
-      const driver = this.drivers({ provider: input.provider, model: input.model });
+      const driver = this.drivers({ tier: input.tier, devModel: input.devModel });
       let fullText = "";
       let contextBlock: string | undefined;
       let codeBlockCorrections = 0;
@@ -695,7 +693,7 @@ export class AgentRuntime {
 
   private log(event: AgentEvent) {
     const tag = `[agent ${event.runId.slice(0, 8)}]`;
-    if (event.type === "run_started") console.log(`${tag} started ${event.provider}/${event.model} mode=${event.mode}`);
+    if (event.type === "run_started") console.log(`${tag} started tier=${event.tier} mode=${event.mode}`);
     else if (event.type === "tool_call") console.log(`${tag} tool_call ${event.toolName}`);
     else if (event.type === "tool_result") console.log(`${tag} tool_result ${event.toolName}`);
     else if (event.type === "run_completed") console.log(`${tag} completed iterations=${event.iterations}`);

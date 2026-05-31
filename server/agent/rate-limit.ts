@@ -1,31 +1,27 @@
-export type ModelClass = {
-  rpm: number;
-  label: string;
-};
+import type { AgentTier } from "./types.ts";
 
 export const MAX_CONCURRENT_RUNS = 2;
+
+const TIER_RPM: Record<AgentTier, number> = {
+  free: 5,
+  pro: 20,
+  hyper: 10,
+  super: 10,
+};
 
 export class RateLimiter {
   private readonly buckets = new Map<string, { tokens: number; lastRefill: number }>();
   private concurrentCount = 0;
   private readonly waitQueue: Array<() => void> = [];
 
-  static classifyModel(model: string, provider: string): ModelClass {
-    if (/deepseek/i.test(model)) return { rpm: 3, label: "deepseek" };
-    if (/thinking|reasoning/i.test(model)) return { rpm: 2, label: "thinking" };
-    if (provider === "openrouter" && /:free$/i.test(model)) return { rpm: 8, label: "free-tier" };
-    return { rpm: 60, label: "standard" };
-  }
-
-  async acquire(conversationId: string, model: string, provider: string): Promise<void> {
-    const { rpm } = RateLimiter.classifyModel(model, provider);
+  async acquire(conversationId: string, tier: AgentTier): Promise<void> {
+    const rpm = TIER_RPM[tier] ?? 20;
     await this.waitForToken(conversationId, rpm);
     await this.waitForSlot();
     this.concurrentCount += 1;
   }
 
-  release(conversationId: string): void {
-    void conversationId;
+  release(_conversationId: string): void {
     this.concurrentCount = Math.max(0, this.concurrentCount - 1);
     const next = this.waitQueue.shift();
     next?.();

@@ -1,7 +1,7 @@
 import { bridgeUrl } from "@/lib/bridge/config";
 import { getSessionId } from "@/lib/bridge/session";
 import type { Message } from "@/stores/chat";
-import type { ProviderType } from "@/lib/providers/types";
+import type { Tier } from "@/lib/ai/profiles";
 
 type QuestionOption = { label: string; value?: string; imageUrl?: string; description?: string };
 type Question = { question: string; options?: Array<string | QuestionOption>; type: "single" | "multi" | "text" };
@@ -90,11 +90,11 @@ export async function clearServerConversation() {
 export async function getServerProviderConfig() {
   try {
     const response = await request("/agent/config");
-    if (!response.ok) return { anthropic: false, openrouter: false, codex: false };
-    const body = await response.json() as { providers: Record<ProviderType, boolean> };
-    return body.providers;
+    if (!response.ok) return { ready: false };
+    const body = await response.json() as { ready: boolean };
+    return body;
   } catch {
-    return { anthropic: false, openrouter: false, codex: false };
+    return { ready: false };
   }
 }
 
@@ -264,15 +264,15 @@ async function followRun(access: ConversationAccess, runId: string, callbacks: S
 
 export async function sendServerMessage(
   message: string,
-  provider: ProviderType,
-  model: string,
+  tier: Tier,
   mode: "execute" | "plan",
   callbacks: ServerChatCallbacks,
+  devModel?: string,
 ) {
   const { conversation, access } = await getConversation();
   const response = await request(`/agent/conversations/${conversation.id}/runs`, {
     method: "POST",
-    body: JSON.stringify({ message, provider, model, mode }),
+    body: JSON.stringify({ message, tier, mode, ...(devModel ? { devModel } : {}) }),
   }, access.accessToken);
   const result = await response.json() as { id?: string; error?: string };
   if (!response.ok || !result.id) throw new Error(result.error ?? "Unable to start run");

@@ -171,7 +171,7 @@ describe("RobloxStudioMcpGateway asset insertion", () => {
       },
     }), tools);
     const conversation = await runtime.createConversation("ABCDEF12");
-    const run = await runtime.startRun(conversation.id, { message: "Insert", provider: "anthropic", model: "test" });
+    const run = await runtime.startRun(conversation.id, { message: "Insert", tier: "pro" });
     const pending = await waitFor(async () => (await runtime.getConversation(conversation.id))?.events
       .find((event) => event.type === "approval_pending"));
     if (pending.type !== "approval_pending") throw new Error("Missing approval");
@@ -205,7 +205,7 @@ describe("RobloxStudioMcpGateway asset insertion", () => {
       },
     }), tools);
     const conversation = await runtime.createConversation("DENY1234");
-    const run = await runtime.startRun(conversation.id, { message: "Insert risky", provider: "anthropic", model: "test" });
+    const run = await runtime.startRun(conversation.id, { message: "Insert risky", tier: "pro" });
     const pending = await waitFor(async () => (await runtime.getConversation(conversation.id))?.events.find((event) => event.type === "approval_pending"));
     if (pending.type !== "approval_pending") throw new Error("Missing approval");
     await runtime.answerApproval(conversation.id, run.id, pending.approvalId, "deny");

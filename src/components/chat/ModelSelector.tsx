@@ -7,176 +7,56 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader } from "@/components/ui/loader";
-import { ProviderIcon } from "@/components/icons/ProviderIcon";
+import { Switch } from "@/components/ui/switch";
 import { useSettingsStore } from "@/stores/settings";
-import { useAuthStore } from "@/stores/auth";
-import { useModelsStore } from "@/stores/models";
-import type { ProviderType } from "@/lib/providers/types";
+import { ALL_TIERS, TIER_LABELS, TIER_DESCRIPTIONS } from "@/lib/ai/profiles";
+import type { Tier } from "@/lib/ai/profiles";
+import { bridgeUrl } from "@/lib/bridge/config";
 import { cn } from "@/lib/utils";
-import { Check, ChevronDown, Search, Brain, Sparkles, Route } from "lucide-react";
+import { Check, ChevronDown, Search, Terminal } from "lucide-react";
+
+interface OpenRouterModel {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+async function fetchModels(): Promise<OpenRouterModel[]> {
+  const res = await fetch(bridgeUrl("/agent/models"));
+  if (!res.ok) return [];
+  const data = await res.json() as { models: OpenRouterModel[] };
+  return data.models ?? [];
+}
 
 interface ModelSelectorProps {
   className?: string;
   disabled?: boolean;
-  serverProviders?: Record<ProviderType, boolean>;
 }
 
-const SERVER_OPENROUTER_MODELS = [
-  { id: "openai/gpt-4o", name: "GPT-4o" },
-  { id: "openai/gpt-4o-mini", name: "GPT-4o Mini" },
-] as const;
-
-export function ModelSelector({ className, disabled, serverProviders }: ModelSelectorProps) {
+export function ModelSelector({ className, disabled }: ModelSelectorProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const { selectedModel, selectedProvider, setSelectedModel, hasApiKey, apiKeys } = useSettingsStore();
-  const { isOAuthAuthenticated } = useAuthStore();
-  const {
-    codexModels,
-    claudeModels,
-    openrouterModels,
-    isLoading,
-    isLoadingClaude,
-    isLoadingOpenRouter,
-    fetchModels,
-    fetchClaudeModels,
-    fetchOpenRouterModels,
-  } = useModelsStore();
+  const [models, setModels] = useState<OpenRouterModel[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const isCodexAuth = isOAuthAuthenticated();
-  const isConfigured = (provider: ProviderType) => serverProviders?.[provider] || (
-    provider === "codex" ? isCodexAuth : hasApiKey(provider)
-  );
+  const { selectedTier, setTier, devMode, setDevMode, devModel, setDevModel } = useSettingsStore();
 
+  // Fetch models when dev mode is on and popover opens
   useEffect(() => {
-    if (isCodexAuth) fetchModels();
-  }, [isCodexAuth, fetchModels]);
+    if (!devMode || !open || models.length > 0) return;
+    setLoading(true);
+    fetchModels().then((m) => { setModels(m); setLoading(false); });
+  }, [devMode, open, models.length]);
 
-  useEffect(() => {
-    if (apiKeys.anthropic) fetchClaudeModels();
-  }, [apiKeys.anthropic, fetchClaudeModels]);
-
-  useEffect(() => {
-    if (apiKeys.openrouter) fetchOpenRouterModels();
-  }, [apiKeys.openrouter, fetchOpenRouterModels]);
-
-  useEffect(() => {
-    if (open && apiKeys.openrouter && openrouterModels.length === 0) {
-      fetchOpenRouterModels();
-    }
-  }, [open, apiKeys.openrouter, openrouterModels.length, fetchOpenRouterModels]);
-
-  const getShortName = () => {
-    const all = [...codexModels, ...claudeModels, ...openrouterModels];
-    const found = all.find((m) => m.id === selectedModel);
-    if (found) return found.name;
-    const serverDefault = SERVER_OPENROUTER_MODELS.find((m) => m.id === selectedModel);
-    if (selectedProvider === "openrouter" && serverDefault) return serverDefault.name;
-    return selectedModel;
-  };
-
-  const allModels = useMemo(() => {
-    const models: Array<{
-      id: string;
-      name: string;
-      provider: ProviderType;
-      description?: string;
-      isNew?: boolean;
-      reasoning?: boolean;
-      disabled?: boolean;
-    }> = [];
-
-    if (isConfigured("codex")) {
-      codexModels.forEach((m) => {
-        models.push({
-          id: m.id,
-          name: m.name,
-          provider: "codex",
-          description: m.description,
-          isNew: m.isNew,
-          reasoning: m.reasoning,
-        });
-      });
-    }
-
-    if (isConfigured("anthropic")) {
-      claudeModels.forEach((m) => {
-        models.push({
-          id: m.id,
-          name: m.name,
-          provider: "anthropic",
-          description: m.description,
-        });
-      });
-    } else {
-      claudeModels.slice(0, 2).forEach((m) => {
-        models.push({
-          id: m.id,
-          name: m.name,
-          provider: "anthropic",
-          description: "Add API key in Settings",
-          disabled: true,
-        });
-      });
-    }
-
-    if (isConfigured("openrouter")) {
-      openrouterModels.forEach((m) => {
-        models.push({
-          id: m.id,
-          name: m.name,
-          provider: "openrouter",
-          description: m.description,
-        });
-      });
-      if (!openrouterModels.length) {
-        SERVER_OPENROUTER_MODELS.forEach((model) => {
-          models.push({
-            ...model,
-            provider: "openrouter",
-            description: "Via server-configured OpenRouter",
-          });
-        });
-      }
-    }
-
-    return models;
-  }, [codexModels, claudeModels, openrouterModels, isCodexAuth, hasApiKey, serverProviders]);
-
-  const filteredModels = useMemo(() => {
-    if (!search.trim()) return allModels;
+  const filtered = useMemo(() => {
+    if (!search.trim()) return models;
     const q = search.toLowerCase();
-    return allModels.filter(
-      (m) =>
-        m.name.toLowerCase().includes(q) ||
-        m.id.toLowerCase().includes(q) ||
-        m.description?.toLowerCase().includes(q)
-    );
-  }, [allModels, search]);
+    return models.filter((m) => m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q));
+  }, [models, search]);
 
-  const groupedModels = useMemo(
-    () => ({
-      codex: filteredModels.filter((m) => m.provider === "codex" && !m.reasoning),
-      reasoning: filteredModels.filter((m) => m.provider === "codex" && m.reasoning),
-      claude: filteredModels.filter((m) => m.provider === "anthropic"),
-      openrouter: filteredModels.filter((m) => m.provider === "openrouter"),
-    }),
-    [filteredModels]
-  );
-
-  const handleSelect = (modelId: string, provider: ProviderType) => {
-    setSelectedModel(modelId, provider);
-    setOpen(false);
-    setSearch("");
-  };
-
-  const providerIconId = () => {
-    if (selectedProvider === "anthropic") return "anthropic";
-    if (selectedProvider === "openrouter") return "openrouter";
-    return "openai";
-  };
-
-  const loading = isLoading || isLoadingClaude || isLoadingOpenRouter;
+  const currentLabel = devMode
+    ? devModel ? (models.find((m) => m.id === devModel)?.name ?? devModel.split("/")[1] ?? devModel) : "Pick model…"
+    : TIER_LABELS[selectedTier];
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -184,163 +64,112 @@ export function ModelSelector({ className, disabled, serverProviders }: ModelSel
         <Button
           variant="outline"
           size="sm"
-          className={cn("stud-model-trigger gap-1.5 px-2.5 h-9 text-xs", className)}
-          aria-label={`Choose model. Current model: ${getShortName()}`}
+          className={cn("stud-model-trigger gap-1.5 px-2.5 h-9 text-xs", devMode && "border-amber-400/60 text-amber-600", className)}
+          aria-label={`Choose ${devMode ? "model" : "tier"}. Current: ${currentLabel}`}
         >
-          <ProviderIcon id={providerIconId()} size="xs" />
-          <span className="font-medium max-w-[148px] truncate">{getShortName()}</span>
+          {devMode && <Terminal className="w-3 h-3 opacity-70" />}
+          <span className="font-medium max-w-[140px] truncate">{currentLabel}</span>
           <ChevronDown className="w-3 h-3 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="stud-popover stud-model-popover w-80 p-0" onOpenAutoFocus={(e) => e.preventDefault()}>
-        <div className="stud-model-search p-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-            <Input
-              placeholder="Search models..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="stud-model-input h-9 pl-8 text-sm rounded-lg"
-              autoFocus
-            />
+
+      <PopoverContent
+        align="end"
+        className="stud-popover w-72 p-0"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        {/* Dev mode toggle */}
+        <div className="flex items-center justify-between px-3 py-2.5 border-b">
+          <div className="flex items-center gap-2">
+            <Terminal className="w-3.5 h-3.5 text-amber-500" />
+            <span className="text-xs font-medium">Dev mode</span>
           </div>
+          <Switch
+            checked={devMode}
+            onCheckedChange={(on) => {
+              setDevMode(on);
+              if (!on) setSearch("");
+            }}
+          />
         </div>
 
-        <div className="stud-model-list max-h-[340px] overflow-y-auto p-1.5">
-          {loading && (
-            <div className="flex items-center justify-center py-4">
-              <Loader variant="circular" size="sm" />
+        {devMode ? (
+          <>
+            {/* Search */}
+            <div className="p-2 border-b">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Search all OpenRouter models…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="h-8 pl-8 text-xs"
+                  autoFocus
+                />
+              </div>
             </div>
-          )}
 
-          {!loading && filteredModels.length === 0 && (
-            <div className="text-center py-6 text-sm text-muted-foreground px-2">
-              {isConfigured("openrouter") || isConfigured("codex") || isConfigured("anthropic")
-                ? "No models match your search"
-                : "Add a provider in Settings"}
+            {/* Model list */}
+            <div className="max-h-72 overflow-y-auto p-1">
+              {loading && (
+                <div className="flex justify-center py-6">
+                  <Loader variant="circular" size="sm" />
+                </div>
+              )}
+              {!loading && filtered.length === 0 && (
+                <p className="text-center text-xs text-muted-foreground py-6">
+                  {models.length === 0 ? "No models loaded — is OPENROUTER_API_KEY set?" : "No results"}
+                </p>
+              )}
+              {!loading && filtered.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => { setDevModel(m.id); setOpen(false); setSearch(""); }}
+                  data-selected={devModel === m.id}
+                  className={cn(
+                    "stud-model-row w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-colors",
+                    devModel === m.id && "is-selected"
+                  )}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium truncate">{m.name}</div>
+                    <div className="text-[10px] text-muted-foreground font-mono truncate">{m.id}</div>
+                  </div>
+                  {devModel === m.id && <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" />}
+                </button>
+              ))}
             </div>
-          )}
 
-          {groupedModels.codex.length > 0 && (
-            <ModelGroup label="Codex (ChatGPT)" icon={<Sparkles className="w-3 h-3" />}>
-              {groupedModels.codex.map((model) => (
-                <ModelRow
-                  key={model.id}
-                  model={model}
-                  isSelected={selectedModel === model.id && selectedProvider === "codex"}
-                  onClick={() => handleSelect(model.id, "codex")}
-                  disabled={model.disabled}
-                />
-              ))}
-            </ModelGroup>
-          )}
-
-          {groupedModels.reasoning.length > 0 && (
-            <ModelGroup label="Codex Reasoning" icon={<Brain className="w-3 h-3" />}>
-              {groupedModels.reasoning.map((model) => (
-                <ModelRow
-                  key={model.id}
-                  model={model}
-                  isSelected={selectedModel === model.id && selectedProvider === "codex"}
-                  onClick={() => handleSelect(model.id, "codex")}
-                  disabled={model.disabled}
-                />
-              ))}
-            </ModelGroup>
-          )}
-
-          {groupedModels.claude.length > 0 && (
-            <ModelGroup label="Claude" icon={<ProviderIcon id="anthropic" size="xs" />}>
-              {groupedModels.claude.map((model) => (
-                <ModelRow
-                  key={model.id}
-                  model={model}
-                  isSelected={selectedModel === model.id && selectedProvider === "anthropic"}
-                  onClick={() => handleSelect(model.id, "anthropic")}
-                  disabled={model.disabled}
-                />
-              ))}
-            </ModelGroup>
-          )}
-
-          {groupedModels.openrouter.length > 0 && (
-            <ModelGroup label="OpenRouter" icon={<Route className="w-3 h-3" />}>
-              {groupedModels.openrouter.map((model) => (
-                <ModelRow
-                  key={model.id}
-                  model={model}
-                  isSelected={selectedModel === model.id && selectedProvider === "openrouter"}
-                  onClick={() => handleSelect(model.id, "openrouter")}
-                  disabled={model.disabled}
-                />
-              ))}
-            </ModelGroup>
-          )}
-        </div>
+            <div className="px-3 py-2 border-t">
+              <p className="text-[10px] text-amber-600">Dev mode: bypasses tier routing, uses this model for everything.</p>
+            </div>
+          </>
+        ) : (
+          /* Tier selector */
+          <div className="p-1">
+            {ALL_TIERS.map((tier: Tier) => (
+              <button
+                key={tier}
+                type="button"
+                onClick={() => { setTier(tier); setOpen(false); }}
+                data-selected={selectedTier === tier}
+                className={cn(
+                  "stud-model-row w-full flex items-center gap-2 px-2.5 py-2.5 rounded-lg text-left transition-colors",
+                  selectedTier === tier && "is-selected"
+                )}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium">{TIER_LABELS[tier]}</div>
+                  <div className="text-[11px] text-muted-foreground">{TIER_DESCRIPTIONS[tier]}</div>
+                </div>
+                {selectedTier === tier && <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" />}
+              </button>
+            ))}
+          </div>
+        )}
       </PopoverContent>
     </Popover>
-  );
-}
-
-function ModelGroup({
-  label,
-  icon,
-  children,
-}: {
-  label: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="mb-1">
-      <div className="stud-model-group flex items-center gap-1.5 px-2 py-1.5 text-[10px] font-medium uppercase tracking-wider">
-        {icon}
-        {label}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function ModelRow({
-  model,
-  isSelected,
-  onClick,
-  disabled,
-}: {
-  model: { id: string; name: string; description?: string; isNew?: boolean };
-  isSelected: boolean;
-  onClick: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      data-selected={isSelected}
-      className={cn(
-        "stud-model-row w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-colors",
-        isSelected && "is-selected",
-        disabled && "is-disabled"
-      )}
-    >
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <span className={cn("text-sm font-medium truncate", disabled && "text-muted-foreground")}>
-            {model.name}
-          </span>
-          {model.isNew && (
-            <span className="flex-shrink-0 text-[9px] text-amber-600 bg-amber-50 px-1 rounded">New</span>
-          )}
-        </div>
-        {model.description && (
-          <span className="text-[11px] text-muted-foreground truncate block">{model.description}</span>
-        )}
-        <span className="text-[10px] text-muted-foreground/70 font-mono truncate block">{model.id}</span>
-      </div>
-      {isSelected && <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" />}
-    </button>
   );
 }
 

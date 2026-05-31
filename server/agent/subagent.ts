@@ -106,8 +106,7 @@ export class SubagentRuntime {
     type: SubagentType,
     task: string,
     studioSessionId: string,
-    provider: "anthropic" | "openrouter" | "codex",
-    model: string,
+    tier: "free" | "pro" | "hyper" | "super",
     signal: AbortSignal,
     options: SubagentRunOptions = {},
   ): Promise<SubagentResult> {
@@ -115,7 +114,7 @@ export class SubagentRuntime {
     const budgetMs = options.budgetMs ?? DEFAULT_SUBAGENT_BUDGET_MS;
     const readOnlyRegistry = new ReadOnlyToolRegistry(this.parentTools);
     const driverFactory = createModelDriverFactory(readOnlyRegistry);
-    const driver = driverFactory({ provider, model });
+    const driver = driverFactory({ tier });
     const messages: AgentMessage[] = [{ role: "user", content: task }];
     const findings: string[] = [];
     let iterations = 0;
@@ -212,8 +211,7 @@ export class SubagentRuntime {
 export const subagentInputSchema = z.object({
   type: z.enum(["debugger", "ui_specialist", "combat_specialist", "network_specialist"]),
   task: z.string().min(1),
-  provider: z.enum(["anthropic", "openrouter", "codex"]).default("anthropic"),
-  model: z.string().default("claude-haiku-4-5-20251001"),
+  tier: z.enum(["free", "pro", "hyper", "super"]).default("pro"),
   maxIterations: z.number().int().min(1).max(15).default(8),
 });
 
@@ -233,8 +231,7 @@ export function createSubagentTool(parentTools: AgentToolRegistry): AgentTool {
         parsed.type,
         parsed.task,
         context.studioSessionId,
-        parsed.provider,
-        parsed.model,
+        parsed.tier,
         context.signal,
         {
           maxIterations: parsed.maxIterations,

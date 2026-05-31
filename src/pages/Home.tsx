@@ -22,7 +22,6 @@ import { MutationDiff } from "@/components/chat/MutationDiff";
 import { ConnectionBadges } from "@/components/chat/ConnectionBadges";
 import { RecoveryBanner } from "@/components/chat/RecoveryBanner";
 import { RunContextNotice } from "@/components/chat/RunContextNotice";
-import { compatibleServerSelection } from "@/components/chat/model-routing";
 import { buildChatSubmission, classifyToolOutput } from "@/components/chat/intents";
 import { ChatActions } from "@/components/QuickActions";
 import { CommandPalette } from "@/components/CommandPalette";
@@ -299,7 +298,7 @@ export function Home() {
   const [input, setInput] = useState("");
   const [activeChips, setActiveChips] = useState<ChipAction[]>([]);
   const [displayedSuggestions, setDisplayedSuggestions] = useState<string[]>([]);
-  const [serverProviders, setServerProviders] = useState({ anthropic: false, openrouter: false, codex: false });
+  const [gatewayReady, setGatewayReady] = useState(false);
   const [pendingApproval, setPendingApproval] = useState<ApprovalRequest | null>(null);
   const [mutationResults, setMutationResults] = useState<Array<MutationResult & { id: string }>>([]);
   const [runNotice, setRunNotice] = useState<string | null>(null);
@@ -321,7 +320,7 @@ export function Home() {
     clearMessages,
     replaceMessages,
   } = useChatStore();
-  const { selectedModel, selectedProvider, setSelectedModel } = useSettingsStore();
+  const { selectedTier, devMode, devModel } = useSettingsStore();
   const { status: studioStatus, transport: studioTransport, startPolling } = useRobloxStore();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const requestApproval = useCallback((approval: ApprovalRequest) => new Promise<ApprovalDecision>((resolve) => {
@@ -369,14 +368,8 @@ export function Home() {
   }, [messages.length === 0]);
 
   useEffect(() => {
-    void getServerProviderConfig().then(setServerProviders);
+    void getServerProviderConfig().then((cfg) => setGatewayReady(cfg.ready ?? false));
   }, []);
-
-  useEffect(() => {
-    const selection = compatibleServerSelection(selectedProvider, selectedModel, serverProviders);
-    if (!selection || (selection.provider === selectedProvider && selection.model === selectedModel)) return;
-    setSelectedModel(selection.model, selection.provider);
-  }, [serverProviders, selectedModel, selectedProvider, setSelectedModel]);
 
   useEffect(() => {
     if (studioStatus !== "connected" || messages.length) return;
@@ -435,8 +428,8 @@ export function Home() {
     setError,
   ]);
 
-  const hasConfiguredProvider = serverProviders[selectedProvider];
-  const hasAnyServerProvider = Object.values(serverProviders).some(Boolean);
+  const hasConfiguredProvider = gatewayReady;
+  const hasAnyServerProvider = gatewayReady;
   const isConnected = studioStatus === "connected";
 
   const handleSubmit = useCallback(async () => {
@@ -461,7 +454,7 @@ export function Home() {
     try {
       let fullText = "";
 
-      await sendServerMessage(submission.message, selectedProvider, selectedModel, submission.mode, {
+      await sendServerMessage(submission.message, selectedTier, submission.mode, {
         onToken: (token) => {
           fullText += token;
           updateMessage(assistantId, fullText);
@@ -506,14 +499,14 @@ export function Home() {
           setError(error.message);
           setStreaming(false);
         },
-      });
+      }, devMode && devModel ? devModel : undefined);
     } catch (error) {
       console.error("[Home] Chat error:", error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       setError(errorMessage);
       setStreaming(false);
     }
-  }, [input, isStreaming, activeChips, addMessage, updateMessage, addToolCall, updateToolCall, setStreaming, setError, selectedProvider, selectedModel, setPendingQuestion, setQuestionResolver, requestApproval]);
+  }, [input, isStreaming, activeChips, addMessage, updateMessage, addToolCall, updateToolCall, setStreaming, setError, selectedTier, devMode, devModel, setPendingQuestion, setQuestionResolver, requestApproval]);
 
   const handleSuggestionClick = (suggestion: string) => {
     setInput(suggestion);
@@ -554,7 +547,7 @@ export function Home() {
         <InstancePicker onSelect={(path) => setInput((prev) => prev + `@${path} `)} />
       </div>
       <div className="flex items-center gap-2">
-        <ModelSelector disabled={!hasAnyServerProvider} serverProviders={serverProviders} />
+        <ModelSelector disabled={!hasAnyServerProvider} />
         <button
           type="button"
           className={cn("stud-icon-btn", input.trim() && !isStreaming && hasConfiguredProvider && "is-primary")}
@@ -656,8 +649,8 @@ export function Home() {
           <p className="stud-rail-copy">Your agent is attached to the open Roblox place.</p>
           <ConnectionBadges status={studioStatus} className="stud-rail-routes" />
           <div className="stud-rail-divider" />
-          <p className="stud-rail-label">RUNNING MODEL</p>
-          <p className="stud-rail-model">{selectedModel}</p>
+          <p className="stud-rail-label">AI TIER</p>
+          <p className="stud-rail-model">{selectedTier.toUpperCase()}</p>
           <p className="stud-rail-label">GUARDRAIL</p>
           <p className="stud-rail-copy">Writes and code execution stay behind approval.</p>
           <div className="stud-session-tasks" aria-label="Agent task status">

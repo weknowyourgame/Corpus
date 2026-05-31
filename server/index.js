@@ -66,9 +66,6 @@ app.use(express.json({ limit: "10mb" }));
 /** @type {Map<string, { pending: Map<string, PendingRequest>, completed: Map<string, { response: StudioResponse, completedAt: number }>, lastPoll: number, counter: number }>} */
 const sessions = new Map();
 
-/** @type {{ code: string, state: string, timestamp: number } | null} */
-let oauthCallback = null;
-
 // --- Studio token auth ---
 // Maps token → { createdAt, sessionId }
 const studioTokens = new Map();
@@ -688,98 +685,12 @@ app.get("/stud/token/status", (req, res) => {
   res.json(buildStudioStatus(session));
 });
 
-// --- OAuth (ChatGPT Plus/Pro) ---
-
-app.get("/auth/callback", (req, res) => {
-  const code = String(req.query.code || "");
-  const state = String(req.query.state || "");
-  const error = req.query.error;
-
-  if (error) {
-    res.type("html").send(errorPage("Authentication Failed", String(error)));
-    return;
-  }
-
-  oauthCallback = { code, state, timestamp: timestamp() };
-  res.type("html").send(successPage());
-});
-
-app.get("/auth/poll", (_req, res) => {
-  if (!oauthCallback) {
-    res.json({ pending: false });
-    return;
-  }
-  res.json({
-    pending: true,
-    code: oauthCallback.code,
-    state: oauthCallback.state,
-  });
-});
-
-app.post("/auth/clear", (_req, res) => {
-  oauthCallback = null;
-  res.json({ ok: true });
-});
-
-// --- Codex API proxy (CORS bypass) ---
-
-const CODEX_API = "https://chatgpt.com/backend-api/codex/responses";
-
-app.post("/codex/responses", async (req, res) => {
-  const auth = req.headers.authorization;
-  const accountId = req.headers["chatgpt-account-id"];
-
-  const headers = { "Content-Type": "application/json" };
-  if (auth) headers.Authorization = auth;
-  if (accountId) headers["ChatGPT-Account-Id"] = accountId;
-
-  try {
-    const upstream = await fetch(CODEX_API, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(req.body),
-    });
-
-    if (!upstream.ok) {
-      const text = await upstream.text();
-      res.status(upstream.status).type("text/plain").send(text);
-      return;
-    }
-
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-
-    if (!upstream.body) {
-      res.end();
-      return;
-    }
-
-    const reader = upstream.body.getReader();
-    const pump = async () => {
-      const { done, value } = await reader.read();
-      if (done) {
-        res.end();
-        return;
-      }
-      res.write(Buffer.from(value));
-      await pump();
-    };
-    await pump();
-  } catch (e) {
-    res.status(502).type("text/plain").send(`Proxy error: ${e}`);
-  }
-});
-
 // --- Whitelisted fetch proxy (Roblox catalog, models.dev, etc.) ---
 
 const PROXY_ALLOWED = [
-  "https://models.dev/",
   "https://catalog.roblox.com/",
   "https://thumbnails.roblox.com/",
   "https://apis.roblox.com/",
-  "https://openrouter.ai/",
-  "https://api.anthropic.com/",
 ];
 
 app.get("/api/proxy", async (req, res) => {
@@ -810,17 +721,6 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true, sessions: sessions.size });
 });
 
-const errorPage = (title, detail) => `<!DOCTYPE html>
-<html><head><title>${title}</title>
-<style>body{font-family:system-ui,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:#fafafa}
-.card{background:#fff;padding:2rem;border-radius:1rem;box-shadow:0 4px 20px rgba(0,0,0,.1);text-align:center;max-width:400px}
-h1{color:#ef4444}</style></head><body><div class="card"><h1>${title}</h1><p>${detail}</p></div></body></html>`;
-
-const successPage = () => `<!DOCTYPE html>
-<html><head><title>Authentication Successful</title>
-<style>body{font-family:system-ui,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:#fafafa}
-.card{background:#fff;padding:2rem;border-radius:1rem;box-shadow:0 4px 20px rgba(0,0,0,.1);text-align:center;max-width:400px}
-h1{color:#22c55e}</style></head><body><div class="card"><h1>Authentication Successful!</h1><p>You can close this window.</p></div></body></html>`;
 
 app.listen(PORT, () => {
   console.log(`[Stud Bridge] http://localhost:${PORT}`);

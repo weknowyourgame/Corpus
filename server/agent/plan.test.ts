@@ -174,7 +174,7 @@ describe("approved-plan execution", () => {
     const conversation = await runtime.createConversation("ABCDEF12");
 
     // Plan run
-    await runtime.startRun(conversation.id, { message: "Plan it", provider: "anthropic", model: "test", mode: "plan" });
+    await runtime.startRun(conversation.id, { message: "Plan it", tier: "pro", mode: "plan" });
     // Wait for the plan-mode run to complete and the plan steps event to land
     const proposed = await waitFor(async () => {
       const events = (await runtime.getConversation(conversation.id))?.events ?? [];
@@ -187,7 +187,7 @@ describe("approved-plan execution", () => {
     expect(ok).toBe(true);
 
     // Execute run — should NOT prompt for approval
-    await runtime.startRun(conversation.id, { message: "Execute", provider: "anthropic", model: "test" });
+    await runtime.startRun(conversation.id, { message: "Execute", tier: "pro" });
     await waitFor(async () => {
       const conv = await runtime.getConversation(conversation.id);
       return conv?.runs.at(-1)?.status === "completed" ? true : undefined;
@@ -246,7 +246,7 @@ describe("approved-plan execution", () => {
     };
     await (runtime as unknown as { store: { save: (c: unknown) => Promise<void> } }).store.save(seeded);
 
-    const run = await runtime.startRun(conversation.id, { message: "go", provider: "anthropic", model: "test" });
+    const run = await runtime.startRun(conversation.id, { message: "go", tier: "pro" });
     const pending = await waitFor(async () => {
       const conv = await runtime.getConversation(conversation.id);
       return conv?.events.find((event) => event.type === "approval_pending");

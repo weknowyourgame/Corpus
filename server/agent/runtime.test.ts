@@ -46,7 +46,7 @@ describe("AgentRuntime", () => {
     const runtime = new AgentRuntime(store, factory, tools, 3);
     const conversation = await runtime.createConversation("ABCDEF12");
 
-    const run = await runtime.startRun(conversation.id, { message: "Look", provider: "anthropic", model: "test" });
+    const run = await runtime.startRun(conversation.id, { message: "Look", tier: "pro" });
     await waitFor(async () => (await runtime.getConversation(conversation.id))?.runs[0].status === "completed");
 
     const saved = await runtime.getConversation(conversation.id);
@@ -70,7 +70,7 @@ describe("AgentRuntime", () => {
     };
     const runtime = new AgentRuntime(new MemoryConversationStore(), () => driver, tools);
     const conversation = await runtime.createConversation("ABCDEF12");
-    await runtime.startRun(conversation.id, { message: "Hi", provider: "anthropic", model: "test" });
+    await runtime.startRun(conversation.id, { message: "Hi", tier: "pro" });
     await waitFor(async () => (await runtime.getConversation(conversation.id))?.runs[0].status === "completed");
     const replayed: string[] = [];
 
@@ -88,7 +88,7 @@ describe("AgentRuntime", () => {
     };
     const runtime = new AgentRuntime(new MemoryConversationStore(), () => driver, tools);
     const conversation = await runtime.createConversation("ABCDEF12");
-    const run = await runtime.startRun(conversation.id, { message: "Wait", provider: "anthropic", model: "test" });
+    const run = await runtime.startRun(conversation.id, { message: "Wait", tier: "pro" });
 
     expect(await runtime.cancelRun(conversation.id, run.id)).toBe(true);
     await waitFor(async () => (await runtime.getConversation(conversation.id))?.runs[0].status === "cancelled");

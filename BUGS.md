@@ -1,0 +1,1 @@
+- Fix: When run is cancelled the agent keeps on executing

@@ -25,7 +25,7 @@ describe("SubagentRuntime progress + cancellation", () => {
     const controller = new AbortController();
     controller.abort(); // abort so driver is never called
     const runtime = new SubagentRuntime(makeRegistry([makeTool("mcp__roblox_studio__read_script", "read")]), 5);
-    const result = await runtime.run("debugger" as SubagentType, "task", "sess", "anthropic", "model", controller.signal, {
+    const result = await runtime.run("debugger" as SubagentType, "task", "sess", "pro", controller.signal, {
       onProgress: (event) => { events.push(event); },
     });
     expect(events[0]?.kind).toBe("started");
@@ -39,7 +39,7 @@ describe("SubagentRuntime progress + cancellation", () => {
     const controller = new AbortController();
     controller.abort();
     const runtime = new SubagentRuntime(makeRegistry([]), 5);
-    const result = await runtime.run("debugger" as SubagentType, "task", "sess", "anthropic", "model", controller.signal, {
+    const result = await runtime.run("debugger" as SubagentType, "task", "sess", "pro", controller.signal, {
       onProgress: (event) => { events.push(event); },
       budgetMs: 100,
     });
@@ -53,7 +53,7 @@ describe("SubagentRuntime progress + cancellation", () => {
     const controller = new AbortController();
     controller.abort();
     const runtime = new SubagentRuntime(makeRegistry([]), 5);
-    const result = await runtime.run("debugger" as SubagentType, "task", "sess", "anthropic", "model", controller.signal, {
+    const result = await runtime.run("debugger" as SubagentType, "task", "sess", "pro", controller.signal, {
       onProgress: () => { throw new Error("boom"); },
     });
     expect(result.aborted).toBe(true);

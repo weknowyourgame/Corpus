@@ -248,7 +248,7 @@ describe("DataStore tools — runtime approval flow", () => {
     );
 
     const conversation = await runtime.createConversation("ABCDEF12");
-    const run = await runtime.startRun(conversation.id, { message: "go", provider: "anthropic", model: "test" });
+    const run = await runtime.startRun(conversation.id, { message: "go", tier: "pro" });
     const pending = await waitFor(async () => (await runtime.getConversation(conversation.id))?.events.find((e) => e.type === "approval_pending"));
     expect(pending.type).toBe("approval_pending");
     expect(client.writeKey).toHaveBeenCalledTimes(0);
@@ -279,7 +279,7 @@ describe("DataStore tools — runtime approval flow", () => {
         : { text: "ok", toolCalls: [] },
     );
     const conversation = await runtime.createConversation("ABCDEF12");
-    const run = await runtime.startRun(conversation.id, { message: "go", provider: "anthropic", model: "test" });
+    const run = await runtime.startRun(conversation.id, { message: "go", tier: "pro" });
     const pending = await waitFor(async () => (await runtime.getConversation(conversation.id))?.events.find((e) => e.type === "approval_pending"));
     if (pending.type !== "approval_pending") throw new Error("unreachable");
     await runtime.answerApproval(conversation.id, run.id, pending.approvalId, "deny");
@@ -302,7 +302,7 @@ describe("DataStore tools — runtime approval flow", () => {
         : { text: "ok", toolCalls: [] },
     );
     const conversation = await runtime.createConversation("ABCDEF12");
-    const run = await runtime.startRun(conversation.id, { message: "go", provider: "anthropic", model: "test" });
+    const run = await runtime.startRun(conversation.id, { message: "go", tier: "pro" });
     const firstApproval = await waitFor(async () => (await runtime.getConversation(conversation.id))?.events.find((e) => e.type === "approval_pending" && e.toolName === "roblox_datastore__delete_key"));
     if (firstApproval.type !== "approval_pending") throw new Error("unreachable");
     await runtime.answerApproval(conversation.id, run.id, firstApproval.approvalId, "deny");
@@ -334,7 +334,7 @@ describe("DataStore tools — runtime approval flow", () => {
         : { text: "ok", toolCalls: [] },
     );
     const conversation = await runtime.createConversation("ABCDEF12");
-    const run = await runtime.startRun(conversation.id, { message: "go", provider: "anthropic", model: "test" });
+    const run = await runtime.startRun(conversation.id, { message: "go", tier: "pro" });
     const pending = await waitFor(async () => (await runtime.getConversation(conversation.id))?.events.find((e) => e.type === "approval_pending"));
     if (pending.type !== "approval_pending") throw new Error("unreachable");
     expect(pending.elevated).toBe(true);
@@ -364,7 +364,7 @@ describe("DataStore tools — runtime approval flow", () => {
         : { text: "done", toolCalls: [] },
     );
     const conversation = await runtime.createConversation("ABCDEF12");
-    const run = await runtime.startRun(conversation.id, { message: "go", provider: "anthropic", model: "test" });
+    const run = await runtime.startRun(conversation.id, { message: "go", tier: "pro" });
     const pending = await waitFor(async () => (await runtime.getConversation(conversation.id))?.events.find((e) => e.type === "approval_pending"));
     if (pending.type !== "approval_pending") throw new Error("unreachable");
     await runtime.answerApproval(conversation.id, run.id, pending.approvalId, "allow_once");
@@ -397,7 +397,7 @@ describe("DataStore tools — runtime approval flow", () => {
         : { text: "done", toolCalls: [] },
     );
     const conversation = await runtime.createConversation("ABCDEF12");
-    const run = await runtime.startRun(conversation.id, { message: "go", provider: "anthropic", model: "test" });
+    const run = await runtime.startRun(conversation.id, { message: "go", tier: "pro" });
     const pending = await waitFor(async () => (await runtime.getConversation(conversation.id))?.events.find((e) => e.type === "approval_pending"));
     if (pending.type !== "approval_pending") throw new Error("unreachable");
     await runtime.answerApproval(conversation.id, run.id, pending.approvalId, "allow_once");
@@ -484,7 +484,7 @@ describe("DataStore tools — observable events do not contain secrets", () => {
     const observed: AgentEvent[] = [];
     const conversation = await runtime.createConversation("ABCDEF12");
     const unsubscribe = await runtime.subscribe(conversation.id, 0, (e) => observed.push(e));
-    const run = await runtime.startRun(conversation.id, { message: "go", provider: "anthropic", model: "test" });
+    const run = await runtime.startRun(conversation.id, { message: "go", tier: "pro" });
     const pending = await waitFor(async () => observed.find((e) => e.type === "approval_pending"));
     if (pending.type !== "approval_pending") throw new Error("unreachable");
     await runtime.answerApproval(conversation.id, run.id, pending.approvalId, "allow_once");

@@ -81,7 +81,7 @@ describe("SubagentRuntime", () => {
     const runtime = new SubagentRuntime(tools, 10);
     const controller = new AbortController();
     controller.abort();
-    const result = await runtime.run("debugger", "analyze scripts", "sess1", "anthropic", "claude-haiku-4-5-20251001", controller.signal);
+    const result = await runtime.run("debugger", "analyze scripts", "sess1", "pro", controller.signal);
     expect(result.aborted).toBe(true);
     expect(result.iterations).toBe(0);
   });
@@ -105,7 +105,7 @@ describe("SubagentRuntime", () => {
     const runtime = new SubagentRuntime(tools, 5);
     const types: SubagentType[] = ["debugger", "ui_specialist", "combat_specialist", "network_specialist"];
     for (const type of types) {
-      const result = await runtime.run(type, "task", "sess", "anthropic", "model", controller.signal);
+      const result = await runtime.run(type, "task", "sess", "pro", controller.signal);
       expect(result.type).toBe(type);
     }
   });

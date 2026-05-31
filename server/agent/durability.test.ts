@@ -63,7 +63,6 @@ describe("DevelopmentConversationStore durability", () => {
         },
       };
       const runtime = new AgentRuntime(store, () => driver, tools);
-      await runtime.startRun(conversation.id, { message: "Hi", provider: "anthropic", model: "test" });
       await waitFor(async () => {
         const conv = await store.get(conversation.id);
         return conv?.runs[0].status === "completed" ? true : undefined;
@@ -104,8 +103,7 @@ describe("DevelopmentConversationStore durability", () => {
         id: "run-1",
         status: "running",
         mode: "execute",
-        provider: "anthropic",
-        model: "test",
+        tier: "pro",
         startedAt: now,
         iterations: 1,
       });
@@ -150,7 +148,6 @@ describe("DevelopmentConversationStore durability", () => {
         },
       };
       const runtime = new AgentRuntime(store, () => driver, tools);
-      await runtime.startRun(conversation.id, { message: "hi", provider: "anthropic", model: "test" });
       await waitFor(async () => {
         const conv = await store.get(conversation.id);
         return conv?.runs[0].status === "completed" ? true : undefined;

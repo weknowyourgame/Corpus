@@ -99,24 +99,16 @@ export const usePrereqStore = create<PrereqStore>((set, get) => ({
     updateCheck("api-provider", { status: "checking" });
     set({ checks: [...checks] });
 
-    const providers = await getServerProviderConfig();
-    const hasAnthropic = providers.anthropic;
-    const hasOpenRouter = providers.openrouter;
-    const hasOAuth = providers.codex;
-
-    if (hasOAuth || hasAnthropic || hasOpenRouter) {
-      const configured = [];
-      if (hasOAuth) configured.push("Codex");
-      if (hasAnthropic) configured.push("Claude");
-      if (hasOpenRouter) configured.push("OpenRouter");
+    const config = await getServerProviderConfig();
+    if (config.ready) {
       updateCheck("api-provider", {
         status: "passed",
-        message: `Configured on server: ${configured.join(", ")}`,
+        message: "AI Gateway configured on server",
       });
     } else {
       updateCheck("api-provider", {
         status: "failed",
-        message: "No server AI provider configured. Add a credential to .env and restart npm run dev.",
+        message: "AI Gateway not configured. Add AI_GATEWAY_URL and OPENROUTER_API_KEY to .env and restart.",
       });
     }
     set({ checks: [...checks] });

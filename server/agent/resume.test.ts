@@ -49,7 +49,7 @@ describe("event stream resume", () => {
 
     const runtime = new AgentRuntime(new MemoryConversationStore(), () => driver, tools);
     const conversation = await runtime.createConversation("ABCDEF12");
-    await runtime.startRun(conversation.id, { message: "go", provider: "anthropic", model: "test" });
+    await runtime.startRun(conversation.id, { message: "go", tier: "pro" });
 
     // Wait for two text deltas to have landed before we subscribe.
     await waitFor(async () => {
