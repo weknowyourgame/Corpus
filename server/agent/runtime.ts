@@ -126,6 +126,19 @@ export class AgentRuntime {
     active?.controller.abort("Cancelled by user");
     for (const pending of active?.interactions.values() ?? []) pending.reject(new Error("Cancelled by user"));
     for (const pending of active?.approvals.values() ?? []) pending.reject(new Error("Cancelled by user"));
+    active?.interactions.clear();
+    active?.approvals.clear();
+    run.status = "cancelled";
+    run.completedAt = now();
+    run.error = "Cancelled by user";
+    conversation.pendingApprovals = (conversation.pendingApprovals ?? []).filter(
+      (record) => record.runId !== runId,
+    );
+    conversation.pendingInteractions = (conversation.pendingInteractions ?? []).filter(
+      (record) => record.runId !== runId,
+    );
+    await this.store.save(conversation);
+    await this.emit(conversation, runId, { type: "run_cancelled", reason: "Cancelled by user" });
     return true;
   }
 
@@ -259,11 +272,12 @@ export class AgentRuntime {
           if (parts.length) contextBlock = parts.join("\n\n");
         }
 
-        const turn = await driver.generate({
+        const turnPromise = driver.generate({
           messages: conversation.messages,
           signal: active.controller.signal,
           systemContext: iteration === 1 ? contextBlock : undefined,
           onTextDelta: async (text) => {
+            if (active.controller.signal.aborted) return;
             fullText += text;
             // Use the captured conversation object so nextSequence increments
             // monotonically in-place; re-fetching via emitById returns a stale
@@ -273,6 +287,11 @@ export class AgentRuntime {
             await this.emit(conversation, runId, { type: "text_delta", text });
           },
         });
+        turnPromise.catch(() => undefined);
+        const turn = await Promise.race([
+          turnPromise,
+          this.abortPromise(active.controller.signal),
+        ]);
         this.throwIfAborted(active.controller.signal);
 
         const next = await this.requiredConversation(conversationId);
@@ -336,6 +355,7 @@ export class AgentRuntime {
       const conversation = await this.requiredConversation(conversationId);
       const run = this.requiredRun(conversation, runId);
       const cancelled = active.controller.signal.aborted;
+      if (cancelled && run.status === "cancelled") return;
       run.status = cancelled ? "cancelled" : "error";
       run.completedAt = now();
       if (cancelled) {
@@ -380,7 +400,10 @@ export class AgentRuntime {
       active.controller.signal,
     );
 
+    if (active.controller.signal.aborted) return;
+
     for (const outcome of outcomes) {
+      if (active.controller.signal.aborted) return;
       const next = await this.requiredConversation(conversationId);
       next.messages.push({
         role: "tool",
@@ -472,6 +495,7 @@ export class AgentRuntime {
     let executionInput = input;
     if (assessment.decision === "ask") {
       const preview = tool.preview ? await tool.preview(input, context) : undefined;
+      this.throwIfAborted(active.controller.signal);
       const approval = await this.requestApproval(
         conversationId,
         runId,
@@ -508,7 +532,9 @@ export class AgentRuntime {
       }
     }
 
+    this.throwIfAborted(active.controller.signal);
     const output = await tool.execute(executionInput, context);
+    this.throwIfAborted(active.controller.signal);
     const current = await this.requiredConversation(conversationId);
     if (assessment.planStepIndex !== undefined && current.approvedPlan) {
       if (!current.approvedPlan.consumedStepIndices.includes(assessment.planStepIndex)) {
@@ -659,6 +685,16 @@ export class AgentRuntime {
 
   private throwIfAborted(signal: AbortSignal) {
     if (signal.aborted) throw new Error("Cancelled by user");
+  }
+
+  private abortPromise(signal: AbortSignal): Promise<never> {
+    return new Promise((_resolve, reject) => {
+      if (signal.aborted) {
+        reject(new Error("Cancelled by user"));
+        return;
+      }
+      signal.addEventListener("abort", () => reject(new Error("Cancelled by user")), { once: true });
+    });
   }
 
   private async emitById(conversationId: string, runId: string, data: AgentEventData) {

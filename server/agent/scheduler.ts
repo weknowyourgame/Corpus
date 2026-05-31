@@ -8,6 +8,28 @@ export type ScheduledOutcome = {
 
 export type ToolExecutor = (call: AgentToolCall) => Promise<JsonValue>;
 
+const cancelled = (): JsonValue => ({ cancelled: true, reason: "Cancelled by user" });
+
+const waitForAbort = (signal: AbortSignal): Promise<JsonValue> =>
+  new Promise((resolve) => {
+    if (signal.aborted) {
+      resolve(cancelled());
+      return;
+    }
+    signal.addEventListener("abort", () => resolve(cancelled()), { once: true });
+  });
+
+const executeWithCancellation = async (
+  call: AgentToolCall,
+  executor: ToolExecutor,
+  signal: AbortSignal,
+): Promise<JsonValue> => {
+  if (signal.aborted) return cancelled();
+  const execution = executor(call);
+  execution.catch(() => undefined);
+  return Promise.race([execution, waitForAbort(signal)]);
+};
+
 /**
  * Splits a model turn's tool calls into ordered batches preserving model
  * intent: consecutive `parallel_read` calls run together; a single
@@ -62,14 +84,14 @@ export async function executeBatches(
         outcomes.set(call.id, {
           toolCallId: call.id,
           toolName: call.name,
-          output: { cancelled: true, reason: "Cancelled by user" },
+          output: cancelled(),
         });
       }
       continue;
     }
     const results = await Promise.all(
       batch.map(async (call): Promise<ScheduledOutcome> => {
-        const output = await executor(call);
+        const output = await executeWithCancellation(call, executor, signal);
         return { toolCallId: call.id, toolName: call.name, output };
       }),
     );
@@ -80,7 +102,7 @@ export async function executeBatches(
     outcomes.get(call.id) ?? {
       toolCallId: call.id,
       toolName: call.name,
-      output: { cancelled: true, reason: "Cancelled by user" },
+      output: cancelled(),
     },
   );
 }

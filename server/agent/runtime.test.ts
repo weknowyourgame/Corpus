@@ -96,4 +96,19 @@ describe("AgentRuntime", () => {
     const saved = await runtime.getConversation(conversation.id);
     expect(saved?.events.at(-1)?.type).toBe("run_cancelled");
   });
+
+  it("marks cancellation immediately even if the model ignores abort", async () => {
+    const driver: ModelDriver = {
+      generate: () => new Promise(() => {}),
+    };
+    const runtime = new AgentRuntime(new MemoryConversationStore(), () => driver, tools);
+    const conversation = await runtime.createConversation("ABCDEF12");
+    const run = await runtime.startRun(conversation.id, { message: "Wait", tier: "pro" });
+
+    expect(await runtime.cancelRun(conversation.id, run.id)).toBe(true);
+
+    const saved = await runtime.getConversation(conversation.id);
+    expect(saved?.runs[0]).toMatchObject({ status: "cancelled", error: "Cancelled by user" });
+    expect(saved?.events.at(-1)?.type).toBe("run_cancelled");
+  });
 });

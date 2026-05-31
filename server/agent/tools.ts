@@ -145,7 +145,7 @@ const studioTools: Array<{
     schema: z.object({ className: z.string(), parent: z.string(), name: z.string().optional() }),
     mcpTool: "create_instance",
     risk: "low_mutation",
-    scope: (input) => `${path(input, "parent")}/${String(input.name ?? input.className)}:${String(input.className)}`,
+    scope: (input) => `${path(input, "parent")}/*:${String(input.className)}`,
   },
   {
     name: "mcp__roblox_studio__delete_instance",

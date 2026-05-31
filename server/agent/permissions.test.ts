@@ -87,6 +87,35 @@ describe("permission enforcement", () => {
     expect(executions).toHaveLength(1);
   });
 
+  it("reuses an approved create-instance scope for another instance under the same parent and class", async () => {
+    const executions: Record<string, unknown>[] = [];
+    const scopedCreate = {
+      ...mutationTool(executions),
+      scope: (input: Record<string, unknown>) => `${String(input.parent)}/*:${String(input.className)}`,
+    };
+    let turn = 0;
+    const factory: ModelDriverFactory = () => ({
+      generate: async () => {
+        turn += 1;
+        if (turn === 1) return { text: "", toolCalls: [{ id: "first", name: "mcp__roblox_studio__create_instance", input: { parent: "game.Workspace", className: "Part", name: "A" } }] };
+        if (turn === 2) return { text: "", toolCalls: [{ id: "second", name: "mcp__roblox_studio__create_instance", input: { parent: "game.Workspace", className: "Part", name: "B" } }] };
+        return { text: "Finished.", toolCalls: [] };
+      },
+    });
+    const runtime = new AgentRuntime(new MemoryConversationStore(), factory, registry(scopedCreate));
+    const conversation = await runtime.createConversation("ABCDEF12");
+    const run = await runtime.startRun(conversation.id, { message: "Build", tier: "pro" });
+    const first = await waitFor(async () => (await runtime.getConversation(conversation.id))?.events
+      .find((event) => event.type === "approval_pending"));
+    if (first.type !== "approval_pending") throw new Error("Missing first approval");
+    await runtime.answerApproval(conversation.id, run.id, first.approvalId, "allow_scope");
+    await waitFor(async () => (await runtime.getConversation(conversation.id))?.runs[0].status === "completed" ? true : undefined);
+    const saved = await runtime.getConversation(conversation.id);
+
+    expect(executions).toHaveLength(2);
+    expect(saved?.events.filter((event) => event.type === "approval_pending")).toHaveLength(1);
+  });
+
   it("returns a structured denial for mutations requested during plan mode", async () => {
     const executions: Record<string, unknown>[] = [];
     let turn = 0;

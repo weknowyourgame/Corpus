@@ -124,6 +124,17 @@ describe("executeBatches", () => {
     expect((outcomes[2].output as Record<string, unknown>).cancelled).toBe(true);
   });
 
+  it("returns promptly when a running executor ignores abort", async () => {
+    const reg = registry([tool("write_a", "exclusive_mutation")]);
+    const controller = new AbortController();
+    const exec = async (): Promise<JsonValue> => new Promise(() => {});
+    const started = executeBatches([call("1", "write_a")], reg, exec, controller.signal);
+    controller.abort();
+    const outcomes = await started;
+
+    expect((outcomes[0].output as Record<string, unknown>).cancelled).toBe(true);
+  });
+
   it("preserves model order in returned outcomes even when reads finish out of order", async () => {
     const reg = registry([
       tool("read_a", "parallel_read"),
