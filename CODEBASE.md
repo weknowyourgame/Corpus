@@ -463,6 +463,7 @@ bun run scripts/embed-games.ts --games=10         # next 10 un-ingested
 bun run scripts/embed-games.ts --games=all        # everything
 bun run scripts/embed-games.ts --slug=flood-escape # one specific game
 bun run scripts/embed-games.ts --games=20 --dry-run
+bun run scripts/embed-games.ts --slug=flood-escape --cleanup # delete generated chunks/vectors and mark un-ingested
 
 # 6. Trigger ingestion via server (server must be running)
 curl -X POST http://localhost:3001/corpus/ingest
@@ -479,6 +480,7 @@ curl http://localhost:3001/corpus/status
 | `upload-all.ts` | Bulk R2 upload with concurrency + retry. Use `sync-corpus.ts` instead for new work. |
 | `upload-game.ts` | Single-game R2 upload + Postgres register. |
 | `embed-games.ts` | Reads R2 → builds chunks → embeds via Workers AI → upserts Vectorize → writes Postgres. Deterministic IDs, duplicate-safe. |
+| `test-vectorize.ts` | Diagnostic for Workers AI + Vectorize auth/index/upsert/query/delete using Vectorize V2 endpoints. Cleans diagnostic vectors after the run. |
 | `migrate-slugs.ts` | Converts raw game names to URL-safe slugs in Postgres. Never touches R2. Dry-run + transaction. |
 | `generate-manifests.ts` | Generates `manifest.json` for already-converted game folders + prints SQL inserts. |
 
@@ -490,8 +492,33 @@ Converted locally    → run sync-corpus.ts
 In R2, not Postgres  → run register-games.ts
 In Postgres, not R2  → sync-corpus.ts re-uploads
 Both, not embedded   → run embed-games.ts
+Embedded, bad run    → run embed-games.ts --slug=<slug> --cleanup
 Slugs not URL-safe   → run migrate-slugs.ts --apply
 ```
+
+### Corpus storage model
+
+- Raw game scripts live in R2 under each game's `r2Prefix` plus `manifest.json`.
+- Generated retrieval chunk text lives in R2 under `{slug}/chunks/...`.
+- Vectorize stores only embeddings plus small metadata (`r2Path`, game slug/name, niche, chunk type, Roblox path).
+- Postgres `chunks` rows store the lookup catalog: `vectorizeId`, `vectorizeIndex`, `r2Path`, metadata, tags, symbols, remotes, and services.
+- Retrieval flow: embed query → Vectorize nearest-neighbor search → use returned ids/metadata to find Postgres chunk rows → fetch full chunk text from R2.
+
+---
+
+## StudLandingPage (`StudLandingPage/`)
+
+Next.js 16.2.6 (App Router) marketing landing page for Stud. Deployed to Cloudflare Pages as a fully static export.
+
+- **`next.config.ts`** — Turbopack enabled; no `output` override (standalone-compatible for `@opennextjs/cloudflare`).
+- **`open-next.config.ts`** — Full Cloudflare adapter config: `wrapper: "cloudflare-node"`, `converter: "edge"`, all caches set to `"dummy"`, `edgeExternals: ["node:crypto"]`. Using dummy caches means no `WORKER_SELF_REFERENCE` or R2 bindings needed. Excluded from `tsconfig.json` (package installed locally as devDep, types available, but file lives outside Next.js compilation scope).
+- **`wrangler.jsonc`** — Minimal Cloudflare Workers config: name `stud-landing-page`, points `main` at `.open-next/worker.js`, `assets.directory` at `.open-next/assets`. No `WORKER_SELF_REFERENCE` binding (dummy caches don't need it). No `r2_buckets` (no ISR).
+- **`package.json`** — `@opennextjs/cloudflare: "latest"` in devDependencies so `bunx opennextjs-cloudflare build` resolves the binary from `node_modules/.bin/`.
+- Build command: `bunx opennextjs-cloudflare build` → full pipeline runs locally and on Cloudflare Pages.
+- **`src/app/page.tsx`** — Single `"use client"` page with all landing page sections (hero, features, tools, permissions, CTA, footer, waitlist modal).
+- **`src/app/layout.tsx`** — Minimal App Router layout with metadata (title, icons).
+- **`public/stud/assets/`** — Images, video clips, fonts served at `/stud/assets/...` paths.
+- No server-side code, no API routes, no ISR — purely client-rendered.
 
 ---
 
