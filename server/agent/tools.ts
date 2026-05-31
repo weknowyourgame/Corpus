@@ -15,8 +15,8 @@ import type {
 
 type StudioRelay = (
   sessionId: string,
-  path: string,
-  body: Record<string, unknown> | undefined,
+  tool: string,
+  args: Record<string, unknown> | undefined,
   signal: AbortSignal,
   operationId: string,
 ) => Promise<JsonValue>;
@@ -87,7 +87,7 @@ const studioTools: Array<{
   name: string;
   description: string;
   schema: z.ZodType<Record<string, unknown>>;
-  endpoint: string;
+  mcpTool: string;
   risk: ToolRisk;
   scope: (input: Record<string, unknown>) => string;
 }> = [
@@ -95,7 +95,7 @@ const studioTools: Array<{
     name: "mcp__roblox_studio__read_script",
     description: "Read source from a Roblox Studio script at a full instance path.",
     schema: z.object({ path: z.string() }),
-    endpoint: "/script/get",
+    mcpTool: "read_script",
     risk: "read",
     scope: (input) => path(input),
   },
@@ -103,7 +103,7 @@ const studioTools: Array<{
     name: "mcp__roblox_studio__write_script",
     description: "Replace source in an existing Roblox Studio script.",
     schema: z.object({ path: z.string(), source: z.string().default("") }),
-    endpoint: "/script/set",
+    mcpTool: "write_script",
     risk: "low_mutation",
     scope: (input) => path(input),
   },
@@ -111,7 +111,7 @@ const studioTools: Array<{
     name: "mcp__roblox_studio__edit_script",
     description: "Replace an exact source snippet in an existing Roblox Studio script.",
     schema: z.object({ path: z.string(), oldCode: z.string(), newCode: z.string() }),
-    endpoint: "/script/edit",
+    mcpTool: "edit_script",
     risk: "low_mutation",
     scope: (input) => path(input),
   },
@@ -119,7 +119,7 @@ const studioTools: Array<{
     name: "mcp__roblox_studio__list_children",
     description: "List children of a Roblox instance path (e.g. \"game.Workspace\"), optionally recursively. Omit path to list root.",
     schema: z.object({ path: z.string().optional().default("game"), recursive: z.boolean().optional() }),
-    endpoint: "/instance/children",
+    mcpTool: "list_children",
     risk: "read",
     scope: (input) => path(input),
   },
@@ -127,7 +127,7 @@ const studioTools: Array<{
     name: "mcp__roblox_studio__get_properties",
     description: "Get supported properties for a Roblox instance path.",
     schema: z.object({ path: z.string() }),
-    endpoint: "/instance/properties",
+    mcpTool: "get_properties",
     risk: "read",
     scope: (input) => path(input),
   },
@@ -135,7 +135,7 @@ const studioTools: Array<{
     name: "mcp__roblox_studio__set_property",
     description: "Set one property on a Roblox instance.",
     schema: z.object({ path: z.string(), property: z.string(), value: z.string() }),
-    endpoint: "/instance/set",
+    mcpTool: "set_property",
     risk: "low_mutation",
     scope: (input) => `${path(input)}.${String(input.property)}`,
   },
@@ -143,7 +143,7 @@ const studioTools: Array<{
     name: "mcp__roblox_studio__create_instance",
     description: "Create a Roblox instance beneath a parent. Use full paths like \"game.ReplicatedStorage\" or bare service names like \"ReplicatedStorage\" — both are accepted.",
     schema: z.object({ className: z.string(), parent: z.string(), name: z.string().optional() }),
-    endpoint: "/instance/create",
+    mcpTool: "create_instance",
     risk: "low_mutation",
     scope: (input) => `${path(input, "parent")}/${String(input.name ?? input.className)}:${String(input.className)}`,
   },
@@ -151,7 +151,7 @@ const studioTools: Array<{
     name: "mcp__roblox_studio__delete_instance",
     description: "Delete a Roblox instance and its descendants.",
     schema: z.object({ path: z.string() }),
-    endpoint: "/instance/delete",
+    mcpTool: "delete_instance",
     risk: "destructive",
     scope: (input) => path(input),
   },
@@ -159,7 +159,7 @@ const studioTools: Array<{
     name: "mcp__roblox_studio__clone_instance",
     description: "Clone a Roblox instance, optionally into another parent.",
     schema: z.object({ path: z.string(), parent: z.string().optional() }),
-    endpoint: "/instance/clone",
+    mcpTool: "clone_instance",
     risk: "low_mutation",
     scope: (input) => `${path(input)} -> ${path(input, "parent")}`,
   },
@@ -167,7 +167,7 @@ const studioTools: Array<{
     name: "mcp__roblox_studio__move_instance",
     description: "Move a Roblox instance to another parent.",
     schema: z.object({ path: z.string(), newParent: z.string() }),
-    endpoint: "/instance/move",
+    mcpTool: "move_instance",
     risk: "destructive",
     scope: (input) => `${path(input)} -> ${path(input, "newParent")}`,
   },
@@ -180,7 +180,7 @@ const studioTools: Array<{
       className: z.string().optional(),
       limit: z.number().optional(),
     }),
-    endpoint: "/instance/search",
+    mcpTool: "search_instances",
     risk: "read",
     scope: (input) => path(input, "root"),
   },
@@ -188,7 +188,7 @@ const studioTools: Array<{
     name: "mcp__roblox_studio__get_selection",
     description: "Get currently selected Roblox Studio instances.",
     schema: z.object({}),
-    endpoint: "/selection/get",
+    mcpTool: "get_selection",
     risk: "read",
     scope: () => "studio.selection",
   },
@@ -196,7 +196,7 @@ const studioTools: Array<{
     name: "mcp__roblox_studio__execute_luau",
     description: "Execute Luau in Studio. This can change arbitrary game state.",
     schema: z.object({ code: z.string() }),
-    endpoint: "/code/run",
+    mcpTool: "execute_luau",
     risk: "runtime_code",
     scope: () => "runtime-code",
   },
@@ -204,7 +204,7 @@ const studioTools: Array<{
     name: "mcp__roblox_studio__bulk_create",
     description: "Create several Roblox instances in one operation.",
     schema: z.object({ instances: z.array(z.object({ className: z.string(), parent: z.string(), name: z.string().optional() })) }),
-    endpoint: "/instance/bulk-create",
+    mcpTool: "bulk_create",
     risk: "destructive",
     scope: (input) => `bulk-create:${stable(input.instances)}`,
   },
@@ -212,7 +212,7 @@ const studioTools: Array<{
     name: "mcp__roblox_studio__bulk_delete",
     description: "Delete several Roblox instance trees in one operation.",
     schema: z.object({ paths: z.array(z.string()) }),
-    endpoint: "/instance/bulk-delete",
+    mcpTool: "bulk_delete",
     risk: "destructive",
     scope: (input) => `bulk-delete:${stable(input.paths)}`,
   },
@@ -220,7 +220,7 @@ const studioTools: Array<{
     name: "mcp__roblox_studio__bulk_set_property",
     description: "Set properties on several Roblox instances in one operation.",
     schema: z.object({ operations: z.array(z.object({ path: z.string(), property: z.string(), value: z.string() })) }),
-    endpoint: "/instance/bulk-set",
+    mcpTool: "bulk_set_property",
     risk: "destructive",
     scope: (input) => `bulk-set:${stable(input.operations)}`,
   },
@@ -247,7 +247,7 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
           execute: async (input: Record<string, unknown>, context: ToolExecutionContext) => {
             const parsed = item.schema.parse(input) as { path: string };
             parsed.path = normalizePath(parsed.path);
-            const result = await this.relay(context.studioSessionId, item.endpoint, parsed, context.signal, context.operationId);
+            const result = await this.relay(context.studioSessionId, item.mcpTool, parsed, context.signal, context.operationId);
             const src = typeof result === "object" && result !== null && !Array.isArray(result) && "source" in result
               ? String((result as Record<string, unknown>).source ?? "")
               : "";
@@ -270,7 +270,7 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
             const parsed = item.schema.parse(input) as { path: string; source: string };
             parsed.path = normalizePath(parsed.path);
             // Check current source first
-            const currentResult = await this.relay(context.studioSessionId, "/script/get", { path: parsed.path }, context.signal, `${context.operationId}:check`).catch(() => null);
+            const currentResult = await this.relay(context.studioSessionId, "read_script", { path: parsed.path }, context.signal, `${context.operationId}:check`).catch(() => null);
             if (currentResult) {
               const currentSrc = typeof currentResult === "object" && currentResult !== null && "source" in currentResult
                 ? String((currentResult as Record<string, unknown>).source ?? "")
@@ -280,7 +280,7 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
                 return { conflict: true, reason: conflict.reason, currentRevision: conflict.currentHash } as JsonValue;
               }
             }
-            const result = await this.relay(context.studioSessionId, item.endpoint, parsed, context.signal, context.operationId);
+            const result = await this.relay(context.studioSessionId, item.mcpTool, parsed, context.signal, context.operationId);
             this.tracker.record(context.studioSessionId, parsed.path, parsed.source);
             globalScriptIndexer.index(context.studioSessionId, parsed.path, parsed.source);
             return { ...result as Record<string, unknown>, transactionId: context.operationId, undoWaypoint: "Stud: write_script" } as JsonValue;
@@ -299,7 +299,7 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
           execute: async (input: Record<string, unknown>, context: ToolExecutionContext) => {
             const parsed = item.schema.parse(input) as { path: string; oldCode: string; newCode: string };
             parsed.path = normalizePath(parsed.path);
-            const currentResult = await this.relay(context.studioSessionId, "/script/get", { path: parsed.path }, context.signal, `${context.operationId}:check`).catch(() => null);
+            const currentResult = await this.relay(context.studioSessionId, "read_script", { path: parsed.path }, context.signal, `${context.operationId}:check`).catch(() => null);
             let beforeSource: string | undefined;
             if (currentResult) {
               beforeSource = typeof currentResult === "object" && currentResult !== null && "source" in currentResult
@@ -312,7 +312,7 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
                 }
               }
             }
-            const result = await this.relay(context.studioSessionId, item.endpoint, parsed, context.signal, context.operationId);
+            const result = await this.relay(context.studioSessionId, item.mcpTool, parsed, context.signal, context.operationId);
             const afterSource = beforeSource !== undefined ? beforeSource.replace(parsed.oldCode, parsed.newCode) : undefined;
             if (afterSource !== undefined) {
               this.tracker.record(context.studioSessionId, parsed.path, afterSource);
@@ -338,7 +338,7 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
         scope: item.scope,
         execute: async (input: Record<string, unknown>, context: ToolExecutionContext) => {
           const parsed = item.schema.parse(input);
-          return this.relay(context.studioSessionId, item.endpoint, normalizeBody(parsed), context.signal, context.operationId);
+          return this.relay(context.studioSessionId, item.mcpTool, normalizeBody(parsed), context.signal, context.operationId);
         },
       };
     });
@@ -356,14 +356,14 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
       scope: (input) => `asset:${String(input.assetId)} -> ${path(input, "parent")}`,
       preview: async (input, context) => this.relay(
         context.studioSessionId,
-        "/asset/inspect",
+        "inspect_asset",
         { assetId: input.assetId },
         context.signal,
         `${context.operationId}:inspect`,
       ),
       execute: async (input, context) => {
         const parsed = z.object({ assetId: z.number().int(), parent: z.string().default("game.Workspace"), stripScripts: z.boolean().optional() }).parse(input);
-        return this.relay(context.studioSessionId, "/asset/insert", normalizeBody(parsed), context.signal, context.operationId);
+        return this.relay(context.studioSessionId, "insert_asset", normalizeBody(parsed), context.signal, context.operationId);
       },
     });
     this.tools.push({
@@ -403,10 +403,10 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
       inputSchema: z.object({ path: z.string().optional() }),
       scope: () => "studio.live-context",
       execute: async (input, context) => {
-        const selection = await this.relay(context.studioSessionId, "/selection/get", undefined, context.signal, `${context.operationId}:sel`).catch(() => null);
+        const selection = await this.relay(context.studioSessionId, "get_selection", undefined, context.signal, `${context.operationId}:sel`).catch(() => null);
         if (input.path) {
           const normalizedPath = normalizePath(String(input.path));
-          const children = await this.relay(context.studioSessionId, "/instance/children", { path: normalizedPath }, context.signal, `${context.operationId}:ctx`).catch(() => null);
+          const children = await this.relay(context.studioSessionId, "list_children", { path: normalizedPath }, context.signal, `${context.operationId}:ctx`).catch(() => null);
           return asJson({ selection, instanceContext: { path: normalizedPath, children } });
         }
         return asJson({ selection });

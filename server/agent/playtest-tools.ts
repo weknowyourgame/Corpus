@@ -13,8 +13,8 @@ import type { AgentTool, JsonValue, ToolExecutionContext } from "./types.ts";
 
 type StudioRelay = (
   sessionId: string,
-  path: string,
-  body: Record<string, unknown> | undefined,
+  tool: string,
+  args: Record<string, unknown> | undefined,
   signal: AbortSignal,
   operationId: string,
 ) => Promise<JsonValue>;
@@ -35,7 +35,7 @@ async function relayLogs(
   signal: AbortSignal,
   operationId: string,
 ) {
-  const raw = await relay(sessionId, "/playtest/logs", undefined, signal, operationId);
+  const raw = await relay(sessionId, "get_logs", undefined, signal, operationId);
   return sanitizeLogs(
     typeof raw === "object" && raw !== null && "logs" in raw
       ? (raw as Record<string, unknown>).logs
@@ -55,7 +55,7 @@ export function createPlaytestTools(relay: StudioRelay): AgentTool[] {
       scope: (input) => `playtest:start:${String(input.mode ?? "play_solo")}`,
       execute: async (input, ctx) => relay(
         ctx.studioSessionId,
-        "/playtest/start",
+        "start_playtest",
         z.object({ mode: z.string().default("play_solo") }).parse(input),
         ctx.signal,
         ctx.operationId,
@@ -72,7 +72,7 @@ export function createPlaytestTools(relay: StudioRelay): AgentTool[] {
       scope: () => "playtest:stop",
       execute: async (_input, ctx) => relay(
         ctx.studioSessionId,
-        "/playtest/stop",
+        "stop_playtest",
         undefined,
         ctx.signal,
         ctx.operationId,
@@ -88,7 +88,7 @@ export function createPlaytestTools(relay: StudioRelay): AgentTool[] {
       inputSchema: z.object({ limit: z.number().int().min(1).max(200).default(50) }),
       scope: () => "playtest:logs",
       execute: async (input, ctx) => {
-        const raw = await relay(ctx.studioSessionId, "/playtest/logs", { limit: input.limit ?? 50 }, ctx.signal, ctx.operationId);
+        const raw = await relay(ctx.studioSessionId, "get_logs", { limit: input.limit ?? 50 }, ctx.signal, ctx.operationId);
         const entries = sanitizeLogs(
           typeof raw === "object" && raw !== null && "logs" in raw
             ? (raw as Record<string, unknown>).logs
@@ -107,7 +107,7 @@ export function createPlaytestTools(relay: StudioRelay): AgentTool[] {
       inputSchema: z.object({ scriptPath: z.string().optional() }),
       scope: () => "playtest:diagnostics",
       execute: async (input, ctx) => {
-        const raw = await relay(ctx.studioSessionId, "/playtest/diagnostics", input.scriptPath ? { scriptPath: input.scriptPath } : undefined, ctx.signal, ctx.operationId);
+        const raw = await relay(ctx.studioSessionId, "get_diagnostics", input.scriptPath ? { scriptPath: input.scriptPath } : undefined, ctx.signal, ctx.operationId);
         const entries = sanitizeLogs(
           typeof raw === "object" && raw !== null && "diagnostics" in raw
             ? (raw as Record<string, unknown>).diagnostics
@@ -179,7 +179,7 @@ export function createPlaytestTools(relay: StudioRelay): AgentTool[] {
         }
 
         // Step 2: start playtest
-        await relay(studioSessionId, "/playtest/start", { mode: "play_solo" }, signal, `${operationId}:start`).catch((err) => {
+        await relay(studioSessionId, "start_playtest", { mode: "play_solo" }, signal, `${operationId}:start`).catch((err) => {
           if (isDisconnectError(err)) throw new DisconnectError();
           throw err;
         });
@@ -197,7 +197,7 @@ export function createPlaytestTools(relay: StudioRelay): AgentTool[] {
         try {
           currentLogs = await relayLogs(relay, studioSessionId, signal, `${operationId}:logs`);
         } catch (err) {
-          await relay(studioSessionId, "/playtest/stop", undefined, signal, `${operationId}:stop`).catch(() => null);
+          await relay(studioSessionId, "stop_playtest", undefined, signal, `${operationId}:stop`).catch(() => null);
           if (isDisconnectError(err)) {
             globalPlaytestTracker.reset(studioSessionId);
             return disconnectedResult(state.playtestId) as unknown as JsonValue;
@@ -206,7 +206,7 @@ export function createPlaytestTools(relay: StudioRelay): AgentTool[] {
         }
 
         // Step 5: stop playtest
-        await relay(studioSessionId, "/playtest/stop", undefined, signal, `${operationId}:stop`).catch(() => null);
+        await relay(studioSessionId, "stop_playtest", undefined, signal, `${operationId}:stop`).catch(() => null);
 
         // Step 6: compare to baseline
         const { newErrors, preExistingErrors, warnings } = compareToBaseline(state.baseline, currentLogs);

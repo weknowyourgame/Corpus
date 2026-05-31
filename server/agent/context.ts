@@ -2,8 +2,8 @@ import type { JsonValue } from "./types.ts";
 
 type StudioRelay = (
   sessionId: string,
-  path: string,
-  body: Record<string, unknown> | undefined,
+  tool: string,
+  args: Record<string, unknown> | undefined,
   signal: AbortSignal,
   operationId: string,
 ) => Promise<JsonValue>;
@@ -22,7 +22,7 @@ export async function resolveAtMentions(
 ): Promise<Array<{ path: string; summary: string }>> {
   const results = await Promise.allSettled(
     paths.map(async (p) => {
-      const result = await relay(sessionId, "/instance/children", { path: p }, signal, `ctx:${p}`);
+      const result = await relay(sessionId, "list_children", { path: p }, signal, `ctx:${p}`);
       const children = Array.isArray(result) ? result : [];
       return { path: p, summary: `${children.length} children` };
     }),
