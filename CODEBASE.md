@@ -435,6 +435,66 @@ npm run corpus:cloudflare:setup:execute  # Run wrangler commands
 
 ---
 
+## Corpus Scripts (`scripts/`)
+
+All scripts read `.env` for credentials. Run from the repo root.
+
+### Full pipeline order
+
+```bash
+# 1. Convert all .rbxl files in ~/stud/games/ → ~/stud/games/converted/
+bun run scripts/batch-convert.ts
+
+# 2. Sync local converted games to R2 + register in Postgres
+#    Skips games already in both. ACID: rolls back R2 on Postgres failure.
+bun run scripts/sync-corpus.ts --dry-run   # preview
+bun run scripts/sync-corpus.ts             # apply (concurrency=5 default)
+bun run scripts/sync-corpus.ts --concurrency=10
+
+# 3. If R2 already has files but Postgres is empty — register only
+bun run scripts/register-games.ts
+
+# 4. Migrate raw game name slugs to URL-safe slugs (r2Prefix untouched)
+bun run scripts/migrate-slugs.ts --dry-run  # preview old→new mappings
+bun run scripts/migrate-slugs.ts --apply    # run inside a transaction
+
+# 5. Create embeddings + push to Vectorize
+bun run scripts/embed-games.ts --games=10         # next 10 un-ingested
+bun run scripts/embed-games.ts --games=all        # everything
+bun run scripts/embed-games.ts --slug=flood-escape # one specific game
+bun run scripts/embed-games.ts --games=20 --dry-run
+
+# 6. Trigger ingestion via server (server must be running)
+curl -X POST http://localhost:3001/corpus/ingest
+curl http://localhost:3001/corpus/status
+```
+
+### Script reference
+
+| Script | Purpose |
+|--------|---------|
+| `batch-convert.ts` | Parses `.rbxl` binary → extracts `.lua` files + `manifest.json` per game. Pure Bun, no external tools. |
+| `sync-corpus.ts` | Source of truth sync: checks R2 + Postgres state per game, uploads missing files, inserts missing rows. ACID rollback on failure. |
+| `register-games.ts` | Registers games already on R2 into Postgres (R2 verification required before insert). |
+| `upload-all.ts` | Bulk R2 upload with concurrency + retry. Use `sync-corpus.ts` instead for new work. |
+| `upload-game.ts` | Single-game R2 upload + Postgres register. |
+| `embed-games.ts` | Reads R2 → builds chunks → embeds via Workers AI → upserts Vectorize → writes Postgres. Deterministic IDs, duplicate-safe. |
+| `migrate-slugs.ts` | Converts raw game names to URL-safe slugs in Postgres. Never touches R2. Dry-run + transaction. |
+| `generate-manifests.ts` | Generates `manifest.json` for already-converted game folders + prints SQL inserts. |
+
+### Game states
+
+```
+Not converted        → run batch-convert.ts
+Converted locally    → run sync-corpus.ts
+In R2, not Postgres  → run register-games.ts
+In Postgres, not R2  → sync-corpus.ts re-uploads
+Both, not embedded   → run embed-games.ts
+Slugs not URL-safe   → run migrate-slugs.ts --apply
+```
+
+---
+
 ## Key Conventions
 
 - `const` over `let`; ternaries over if/else assignment
