@@ -38,8 +38,8 @@ Ingestion CLI or Worker
         +--> Cloudflare R2
         |       raw source, normalized scripts, summaries, extracted pattern files
         |
-        +--> Postgres via Hyperdrive
-        |       games, scripts, chunks, systems, patterns, quality metadata
+        +--> Postgres via Prisma
+        |       games, scripts, chunks, systems, patterns, quality metadata for server routes and future UI
         |
         +--> Workers AI
         |       summaries and embeddings
@@ -109,9 +109,11 @@ Acceptance criteria:
 - Missing Cloudflare/Postgres credentials never break normal Studio usage.
 - Config parser has tests for enabled/disabled states.
 
-## Phase 2: Database Schema
+## Phase 2: Prisma Database Schema
 
-Create `server/agent/corpus/schema.sql` or a migration folder if one exists later.
+Create `prisma/schema.prisma`. Prisma is the source of truth because these tables will be used by ingestion, retrieval, server API routes, and future corpus/admin UI.
+
+Keep `server/agent/corpus/schema.sql` only as a readable SQL reference if useful; do not make it the migration source.
 
 Use these tables:
 
@@ -223,7 +225,9 @@ Create an R2 bucket:
 wrangler r2 bucket create roblox-games
 ```
 
-Set up Postgres through Supabase, Neon, Railway, or another provider, then configure Hyperdrive when moving ingestion/query to Workers.
+Set up Postgres through Supabase, Neon, Railway, Prisma Postgres, or another provider.
+
+Do not use Hyperdrive for this plan. If corpus work moves into Cloudflare Workers later, use Prisma's JavaScript client engine with an edge-compatible Postgres path, or keep Prisma in the Stud API server and let Workers call internal API routes.
 
 Acceptance criteria:
 
@@ -257,7 +261,7 @@ Add script to `package.json`:
 CLI usage:
 
 ```bash
-npm run corpus:ingest -- --game ./path/to/game --name "Flood Escape Inspired" --source-url "https://github.com/..." --license MIT --genre obstacle_course
+bun run corpus:ingest -- --game ./path/to/game --name "Flood Escape Inspired" --source-url "https://github.com/..." --license MIT --genre obstacle_course
 ```
 
 Implementation steps:
@@ -645,7 +649,7 @@ Read AGENTS.md first and follow the repo style. Do not co-author commits. Prefer
 Implement the plan in knowledge-base/ROBLOX_OPEN_SOURCE_GAME_KNOWLEDGE_BASE_PLAN.md in small, safe phases:
 
 1. Add corpus config under server/agent/corpus/config.ts and update .env.example. Corpus must be disabled by default and never break normal Studio use when credentials are missing.
-2. Add schema.sql for Postgres metadata under server/agent/corpus/schema.sql.
+2. Add Prisma schema for corpus metadata under prisma/schema.prisma and keep server/agent/corpus/schema.sql as a reference only if useful.
 3. Add types, extraction, chunking, analysis, formatting, and mocked client boundaries under server/agent/corpus/.
 4. Add a local ingestion CLI at server/agent/corpus/ingest.ts and package.json script corpus:ingest. Start with filesystem/Rojo-style .lua/.luau projects.
 5. Add retrieveCorpusContext in server/agent/corpus/retrieve.ts. It should embed a query, search the four Vectorize indexes, resolve vectorize IDs through Postgres, fetch chunk text from R2, rank/dedupe results, and return a structured result. Use mockable interfaces so tests do not require Cloudflare.
@@ -665,7 +669,7 @@ Important behavior:
 Deliverables:
 
 - New server/agent/corpus modules
-- schema.sql
+- prisma/schema.prisma
 - package.json ingestion script
 - updated .env.example
 - async RAG integration

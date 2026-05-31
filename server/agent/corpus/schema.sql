@@ -1,3 +1,6 @@
+-- SQL reference for the corpus tables.
+-- Prisma is the source of truth: edit /prisma/schema.prisma first.
+
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE IF NOT EXISTS games (

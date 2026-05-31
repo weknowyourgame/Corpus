@@ -6,14 +6,14 @@ Current scope:
 
 - Phase 0: v1 supports filesystem/Rojo-style source projects first.
 - Phase 1: corpus config is disabled by default and safe without credentials.
-- Phase 2: Postgres schema lives in `schema.sql`.
+- Phase 2: Prisma schema lives in `prisma/schema.prisma`; `schema.sql` is a SQL reference for the same corpus tables.
 - Phase 3: Cloudflare R2 and Vectorize setup commands are generated from config.
 
 ## Environment
 
 Copy the corpus section from `.env.example` into `.env` when you are ready to provision real resources.
 
-Required for migrations:
+Required for Prisma migrations:
 
 ```text
 DATABASE_URL=
@@ -33,32 +33,58 @@ CLOUDFLARE_VECTORIZE_PATTERN_INDEX=roblox-patterns
 
 ## Phase 2: Database Schema
 
-Preview the schema:
+Prisma is the source of truth for the corpus database because the same models will support ingestion, retrieval, server routes, and future UI/admin screens.
+
+Install dependencies with Bun when registry access is healthy:
 
 ```bash
-cat server/agent/corpus/schema.sql
+bun install
 ```
 
-Apply it with `psql` installed:
+Generate the Prisma client:
 
 ```bash
-npm run corpus:migrate
+bun run db:generate
 ```
 
-The migration is idempotent through `IF NOT EXISTS`, so it can be rerun during early development.
+Create/apply a local development migration:
+
+```bash
+bun run db:migrate -- --name corpus_init
+```
+
+Apply migrations in a deployed environment:
+
+```bash
+bun run db:migrate:deploy
+```
+
+Open Prisma Studio for DB inspection:
+
+```bash
+bun run db:studio
+```
+
+`server/agent/corpus/schema.sql` remains as a readable SQL reference and compatibility sketch, but do not edit it instead of `prisma/schema.prisma`.
+
+## Workers Note
+
+Do not use Hyperdrive for this plan.
+
+For Cloudflare Workers later, use Prisma's JavaScript client engine with an edge-compatible Postgres path. This repo is set up for the driver-adapter direction (`@prisma/adapter-pg` + `pg`) without binding the design to Hyperdrive. If the Worker DB access becomes too heavy, keep Prisma in the Stud API server and let Workers call internal API routes for corpus jobs.
 
 ## Phase 3: Cloudflare Resources
 
 Preview commands:
 
 ```bash
-npm run corpus:cloudflare:setup
+bun run corpus:cloudflare:setup
 ```
 
 Execute commands with `wrangler` installed and authenticated:
 
 ```bash
-npm run corpus:cloudflare:setup:execute
+bun run corpus:cloudflare:setup:execute
 ```
 
 This creates:
