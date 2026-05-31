@@ -18,9 +18,11 @@ local Selection = game:GetService("Selection")
 local ScriptEditorService = game:GetService("ScriptEditorService")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local TweenService = game:GetService("TweenService")
+local StudioTestService = game:GetService("StudioTestService")
 
 local PLUGIN_NAME = "stud-bridge"
 local PLUGIN_DISPLAY_NAME = "Stud"
+local PLUGIN_VERSION = "1.0.0"
 local DEFAULT_BRIDGE = "http://127.0.0.1:3001"
 local MAX_ACTIVITY_LOG = 10
 
@@ -45,11 +47,11 @@ local function setToken(token)
 end
 
 local function getPollUrl()
-	return getBridgeBase() .. "/stud/token/poll"
+	return getBridgeBase() .. "/studio/poll?pluginVersion=" .. PLUGIN_VERSION .. "&capabilities=tool-protocol-v1"
 end
 
 local function getRespondUrl()
-	return getBridgeBase() .. "/stud/token/respond"
+	return getBridgeBase() .. "/studio/respond"
 end
 
 -- State
@@ -668,15 +670,53 @@ LogService.MessageOut:Connect(function(message, messageType)
 	})
 end)
 
+local function callWithTimeout(callback, timeout, timeoutResult)
+	local event = Instance.new("BindableEvent")
+	local done = false
+	local result = timeoutResult
+	local timedOut = false
+
+	task.spawn(function()
+		local ok, value = pcall(callback)
+		result = ok and value or tostring(value)
+		if not done then
+			done = true
+			event:Fire()
+		end
+	end)
+
+	task.spawn(function()
+		task.wait(timeout)
+		if not done then
+			done = true
+			timedOut = true
+			event:Fire()
+		end
+	end)
+
+	if not done then
+		event.Event:Wait()
+	end
+
+	event:Destroy()
+	return result, timedOut
+end
+
 handlers["start_playtest"] = function(data)
 	playLogBuffer = {}  -- fresh log window for this cycle
-	local ok, err = pcall(function() plugin:StartPlaySolo() end)
-	if not ok then error("Failed to start playtest: " .. tostring(err)) end
-	return { started = true, mode = (data and data.mode) or "play_solo" }
+	local mode = (data and data.mode) or "play_solo"
+	local result, timedOut = callWithTimeout(function()
+		if mode == "run_server" then
+			return StudioTestService:ExecuteRunModeAsync({})
+		end
+		return StudioTestService:ExecutePlayModeAsync({})
+	end, 0.1, "Started playtest")
+	return { started = true, mode = mode, response = result, async = timedOut }
 end
 
 handlers["stop_playtest"] = function()
 	-- Best-effort stop; errors are non-fatal
+	pcall(function() StudioTestService:EndTest({}) end)
 	pcall(function() game:GetService("RunService"):Stop() end)
 	return { stopped = true }
 end
@@ -961,7 +1001,7 @@ handlers["move_instance"] = function(data)
 	return { path = getInstancePath(instance) }
 end
 
-handlers["/instance/bulk-create"] = function(data)
+handlers["bulk_create"] = function(data)
 	local created = {}
 
 	for _, item in ipairs(data.instances) do
@@ -979,7 +1019,7 @@ handlers["/instance/bulk-create"] = function(data)
 	return { created = created }
 end
 
-handlers["/instance/bulk-delete"] = function(data)
+handlers["bulk_delete"] = function(data)
 	local deleted = {}
 
 	for _, path in ipairs(data.paths) do
@@ -994,7 +1034,7 @@ handlers["/instance/bulk-delete"] = function(data)
 	return { deleted = deleted }
 end
 
-handlers["/instance/bulk-set"] = function(data)
+handlers["bulk_set_property"] = function(data)
 	local updated = 0
 	local errors = {}
 
@@ -1194,7 +1234,7 @@ local function assetSafetySummary(actualModel)
 	return scripts, risky
 end
 
-handlers["/asset/inspect"] = function(data)
+handlers["inspect_asset"] = function(data)
 	local container, actualModel = loadAssetForReview(data.assetId)
 	local scripts, risky = assetSafetySummary(actualModel)
 	local result = {
@@ -1210,7 +1250,7 @@ handlers["/asset/inspect"] = function(data)
 	return result
 end
 
-handlers["/asset/insert"] = function(data)
+handlers["insert_asset"] = function(data)
 	local parent = getInstanceFromPath(data.parent)
 	if not parent then
 		error("Parent not found: " .. data.parent)
@@ -1253,11 +1293,11 @@ local modifyingTools = {
 	["delete_instance"] = true,
 	["clone_instance"] = true,
 	["move_instance"] = true,
-	["/instance/bulk-create"] = true,
-	["/instance/bulk-delete"] = true,
-	["/instance/bulk-set"] = true,
+	["bulk_create"] = true,
+	["bulk_delete"] = true,
+	["bulk_set_property"] = true,
 	["execute_luau"] = true,
-	["/asset/insert"] = true,
+	["insert_asset"] = true,
 	["start_playtest"] = true,
 	["stop_playtest"] = true,
 }
@@ -1275,14 +1315,14 @@ local actionNames = {
 	["delete_instance"] = "Delete Instance",
 	["clone_instance"] = "Clone Instance",
 	["move_instance"] = "Move Instance",
-	["/instance/bulk-create"] = "Bulk Create",
-	["/instance/bulk-delete"] = "Bulk Delete",
-	["/instance/bulk-set"] = "Bulk Update",
+	["bulk_create"] = "Bulk Create",
+	["bulk_delete"] = "Bulk Delete",
+	["bulk_set_property"] = "Bulk Update",
 	["search_instances"] = "Search",
 	["get_selection"] = "Get Selection",
 	["execute_luau"] = "Run Code",
-	["/asset/inspect"] = "Inspect Asset",
-	["/asset/insert"] = "Insert Asset",
+	["inspect_asset"] = "Inspect Asset",
+	["insert_asset"] = "Insert Asset",
 	["start_playtest"] = "Start Playtest",
 	["stop_playtest"] = "Stop Playtest",
 	["get_logs"] = "Get Logs",

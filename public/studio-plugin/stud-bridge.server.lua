@@ -1,16 +1,16 @@
 --[[
 	stud-bridge - Roblox Studio Plugin for Stud (Web App)
-	
+
 	Connects Roblox Studio to the Stud web app via the bridge server.
-	
+
 	Installation:
 	1. Copy this file to your Roblox Plugins folder
 	   - Windows: %LOCALAPPDATA%\Roblox\Plugins
 	   - Mac: ~/Documents/Roblox/Plugins
 	2. Restart Roblox Studio
 	3. Enable HTTP requests in Game Settings > Security
-	4. Open Stud in your browser, copy the session code
-	5. Paste the code in this plugin and click Connect
+	4. Open Stud in your browser, copy your token
+	5. Paste the token in this plugin and click Connect
 ]]
 
 local HttpService = game:GetService("HttpService")
@@ -18,9 +18,11 @@ local Selection = game:GetService("Selection")
 local ScriptEditorService = game:GetService("ScriptEditorService")
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local TweenService = game:GetService("TweenService")
+local StudioTestService = game:GetService("StudioTestService")
 
 local PLUGIN_NAME = "stud-bridge"
 local PLUGIN_DISPLAY_NAME = "Stud"
+local PLUGIN_VERSION = "1.0.0"
 local DEFAULT_BRIDGE = "http://127.0.0.1:3001"
 local MAX_ACTIVITY_LOG = 10
 
@@ -32,32 +34,24 @@ local function getBridgeBase()
 	return DEFAULT_BRIDGE
 end
 
-local function getSessionId()
-	local saved = plugin:GetSetting("SessionId")
-	if type(saved) == "string" and #saved >= 6 then
-		return saved:upper()
+local function getToken()
+	local saved = plugin:GetSetting("StudioToken")
+	if type(saved) == "string" and #saved > 0 then
+		return saved
 	end
 	return ""
 end
 
-local function setSessionId(id)
-	plugin:SetSetting("SessionId", id:upper())
+local function setToken(token)
+	plugin:SetSetting("StudioToken", token)
 end
 
 local function getPollUrl()
-	local session = getSessionId()
-	if session == "" then
-		return getBridgeBase() .. "/stud/poll"
-	end
-	return getBridgeBase() .. "/stud/sessions/" .. session .. "/poll"
+	return getBridgeBase() .. "/studio/poll?pluginVersion=" .. PLUGIN_VERSION .. "&capabilities=tool-protocol-v1"
 end
 
 local function getRespondUrl()
-	local session = getSessionId()
-	if session == "" then
-		return getBridgeBase() .. "/stud/respond"
-	end
-	return getBridgeBase() .. "/stud/sessions/" .. session .. "/respond"
+	return getBridgeBase() .. "/studio/respond"
 end
 
 -- State
@@ -73,8 +67,11 @@ local toolbar = plugin:CreateToolbar(PLUGIN_DISPLAY_NAME)
 local toggleButton = toolbar:CreateButton(
 	PLUGIN_DISPLAY_NAME,
 	"Connect to Stud AI",
-	"rbxassetid://4458901886" -- Generic connect icon
+	"rbxassetid://4458901886"
 )
+
+-- Declare tokenInput here so it's accessible to toggleConnection
+local tokenInput
 
 -- Colors (cozy light theme to match Stud app)
 local Colors = {
@@ -99,7 +96,6 @@ local statusDot
 local statusText
 local subText
 local connectButton
-local sessionInput
 local bridgeInput
 local activityContainer
 local activityList
@@ -113,17 +109,17 @@ local function createFrame(props)
 	frame.Size = props.size or UDim2.new(1, 0, 0, 40)
 	frame.Position = props.position or UDim2.new(0, 0, 0, 0)
 	frame.BackgroundTransparency = props.transparency or 0
-	
+
 	if props.corner then
 		local corner = Instance.new("UICorner")
 		corner.CornerRadius = UDim.new(0, props.corner)
 		corner.Parent = frame
 	end
-	
+
 	if props.parent then
 		frame.Parent = props.parent
 	end
-	
+
 	return frame
 end
 
@@ -139,11 +135,11 @@ local function createLabel(props)
 	label.Font = props.font or Enum.Font.GothamMedium
 	label.TextXAlignment = props.align or Enum.TextXAlignment.Left
 	label.TextTruncate = Enum.TextTruncate.AtEnd
-	
+
 	if props.parent then
 		label.Parent = props.parent
 	end
-	
+
 	return label
 end
 
@@ -159,28 +155,28 @@ local function createButton(props)
 	button.TextSize = props.textSize or 14
 	button.Font = props.font or Enum.Font.GothamBold
 	button.AutoButtonColor = false
-	
+
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, props.corner or 12)
 	corner.Parent = button
-	
+
 	-- Hover effect
 	button.MouseEnter:Connect(function()
 		TweenService:Create(button, TweenInfo.new(0.15), {
 			BackgroundColor3 = props.bgHover or Colors.accentHover
 		}):Play()
 	end)
-	
+
 	button.MouseLeave:Connect(function()
 		TweenService:Create(button, TweenInfo.new(0.15), {
 			BackgroundColor3 = props.bg or Colors.accent
 		}):Play()
 	end)
-	
+
 	if props.parent then
 		button.Parent = props.parent
 	end
-	
+
 	return button
 end
 
@@ -192,14 +188,14 @@ local function addActivity(action, status, details)
 		status = status,
 		details = details or ""
 	}
-	
+
 	table.insert(activityLog, 1, entry)
-	
+
 	-- Keep log trimmed
 	while #activityLog > MAX_ACTIVITY_LOG do
 		table.remove(activityLog)
 	end
-	
+
 	-- Update UI
 	if activityList then
 		-- Clear existing
@@ -208,7 +204,7 @@ local function addActivity(action, status, details)
 				child:Destroy()
 			end
 		end
-		
+
 		-- Add entries
 		for i, entry in ipairs(activityLog) do
 			local row = createFrame({
@@ -216,7 +212,7 @@ local function addActivity(action, status, details)
 				size = UDim2.new(1, 0, 0, 28),
 				parent = activityList
 			})
-			
+
 			-- Time
 			createLabel({
 				text = entry.time,
@@ -227,20 +223,20 @@ local function addActivity(action, status, details)
 				position = UDim2.new(0, 8, 0, 0),
 				parent = row
 			})
-			
+
 			-- Status dot
 			local dot = Instance.new("Frame")
 			dot.Size = UDim2.new(0, 6, 0, 6)
 			dot.Position = UDim2.new(0, 68, 0.5, -3)
 			dot.BorderSizePixel = 0
-			dot.BackgroundColor3 = entry.status == "success" and Colors.success or 
+			dot.BackgroundColor3 = entry.status == "success" and Colors.success or
 				entry.status == "error" and Colors.error or Colors.processing
 			dot.Parent = row
-			
+
 			local dotCorner = Instance.new("UICorner")
 			dotCorner.CornerRadius = UDim.new(1, 0)
 			dotCorner.Parent = dot
-			
+
 			-- Action
 			createLabel({
 				text = entry.action,
@@ -265,11 +261,11 @@ local function createWidget()
 		260,   -- Min width
 		280    -- Min height
 	)
-	
+
 	widget = plugin:CreateDockWidgetPluginGui("StudBridge", info)
 	widget.Title = "stud-bridge"
 	widget.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	
+
 	-- Main container
 	local container = createFrame({
 		bg = Colors.bg,
@@ -277,7 +273,7 @@ local function createWidget()
 	})
 	container.Name = "Container"
 	container.Parent = widget
-	
+
 	-- Padding
 	local padding = Instance.new("UIPadding")
 	padding.PaddingTop = UDim.new(0, 16)
@@ -285,13 +281,13 @@ local function createWidget()
 	padding.PaddingLeft = UDim.new(0, 16)
 	padding.PaddingRight = UDim.new(0, 16)
 	padding.Parent = container
-	
+
 	-- Layout
 	local layout = Instance.new("UIListLayout")
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Padding = UDim.new(0, 12)
 	layout.Parent = container
-	
+
 	-- ========== Status Card ==========
 	local statusCard = createFrame({
 		bg = Colors.bgSecondary,
@@ -300,20 +296,20 @@ local function createWidget()
 		parent = container
 	})
 	statusCard.LayoutOrder = 1
-	
+
 	local statusPadding = Instance.new("UIPadding")
 	statusPadding.PaddingTop = UDim.new(0, 14)
 	statusPadding.PaddingBottom = UDim.new(0, 14)
 	statusPadding.PaddingLeft = UDim.new(0, 14)
 	statusPadding.PaddingRight = UDim.new(0, 14)
 	statusPadding.Parent = statusCard
-	
+
 	-- Status header row
 	local statusHeader = Instance.new("Frame")
 	statusHeader.Size = UDim2.new(1, 0, 0, 24)
 	statusHeader.BackgroundTransparency = 1
 	statusHeader.Parent = statusCard
-	
+
 	-- Status dot (animated)
 	statusDot = Instance.new("Frame")
 	statusDot.Name = "Dot"
@@ -322,18 +318,18 @@ local function createWidget()
 	statusDot.BackgroundColor3 = Colors.error
 	statusDot.BorderSizePixel = 0
 	statusDot.Parent = statusHeader
-	
+
 	local dotCorner = Instance.new("UICorner")
 	dotCorner.CornerRadius = UDim.new(1, 0)
 	dotCorner.Parent = statusDot
-	
+
 	-- Glow effect for dot
 	local dotGlow = Instance.new("UIStroke")
 	dotGlow.Color = Colors.error
 	dotGlow.Thickness = 2
 	dotGlow.Transparency = 0.7
 	dotGlow.Parent = statusDot
-	
+
 	-- Status text
 	statusText = createLabel({
 		text = "Disconnected",
@@ -344,7 +340,7 @@ local function createWidget()
 		position = UDim2.new(0, 18, 0, 0),
 		parent = statusHeader
 	})
-	
+
 	-- Processing indicator (animated spinner text)
 	processingIndicator = createLabel({
 		text = "",
@@ -355,7 +351,7 @@ local function createWidget()
 		position = UDim2.new(0, 0, 0, 28),
 		parent = statusCard
 	})
-	
+
 	-- Sub text / Project info
 	subText = createLabel({
 		text = "Click Connect to start",
@@ -366,44 +362,44 @@ local function createWidget()
 		position = UDim2.new(0, 0, 1, -16),
 		parent = statusCard
 	})
-	
-	-- ========== Session Code ==========
-	local sessionLabel = createLabel({
-		text = "Session code (from Stud web app)",
+
+	-- ========== Token Input ==========
+	local tokenLabel = createLabel({
+		text = "Stud Token",
 		color = Colors.textMuted,
 		textSize = 11,
 		font = Enum.Font.GothamBold,
 		size = UDim2.new(1, 0, 0, 16),
 		parent = container
 	})
-	sessionLabel.LayoutOrder = 2
+	tokenLabel.LayoutOrder = 2
 
-	sessionInput = Instance.new("TextBox")
-	sessionInput.Size = UDim2.new(1, 0, 0, 36)
-	sessionInput.BackgroundColor3 = Colors.bgSecondary
-	sessionInput.TextColor3 = Colors.text
-	sessionInput.PlaceholderText = "e.g. ABC12345"
-	sessionInput.PlaceholderColor3 = Colors.textMuted
-	sessionInput.Text = getSessionId()
-	sessionInput.Font = Enum.Font.RobotoMono
-	sessionInput.TextSize = 16
-	sessionInput.ClearTextOnFocus = false
-	sessionInput.Parent = container
-	sessionInput.LayoutOrder = 3
+	tokenInput = Instance.new("TextBox")
+	tokenInput.Size = UDim2.new(1, 0, 0, 36)
+	tokenInput.BackgroundColor3 = Colors.bgSecondary
+	tokenInput.TextColor3 = Colors.text
+	tokenInput.PlaceholderText = "Paste token from stud.com"
+	tokenInput.PlaceholderColor3 = Colors.textMuted
+	tokenInput.Text = getToken()
+	tokenInput.Font = Enum.Font.RobotoMono
+	tokenInput.TextSize = 11
+	tokenInput.ClearTextOnFocus = false
+	tokenInput.Parent = container
+	tokenInput.LayoutOrder = 3
 
-	local sessionCorner = Instance.new("UICorner")
-	sessionCorner.CornerRadius = UDim.new(0, 10)
-	sessionCorner.Parent = sessionInput
+	local tokenCorner = Instance.new("UICorner")
+	tokenCorner.CornerRadius = UDim.new(0, 10)
+	tokenCorner.Parent = tokenInput
 
-	local sessionPad = Instance.new("UIPadding")
-	sessionPad.PaddingLeft = UDim.new(0, 12)
-	sessionPad.PaddingRight = UDim.new(0, 12)
-	sessionPad.Parent = sessionInput
+	local tokenPad = Instance.new("UIPadding")
+	tokenPad.PaddingLeft = UDim.new(0, 12)
+	tokenPad.PaddingRight = UDim.new(0, 12)
+	tokenPad.Parent = tokenInput
 
-	sessionInput.FocusLost:Connect(function()
-		local id = sessionInput.Text:upper():gsub("[^A-Z0-9]", "")
-		sessionInput.Text = id
-		setSessionId(id)
+	tokenInput.FocusLost:Connect(function()
+		local t = tokenInput.Text:gsub("^%s*(.-)%s*$", "%1")
+		tokenInput.Text = t
+		setToken(t)
 	end)
 
 	-- ========== Bridge URL (advanced) ==========
@@ -411,7 +407,7 @@ local function createWidget()
 	bridgeInput.Size = UDim2.new(1, 0, 0, 28)
 	bridgeInput.BackgroundColor3 = Colors.bgTertiary
 	bridgeInput.TextColor3 = Colors.textSecondary
-	bridgeInput.PlaceholderText = "Bridge URL"
+	bridgeInput.PlaceholderText = "Bridge URL (optional)"
 	bridgeInput.Text = getBridgeBase()
 	bridgeInput.Font = Enum.Font.Gotham
 	bridgeInput.TextSize = 11
@@ -439,11 +435,11 @@ local function createWidget()
 		parent = container
 	})
 	connectButton.LayoutOrder = 5
-	
+
 	connectButton.MouseButton1Click:Connect(function()
 		toggleConnection()
 	end)
-	
+
 	-- ========== Activity Log ==========
 	local activityHeader = createLabel({
 		text = "Recent Activity",
@@ -454,7 +450,7 @@ local function createWidget()
 		parent = container
 	})
 	activityHeader.LayoutOrder = 6
-	
+
 	activityContainer = createFrame({
 		bg = Colors.bgSecondary,
 		size = UDim2.new(1, 0, 1, -280),
@@ -463,7 +459,7 @@ local function createWidget()
 	})
 	activityContainer.LayoutOrder = 7
 	activityContainer.ClipsDescendants = true
-	
+
 	-- Scrolling frame for activity
 	local scrollFrame = Instance.new("ScrollingFrame")
 	scrollFrame.Size = UDim2.new(1, 0, 1, 0)
@@ -474,17 +470,17 @@ local function createWidget()
 	scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 	scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	scrollFrame.Parent = activityContainer
-	
+
 	activityList = Instance.new("Frame")
 	activityList.Size = UDim2.new(1, 0, 0, 0)
 	activityList.BackgroundTransparency = 1
 	activityList.AutomaticSize = Enum.AutomaticSize.Y
 	activityList.Parent = scrollFrame
-	
+
 	local activityLayout = Instance.new("UIListLayout")
 	activityLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	activityLayout.Parent = activityList
-	
+
 	-- Empty state
 	local emptyLabel = createLabel({
 		text = "No activity yet",
@@ -497,7 +493,7 @@ local function createWidget()
 	})
 	emptyLabel.Name = "EmptyState"
 	emptyLabel.TextYAlignment = Enum.TextYAlignment.Center
-	
+
 	return widget
 end
 
@@ -523,10 +519,10 @@ end)
 -- Animate status dot glow
 local function animateDotGlow()
 	if not statusDot then return end
-	
+
 	local glow = statusDot:FindFirstChildOfClass("UIStroke")
 	if not glow then return end
-	
+
 	-- Pulse animation
 	while true do
 		if isConnected or isConnecting then
@@ -551,9 +547,9 @@ local function updateUI()
 	if not statusDot or not statusText or not subText or not connectButton then
 		return
 	end
-	
+
 	local glow = statusDot:FindFirstChildOfClass("UIStroke")
-	
+
 	if isProcessing then
 		statusDot.BackgroundColor3 = Colors.processing
 		if glow then glow.Color = Colors.processing end
@@ -583,7 +579,7 @@ local function updateUI()
 		connectButton.Text = "Connect"
 		connectButton.BackgroundColor3 = Colors.accent
 	end
-	
+
 	toggleButton:SetActive(isConnected or isConnecting)
 end
 
@@ -605,7 +601,7 @@ local function getInstanceFromPath(path)
 	if #parts < 2 or parts[1] ~= "game" then
 		return nil
 	end
-	
+
 	local current = game
 	for i = 2, #parts do
 		local child = current:FindFirstChild(parts[i])
@@ -614,7 +610,7 @@ local function getInstanceFromPath(path)
 		end
 		current = child
 	end
-	
+
 	return current
 end
 
@@ -634,98 +630,216 @@ local function instanceToInfo(instance, includeChildren)
 		name = instance.Name,
 		className = instance.ClassName,
 	}
-	
+
 	if includeChildren then
 		info.children = {}
 		for _, child in ipairs(instance:GetChildren()) do
 			table.insert(info.children, instanceToInfo(child, false))
 		end
 	end
-	
+
 	return info
 end
 
 -- Request handlers
 local handlers = {}
 
-handlers["/ping"] = function()
+handlers["ping"] = function()
 	return { status = "ok", plugin = PLUGIN_NAME }
 end
 
-handlers["/script/get"] = function(data)
+-- ─── Playtest log capture ────────────────────────────────────────────────────
+local playLogBuffer = {}
+local PLAY_LOG_MAX = 200
+
+local LOG_SEVERITY = {
+	[Enum.MessageType.MessageOutput]  = "info",
+	[Enum.MessageType.MessageInfo]    = "info",
+	[Enum.MessageType.MessageWarning] = "warning",
+	[Enum.MessageType.MessageError]   = "error",
+}
+
+local LogService = game:GetService("LogService")
+LogService.MessageOut:Connect(function(message, messageType)
+	if #playLogBuffer >= PLAY_LOG_MAX then table.remove(playLogBuffer, 1) end
+	table.insert(playLogBuffer, {
+		message  = tostring(message):sub(1, 2000),
+		severity = LOG_SEVERITY[messageType] or "info",
+		channel  = "output",
+		timestamp = tick(),
+	})
+end)
+
+local function callWithTimeout(callback, timeout, timeoutResult)
+	local event = Instance.new("BindableEvent")
+	local done = false
+	local result = timeoutResult
+	local timedOut = false
+
+	task.spawn(function()
+		local ok, value = pcall(callback)
+		result = ok and value or tostring(value)
+		if not done then
+			done = true
+			event:Fire()
+		end
+	end)
+
+	task.spawn(function()
+		task.wait(timeout)
+		if not done then
+			done = true
+			timedOut = true
+			event:Fire()
+		end
+	end)
+
+	if not done then
+		event.Event:Wait()
+	end
+
+	event:Destroy()
+	return result, timedOut
+end
+
+handlers["start_playtest"] = function(data)
+	playLogBuffer = {}  -- fresh log window for this cycle
+	local mode = (data and data.mode) or "play_solo"
+	local result, timedOut = callWithTimeout(function()
+		if mode == "run_server" then
+			return StudioTestService:ExecuteRunModeAsync({})
+		end
+		return StudioTestService:ExecutePlayModeAsync({})
+	end, 0.1, "Started playtest")
+	return { started = true, mode = mode, response = result, async = timedOut }
+end
+
+handlers["stop_playtest"] = function()
+	-- Best-effort stop; errors are non-fatal
+	pcall(function() StudioTestService:EndTest({}) end)
+	pcall(function() game:GetService("RunService"):Stop() end)
+	return { stopped = true }
+end
+
+handlers["get_logs"] = function(data)
+	local limit = tonumber(data and data.limit) or 50
+	local total = #playLogBuffer
+	local from  = math.max(1, total - limit + 1)
+	local result = {}
+	for i = from, total do result[#result + 1] = playLogBuffer[i] end
+	return { logs = result }
+end
+
+handlers["get_diagnostics"] = function(data)
+	local filter = data and data.scriptPath
+	local errors = {}
+	for _, entry in ipairs(playLogBuffer) do
+		if entry.severity == "error" then
+			if not filter or (entry.scriptPath and entry.scriptPath:find(filter, 1, true)) then
+				errors[#errors + 1] = entry
+			end
+		end
+	end
+	return { diagnostics = errors }
+end
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- Simple revision token: length + first 6 chars + last 6 chars (cheap fingerprint for conflict detection)
+local function makeRevision(source)
+	local len = #source
+	local head = source:sub(1, 6):gsub("[^%w]", "_")
+	local tail = source:sub(-6):gsub("[^%w]", "_")
+	return string.format("%d-%s-%s", len, head, tail)
+end
+
+handlers["read_script"] = function(data)
 	local instance = getInstanceFromPath(data.path)
 	if not instance then
 		error("Instance not found: " .. data.path)
 	end
-	
+
 	if not instance:IsA("LuaSourceContainer") then
 		error("Not a script: " .. data.path)
 	end
-	
+
 	local source = ScriptEditorService:GetEditorSource(instance)
 	if not source then
 		source = instance.Source
 	end
-	
+
 	return {
 		path = getInstancePath(instance),
 		source = source,
 		className = instance.ClassName,
+		revision = makeRevision(source),
 	}
 end
 
-handlers["/script/set"] = function(data)
+handlers["write_script"] = function(data)
 	local instance = getInstanceFromPath(data.path)
 	if not instance then
 		error("Instance not found: " .. data.path)
 	end
-	
+
 	if not instance:IsA("LuaSourceContainer") then
 		error("Not a script: " .. data.path)
 	end
-	
+
+	ChangeHistoryService:SetWaypoint("Stud: write_script")
 	ScriptEditorService:UpdateSourceAsync(instance, function()
 		return data.source
 	end)
-	
-	return { path = getInstancePath(instance) }
+	ChangeHistoryService:SetWaypoint("Stud: write_script done")
+
+	return {
+		path = getInstancePath(instance),
+		revision = makeRevision(data.source),
+		undoWaypoint = "Stud: write_script",
+	}
 end
 
-handlers["/script/edit"] = function(data)
+handlers["edit_script"] = function(data)
 	local instance = getInstanceFromPath(data.path)
 	if not instance then
 		error("Instance not found: " .. data.path)
 	end
-	
+
 	if not instance:IsA("LuaSourceContainer") then
 		error("Not a script: " .. data.path)
 	end
-	
+
 	local source = ScriptEditorService:GetEditorSource(instance)
 	if not source then
 		source = instance.Source
 	end
-	
+
 	local newSource, count = string.gsub(source, data.oldCode, data.newCode)
 	if count == 0 then
 		error("Code not found in script")
 	end
-	
+
+	ChangeHistoryService:SetWaypoint("Stud: edit_script")
 	ScriptEditorService:UpdateSourceAsync(instance, function()
 		return newSource
 	end)
-	
-	return { path = getInstancePath(instance), replaced = count }
+	ChangeHistoryService:SetWaypoint("Stud: edit_script done")
+
+	return {
+		path = getInstancePath(instance),
+		replaced = count,
+		revision = makeRevision(newSource),
+		undoWaypoint = "Stud: edit_script",
+	}
 end
 
-handlers["/instance/children"] = function(data)
+handlers["list_children"] = function(data)
 	local instance = getInstanceFromPath(data.path)
 	if not instance then
 		error("Instance not found: " .. data.path)
 	end
-	
+
 	local children = {}
-	
+
 	if data.recursive then
 		for _, child in ipairs(instance:GetDescendants()) do
 			table.insert(children, instanceToInfo(child, false))
@@ -735,33 +849,33 @@ handlers["/instance/children"] = function(data)
 			table.insert(children, instanceToInfo(child, false))
 		end
 	end
-	
+
 	return children
 end
 
-handlers["/instance/properties"] = function(data)
+handlers["get_properties"] = function(data)
 	local instance = getInstanceFromPath(data.path)
 	if not instance then
 		error("Instance not found: " .. data.path)
 	end
-	
+
 	local props = {}
 	local commonProps = {"Name", "ClassName", "Parent"}
-	
+
 	if instance:IsA("BasePart") then
 		local partProps = {"Position", "Size", "CFrame", "Anchored", "CanCollide", "Transparency", "BrickColor", "Material"}
 		for _, p in ipairs(partProps) do
 			table.insert(commonProps, p)
 		end
 	end
-	
+
 	if instance:IsA("GuiObject") then
 		local guiProps = {"Position", "Size", "Visible", "BackgroundColor3", "BackgroundTransparency"}
 		for _, p in ipairs(guiProps) do
 			table.insert(commonProps, p)
 		end
 	end
-	
+
 	for _, propName in ipairs(commonProps) do
 		local success, value = pcall(function()
 			return instance[propName]
@@ -774,18 +888,18 @@ handlers["/instance/properties"] = function(data)
 			})
 		end
 	end
-	
+
 	return props
 end
 
-handlers["/instance/set"] = function(data)
+handlers["set_property"] = function(data)
 	local instance = getInstanceFromPath(data.path)
 	if not instance then
 		error("Instance not found: " .. data.path)
 	end
-	
+
 	local value = data.value
-	
+
 	if value == "true" then
 		value = true
 	elseif value == "false" then
@@ -816,47 +930,47 @@ handlers["/instance/set"] = function(data)
 			end
 		end
 	end
-	
+
 	instance[data.property] = value
-	
+
 	return { path = getInstancePath(instance) }
 end
 
-handlers["/instance/create"] = function(data)
+handlers["create_instance"] = function(data)
 	local parent = getInstanceFromPath(data.parent)
 	if not parent then
 		error("Parent not found: " .. data.parent)
 	end
-	
+
 	local instance = Instance.new(data.className)
 	if data.name then
 		instance.Name = data.name
 	end
 	instance.Parent = parent
-	
+
 	return { path = getInstancePath(instance) }
 end
 
-handlers["/instance/delete"] = function(data)
+handlers["delete_instance"] = function(data)
 	local instance = getInstanceFromPath(data.path)
 	if not instance then
 		error("Instance not found: " .. data.path)
 	end
-	
+
 	local path = getInstancePath(instance)
 	instance:Destroy()
-	
+
 	return { deleted = path }
 end
 
-handlers["/instance/clone"] = function(data)
+handlers["clone_instance"] = function(data)
 	local instance = getInstanceFromPath(data.path)
 	if not instance then
 		error("Instance not found: " .. data.path)
 	end
-	
+
 	local clone = instance:Clone()
-	
+
 	if data.parent then
 		local parent = getInstanceFromPath(data.parent)
 		if parent then
@@ -867,29 +981,29 @@ handlers["/instance/clone"] = function(data)
 	else
 		clone.Parent = instance.Parent
 	end
-	
+
 	return { path = getInstancePath(clone) }
 end
 
-handlers["/instance/move"] = function(data)
+handlers["move_instance"] = function(data)
 	local instance = getInstanceFromPath(data.path)
 	if not instance then
 		error("Instance not found: " .. data.path)
 	end
-	
+
 	local newParent = getInstanceFromPath(data.newParent)
 	if not newParent then
 		error("Parent not found: " .. data.newParent)
 	end
-	
+
 	instance.Parent = newParent
-	
+
 	return { path = getInstancePath(instance) }
 end
 
-handlers["/instance/bulk-create"] = function(data)
+handlers["bulk_create"] = function(data)
 	local created = {}
-	
+
 	for _, item in ipairs(data.instances) do
 		local parent = getInstanceFromPath(item.parent)
 		if parent then
@@ -901,13 +1015,13 @@ handlers["/instance/bulk-create"] = function(data)
 			table.insert(created, getInstancePath(instance))
 		end
 	end
-	
+
 	return { created = created }
 end
 
-handlers["/instance/bulk-delete"] = function(data)
+handlers["bulk_delete"] = function(data)
 	local deleted = {}
-	
+
 	for _, path in ipairs(data.paths) do
 		local instance = getInstanceFromPath(path)
 		if instance then
@@ -916,14 +1030,14 @@ handlers["/instance/bulk-delete"] = function(data)
 			table.insert(deleted, fullPath)
 		end
 	end
-	
+
 	return { deleted = deleted }
 end
 
-handlers["/instance/bulk-set"] = function(data)
+handlers["bulk_set_property"] = function(data)
 	local updated = 0
 	local errors = {}
-	
+
 	for _, op in ipairs(data.operations) do
 		local instance = getInstanceFromPath(op.path)
 		if not instance then
@@ -931,7 +1045,7 @@ handlers["/instance/bulk-set"] = function(data)
 		else
 			local success, err = pcall(function()
 				local value = op.value
-				
+
 				-- Parse value based on type
 				if value == "true" then
 					value = true
@@ -963,10 +1077,10 @@ handlers["/instance/bulk-set"] = function(data)
 						end
 					end
 				end
-				
+
 				instance[op.property] = value
 			end)
-			
+
 			if success then
 				updated = updated + 1
 			else
@@ -974,56 +1088,56 @@ handlers["/instance/bulk-set"] = function(data)
 			end
 		end
 	end
-	
+
 	return { updated = updated, errors = errors }
 end
 
-handlers["/instance/search"] = function(data)
+handlers["search_instances"] = function(data)
 	local root = getInstanceFromPath(data.root or "game")
 	if not root then
 		error("Root not found: " .. (data.root or "game"))
 	end
-	
+
 	local results = {}
 	local limit = data.limit or 50
-	
+
 	for _, instance in ipairs(root:GetDescendants()) do
 		if #results >= limit then
 			break
 		end
-		
+
 		local matches = true
-		
+
 		if data.name then
 			matches = matches and string.lower(instance.Name):find(string.lower(data.name), 1, true) ~= nil
 		end
-		
+
 		if data.className then
 			matches = matches and instance.ClassName == data.className
 		end
-		
+
 		if matches then
 			table.insert(results, instanceToInfo(instance, false))
 		end
 	end
-	
+
 	return results
 end
 
-handlers["/selection/get"] = function()
+handlers["get_selection"] = function()
 	local selected = Selection:Get()
 	local results = {}
-	
+
 	for _, instance in ipairs(selected) do
 		table.insert(results, instanceToInfo(instance, false))
 	end
-	
+
 	return results
 end
 
-handlers["/code/run"] = function(data)
+handlers["execute_luau"] = function(data)
 	local output = {}
-	
+
 	local oldPrint = print
 	print = function(...)
 		local args = {...}
@@ -1034,7 +1148,7 @@ handlers["/code/run"] = function(data)
 		end
 		table.insert(output, str)
 	end
-	
+
 	local success, result = pcall(function()
 		local fn, err = loadstring(data.code)
 		if not fn then
@@ -1042,30 +1156,25 @@ handlers["/code/run"] = function(data)
 		end
 		return fn()
 	end)
-	
+
 	print = oldPrint
-	
+
 	if not success then
 		return { output = table.concat(output, "\n"), error = tostring(result) }
 	end
-	
+
 	if result ~= nil then
 		table.insert(output, tostring(result))
 	end
-	
+
 	return { output = table.concat(output, "\n") }
 end
 
--- Asset insertion (from Creator Store)
-handlers["/asset/insert"] = function(data)
-	local parent = getInstanceFromPath(data.parent)
-	if not parent then
-		error("Parent not found: " .. data.parent)
-	end
-
-	local assetId = tonumber(data.assetId)
+-- Asset loading stays detached until the server permission flow approves insertion.
+local function loadAssetForReview(assetId)
+	assetId = tonumber(assetId)
 	if not assetId then
-		error("Invalid asset ID: " .. tostring(data.assetId))
+		error("Invalid asset ID: " .. tostring(assetId))
 	end
 
 	-- Use InsertService to get the asset
@@ -1098,177 +1207,280 @@ handlers["/asset/insert"] = function(data)
 		end
 	end
 
+	return model, actualModel
+end
+
+local function assetSafetySummary(actualModel)
+	local scripts = {}
+	local risky = {}
+	local riskyClasses = {
+		RemoteEvent = true,
+		RemoteFunction = true,
+		BindableEvent = true,
+		BindableFunction = true,
+		Tool = true,
+	}
+	local descendants = { actualModel }
+	for _, descendant in ipairs(actualModel:GetDescendants()) do
+		table.insert(descendants, descendant)
+	end
+	for _, descendant in ipairs(descendants) do
+		if descendant:IsA("LuaSourceContainer") then
+			table.insert(scripts, { name = descendant.Name, className = descendant.ClassName })
+		elseif riskyClasses[descendant.ClassName] then
+			table.insert(risky, { name = descendant.Name, className = descendant.ClassName })
+		end
+	end
+	return scripts, risky
+end
+
+handlers["inspect_asset"] = function(data)
+	local container, actualModel = loadAssetForReview(data.assetId)
+	local scripts, risky = assetSafetySummary(actualModel)
+	local result = {
+		assetId = tonumber(data.assetId),
+		name = actualModel.Name,
+		scriptCount = #scripts,
+		scripts = scripts,
+		riskyDescendantCount = #risky,
+		riskyDescendants = risky,
+		safeWithoutChanges = #scripts == 0 and #risky == 0,
+	}
+	container:Destroy()
+	return result
+end
+
+handlers["insert_asset"] = function(data)
+	local parent = getInstanceFromPath(data.parent)
+	if not parent then
+		error("Parent not found: " .. data.parent)
+	end
+	local container, actualModel = loadAssetForReview(data.assetId)
+	local scripts = assetSafetySummary(actualModel)
+	local strippedScripts = 0
+	if data.stripScripts == true then
+		if actualModel:IsA("LuaSourceContainer") then
+			container:Destroy()
+			error("Cannot strip scripts when the selected asset is itself a script")
+		end
+		for _, descendant in ipairs(actualModel:GetDescendants()) do
+			if descendant:IsA("LuaSourceContainer") then
+				descendant:Destroy()
+				strippedScripts = strippedScripts + 1
+			end
+		end
+	end
 	actualModel.Parent = parent
+	if container ~= actualModel then
+		container:Destroy()
+	end
 
 	return {
 		success = true,
 		path = getInstancePath(actualModel),
 		name = actualModel.Name,
+		scriptCount = #scripts,
+		strippedScripts = strippedScripts,
 	}
 end
 
--- Paths that modify the game and should create undo waypoints
-local modifyingPaths = {
-	["/script/set"] = true,
-	["/script/edit"] = true,
-	["/instance/set"] = true,
-	["/instance/create"] = true,
-	["/instance/delete"] = true,
-	["/instance/clone"] = true,
-	["/instance/move"] = true,
-	["/instance/bulk-create"] = true,
-	["/instance/bulk-delete"] = true,
-	["/instance/bulk-set"] = true,
-	["/code/run"] = true,
-	["/asset/insert"] = true,
+-- Tools that modify the game and should create undo waypoints
+local modifyingTools = {
+	["write_script"] = true,
+	["edit_script"] = true,
+	["set_property"] = true,
+	["create_instance"] = true,
+	["delete_instance"] = true,
+	["clone_instance"] = true,
+	["move_instance"] = true,
+	["bulk_create"] = true,
+	["bulk_delete"] = true,
+	["bulk_set_property"] = true,
+	["execute_luau"] = true,
+	["insert_asset"] = true,
+	["start_playtest"] = true,
+	["stop_playtest"] = true,
 }
 
 -- Friendly names for activity log
 local actionNames = {
-	["/ping"] = "Ping",
-	["/script/get"] = "Read Script",
-	["/script/set"] = "Write Script",
-	["/script/edit"] = "Edit Script",
-	["/instance/children"] = "List Children",
-	["/instance/properties"] = "Get Properties",
-	["/instance/set"] = "Set Property",
-	["/instance/create"] = "Create Instance",
-	["/instance/delete"] = "Delete Instance",
-	["/instance/clone"] = "Clone Instance",
-	["/instance/move"] = "Move Instance",
-	["/instance/bulk-create"] = "Bulk Create",
-	["/instance/bulk-delete"] = "Bulk Delete",
-	["/instance/bulk-set"] = "Bulk Update",
-	["/instance/search"] = "Search",
-	["/selection/get"] = "Get Selection",
-	["/code/run"] = "Run Code",
-	["/asset/insert"] = "Insert Asset",
+	["ping"] = "Ping",
+	["read_script"] = "Read Script",
+	["write_script"] = "Write Script",
+	["edit_script"] = "Edit Script",
+	["list_children"] = "List Children",
+	["get_properties"] = "Get Properties",
+	["set_property"] = "Set Property",
+	["create_instance"] = "Create Instance",
+	["delete_instance"] = "Delete Instance",
+	["clone_instance"] = "Clone Instance",
+	["move_instance"] = "Move Instance",
+	["bulk_create"] = "Bulk Create",
+	["bulk_delete"] = "Bulk Delete",
+	["bulk_set_property"] = "Bulk Update",
+	["search_instances"] = "Search",
+	["get_selection"] = "Get Selection",
+	["execute_luau"] = "Run Code",
+	["inspect_asset"] = "Inspect Asset",
+	["insert_asset"] = "Insert Asset",
+	["start_playtest"] = "Start Playtest",
+	["stop_playtest"] = "Stop Playtest",
+	["get_logs"] = "Get Logs",
+	["get_diagnostics"] = "Get Diagnostics",
 }
 
--- HTTP request handler
-local function handleRequest(request)
-	local path = request.path or request.Path
-	local body = request.body or request.Body
-	
-	local handler = handlers[path]
+-- Tool call handler: dispatches by tool name, returns { id, result, isError }
+local function handleRequest(data)
+	local tool = data.tool
+	local args = data.arguments or {}
+
+	local handler = handlers[tool]
 	if not handler then
+		local name = tool and tostring(tool) or "unknown"
+		addActivity("Unknown tool: " .. name, "error")
 		return {
-			status = 404,
-			body = jsonEncode({ error = "Not found: " .. path })
+			id = data.id,
+			result = nil,
+			isError = true,
+			error = "Unknown tool: " .. name,
 		}
 	end
-	
-	local data = {}
-	if body and body ~= "" then
-		local success, parsed = pcall(jsonDecode, body)
-		if success then
-			data = parsed
-		end
-	end
-	
-	-- Create undo waypoint for modifying operations
-	local isModifying = modifyingPaths[path]
+
+	local isModifying = modifyingTools[tool]
 	if isModifying then
-		ChangeHistoryService:SetWaypoint("Stud: " .. path)
+		ChangeHistoryService:SetWaypoint("Stud: " .. tool)
 	end
-	
-	-- Set processing state
+
 	isProcessing = true
 	updateUI()
-	
-	local success, result = pcall(handler, data)
-	
-	-- Update activity log
-	local actionName = actionNames[path] or path
+
+	local success, result = pcall(handler, args)
+
+	local actionName = actionNames[tool] or tool
 	if success then
 		addActivity(actionName, "success")
 	else
 		addActivity(actionName, "error", tostring(result))
 	end
-	
+
 	isProcessing = false
 	updateUI()
-	
-	if not success then
+
+	if isModifying and success then
+		ChangeHistoryService:SetWaypoint("Stud: " .. tool .. " (done)")
+	end
+
+	if success then
 		return {
-			status = 500,
-			body = jsonEncode({ error = tostring(result) })
+			id = data.id,
+			result = result,
+			isError = false,
+		}
+	else
+		return {
+			id = data.id,
+			result = nil,
+			isError = true,
+			error = tostring(result),
 		}
 	end
-	
-	-- Commit the change so it can be undone
-	if isModifying then
-		ChangeHistoryService:SetWaypoint("Stud: " .. path .. " (done)")
-	end
-	
-	return {
-		status = 200,
-		body = jsonEncode(result)
-	}
 end
 
 -- Polling loop
 local function pollServer()
 	local failCount = 0
-	local maxFails = 3
-	
+	local maxFails = 10
+
 	while pollingEnabled do
-		local success, response = pcall(function()
-			return HttpService:RequestAsync({
-				Url = getPollUrl(),
-				Method = "GET",
-			})
-		end)
-		
-		if success and response.Success then
-			-- Connected!
-			if not isConnected then
-				isConnected = true
-				isConnecting = false
-				failCount = 0
-				updateUI()
-				addActivity("Connected", "success")
-				print("[stud-bridge] Connected to Stud web app")
-			end
-			
-			local data = jsonDecode(response.Body)
-			
-			-- Extract project info if available
-			if data and data.project then
-				projectInfo = data.project
-				updateUI()
-			end
-			
-			if data and data.request then
-				local result = handleRequest(data.request)
-				pcall(function()
-					HttpService:RequestAsync({
-						Url = getRespondUrl(),
-						Method = "POST",
-						Headers = { ["Content-Type"] = "application/json" },
-						Body = jsonEncode({
-							id = data.id,
-							response = result,
-						}),
-					})
-				end)
-			end
-			failCount = 0
+		local token = getToken()
+		if token == "" then
+			-- No token yet — wait for user to paste one
+			task.wait(1)
 		else
-			failCount = failCount + 1
-			if isConnected and failCount >= maxFails then
-				isConnected = false
-				isConnecting = true
-				projectInfo = nil
-				updateUI()
-				addActivity("Connection lost", "error")
-				print("[stud-bridge] Connection lost, retrying...")
+			local ok, response = pcall(function()
+				return HttpService:RequestAsync({
+					Url = getPollUrl(),
+					Method = "GET",
+					Headers = {
+						["X-Stud-Token"] = token,
+						["Content-Type"] = "application/json",
+					},
+				})
+			end)
+
+			if ok and response then
+				if response.StatusCode == 401 then
+					-- Token rejected — stop polling and tell user
+					pollingEnabled = false
+					isConnected = false
+					isConnecting = false
+					updateUI()
+					addActivity("Invalid token — regenerate in Stud web app", "error")
+					print("[stud-bridge] Token rejected (401). Paste a fresh token from stud.com.")
+					break
+				elseif response.Success then
+					if not isConnected then
+						isConnected = true
+						isConnecting = false
+						failCount = 0
+						updateUI()
+						addActivity("Connected", "success")
+						print("[stud-bridge] Connected to Stud web app")
+					end
+
+					local data = jsonDecode(response.Body)
+
+					if data and data.project then
+						projectInfo = data.project
+						updateUI()
+					end
+
+					if data and data.tool then
+						local payload = handleRequest(data)
+						pcall(function()
+							HttpService:RequestAsync({
+								Url = getRespondUrl(),
+								Method = "POST",
+								Headers = {
+									["X-Stud-Token"] = token,
+									["Content-Type"] = "application/json",
+								},
+								Body = jsonEncode(payload),
+							})
+						end)
+					end
+					failCount = 0
+				else
+					-- Network error or non-2xx (not 401)
+					failCount = failCount + 1
+					if failCount >= maxFails then
+						if isConnected then
+							isConnected = false
+							isConnecting = true
+							projectInfo = nil
+							updateUI()
+							addActivity("Connection lost — retrying", "error")
+							print("[stud-bridge] Connection lost, retrying...")
+						end
+					end
+				end
+			else
+				-- pcall itself failed (request threw)
+				failCount = failCount + 1
+				if failCount >= maxFails and isConnected then
+					isConnected = false
+					isConnecting = true
+					projectInfo = nil
+					updateUI()
+					addActivity("Bridge unreachable — retrying", "error")
+					print("[stud-bridge] Bridge unreachable, retrying...")
+				end
 			end
+
+			task.wait(0.1)
 		end
-		
-		task.wait(0.1)
 	end
-	
+
 	-- Stopped polling
 	isConnected = false
 	isConnecting = false
@@ -1279,20 +1491,20 @@ end
 -- Toggle connection
 function toggleConnection()
 	pollingEnabled = not pollingEnabled
-	
+
 	if pollingEnabled then
-		local session = sessionInput and sessionInput.Text:upper():gsub("[^A-Z0-9]", "") or ""
-		if session == "" then
+		local token = tokenInput and tokenInput.Text:gsub("^%s*(.-)%s*$", "%1") or getToken()
+		if token == "" then
 			pollingEnabled = false
-			addActivity("Enter session code", "error")
+			addActivity("Enter your Stud token", "error")
 			return
 		end
-		setSessionId(session)
-		if sessionInput then sessionInput.Text = session end
+		setToken(token)
+		if tokenInput then tokenInput.Text = token end
 		isConnecting = true
 		updateUI()
 		addActivity("Connecting", "pending")
-		print("[stud-bridge] Connecting to", getBridgeBase(), "session", session)
+		print("[stud-bridge] Connecting to", getBridgeBase())
 		task.spawn(pollServer)
 	else
 		isConnected = false
@@ -1310,9 +1522,15 @@ updateUI()
 
 toggleButton.Click:Connect(toggleConnection)
 
--- Show widget when button clicked
 toggleButton.Click:Connect(function()
 	widget.Enabled = true
 end)
 
-print("[stud-bridge] Plugin loaded - Click Connect to start")
+-- Auto-connect if token is already stored
+local savedToken = getToken()
+if savedToken ~= "" then
+	print("[stud-bridge] Token found, connecting automatically...")
+	toggleConnection()
+else
+	print("[stud-bridge] Plugin loaded - Paste your Stud token and click Connect")
+end
