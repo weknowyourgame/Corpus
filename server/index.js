@@ -25,6 +25,9 @@ import { createModelDriverFactory } from "./agent/drivers.ts";
 import { createAgentRouter } from "./agent/routes.ts";
 import { createMcpRequestHandler, buildMcpToolsList } from "./agent/mcp-server.ts";
 import { PluginRelayTransport } from "./agent/studio-transport.ts";
+import { runIngestion } from "./agent/corpus/ingest.ts";
+import { corpusConfig } from "./agent/corpus/config.ts";
+import { getPendingGames } from "./agent/corpus/postgres.ts";
 
 try {
   process.loadEnvFile?.(".env");
@@ -476,6 +479,53 @@ app.get("/api/proxy", async (req, res) => {
     res.status(upstream.status).type(upstream.headers.get("content-type") || "application/json").send(text);
   } catch (e) {
     res.status(502).json({ error: String(e) });
+  }
+});
+
+// --- Corpus ---
+
+app.get("/corpus/status", async (_req, res) => {
+  if (!corpusConfig.enabled) return res.json({ enabled: false });
+  if (!corpusConfig.ready) return res.json({ enabled: true, ready: false, missing: corpusConfig.missing });
+  try {
+    const pending = await getPendingGames();
+    res.json({ enabled: true, ready: true, pendingGames: pending.length, pending: pending.map((g) => g.slug) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/corpus/ingest", async (_req, res) => {
+  if (!corpusConfig.ready) {
+    return res.status(400).json({ error: "Corpus not ready", missing: corpusConfig.missing });
+  }
+  try {
+    const report = await runIngestion(corpusConfig);
+    res.json(report);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/corpus/games", async (req, res) => {
+  const { slug, name, niche, r2Prefix, qualityScore } = req.body ?? {};
+  if (!slug || !name || !niche || !r2Prefix) {
+    return res.status(400).json({ error: "slug, name, niche, r2Prefix are required" });
+  }
+  if (!corpusConfig.ready) {
+    return res.status(400).json({ error: "Corpus not ready", missing: corpusConfig.missing });
+  }
+  try {
+    const { getPrismaClient } = await import("./agent/corpus/postgres.ts");
+    const prisma = getPrismaClient();
+    const game = await prisma.game.upsert({
+      where: { slug },
+      update: { name, niche, r2Prefix, qualityScore: qualityScore ?? 0.7 },
+      create: { slug, name, niche, r2Prefix, qualityScore: qualityScore ?? 0.7, ingested: false },
+    });
+    res.json({ ok: true, game });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

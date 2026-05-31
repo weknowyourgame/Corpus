@@ -13,6 +13,8 @@ function getPrisma(): PrismaClient {
   return _prisma;
 }
 
+export const getPrismaClient = getPrisma;
+
 export type GameRow = {
   id: string;
   slug: string;
