@@ -4,24 +4,28 @@ import { loadCorpusConfig } from "./config.ts";
 import { buildCloudflareSetupCommands, formatCommand } from "./resources.ts";
 
 describe("Cloudflare corpus resource commands", () => {
-  it("builds R2 and Vectorize setup commands from config", () => {
-    const config = loadCorpusConfig({
-      CLOUDFLARE_R2_BUCKET: "my-games",
-      CLOUDFLARE_VECTORIZE_GAME_INDEX: "game-index",
-      CLOUDFLARE_VECTORIZE_SYSTEM_INDEX: "system-index",
-      CLOUDFLARE_VECTORIZE_SCRIPT_INDEX: "script-index",
-      CLOUDFLARE_VECTORIZE_PATTERN_INDEX: "pattern-index",
-    });
-
+  it("builds R2 bucket command first", () => {
+    const config = loadCorpusConfig({ CLOUDFLARE_R2_BUCKET: "my-games" });
     const commands = buildCloudflareSetupCommands(config);
-
-    expect(commands).toHaveLength(5);
     expect(formatCommand(commands[0])).toBe("wrangler r2 bucket create my-games");
-    expect(commands.slice(1).map(formatCommand)).toEqual([
-      "wrangler vectorize create game-index --dimensions=768 --metric=cosine",
-      "wrangler vectorize create system-index --dimensions=768 --metric=cosine",
-      "wrangler vectorize create script-index --dimensions=768 --metric=cosine",
-      "wrangler vectorize create pattern-index --dimensions=768 --metric=cosine",
-    ]);
+  });
+
+  it("builds niche Vectorize index commands with prefix", () => {
+    const config = loadCorpusConfig({
+      CLOUDFLARE_NICHE_INDEX_PREFIX: "roblox",
+      CLOUDFLARE_R2_BUCKET: "my-games",
+    });
+    const commands = buildCloudflareSetupCommands(config);
+    const indexCommands = commands.slice(1).map(formatCommand);
+    expect(indexCommands).toContain("wrangler vectorize create roblox-tower-defense --dimensions=768 --metric=cosine");
+    expect(indexCommands).toContain("wrangler vectorize create roblox-fps --dimensions=768 --metric=cosine");
+    expect(indexCommands).toContain("wrangler vectorize create roblox-general --dimensions=768 --metric=cosine");
+  });
+
+  it("uses custom prefix from env", () => {
+    const config = loadCorpusConfig({ CLOUDFLARE_NICHE_INDEX_PREFIX: "mygame" });
+    const commands = buildCloudflareSetupCommands(config);
+    const names = commands.slice(1).map((c) => c.args[2]);
+    expect(names.every((n) => n.startsWith("mygame-"))).toBe(true);
   });
 });

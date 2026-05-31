@@ -300,12 +300,18 @@ Phase 1–3 of the Roblox open-source game knowledge base plan. Currently implem
 
 | File | What it does |
 |------|-------------|
-| `config.ts` | Loads corpus env vars; `ready: false` by default; never throws when credentials are absent |
-| `resources.ts` | Generates/runs `wrangler` commands to create R2 bucket and 4 Vectorize indexes |
+| `config.ts` | Loads corpus env vars; `ready: false` by default; `nicheIndexPrefix` drives index naming |
+| `types.ts` | Shared types: `GameMeta`, `ScriptFile`, `RawChunk`, `CorpusRetrievalResult`, `VectorRecord` |
+| `cloudflare.ts` | CF REST API client: `embed`, `upsertVectors`, `queryVectors`, `putR2Object`, `getR2Object`, `createVectorizeIndex` |
+| `extract.ts` | Downloads `.lua`/`.luau` files from R2 via manifest; extracts services, remotes, symbols, requires |
+| `chunk.ts` | Builds summary + system + script chunks from extracted files |
+| `postgres.ts` | Prisma operations: `getPendingGames`, `upsertChunks`, `markGameIngested`, `resolveVectorizeIds` |
+| `ingest.ts` | Hourly cron: processes pending games from Postgres → chunks → embeds → Vectorize + R2 upsert |
+| `retrieve.ts` | Keyword niche detection → Vectorize query → Postgres resolve → R2 fetch → ranked chunks |
+| `resources.ts` | Generates `wrangler` commands to create R2 bucket + niche Vectorize indexes |
 | `schema.sql` | SQL reference (non-authoritative; `prisma/schema.prisma` is the source of truth) |
-| `README.md` | Phase docs and setup instructions |
 
-Corpus is **disabled by default** (`CORPUS_ENABLED=false`). Normal Studio usage works without any Cloudflare or Postgres credentials.
+**Vectorize indexes are niche-based** (`roblox-tower-defense`, `roblox-fps`, `roblox-obby`, etc.) created on demand per game. No license checking. Corpus disabled by default.
 
 ---
 
@@ -370,7 +376,7 @@ The plan lives at `knowledge-base/ROBLOX_OPEN_SOURCE_GAME_KNOWLEDGE_BASE_PLAN.md
 | 11 | Optional admin UI (corpus status, search preview, game list) | ❌ Not started |
 | 12 | Hosted Cloudflare Worker ingestion | ❌ Not started |
 
-**Summary: Phases 0–3 complete (infrastructure + config). Phases 4–12 not yet started (ingestion, retrieval, RAG integration, tests, UI).**
+**Summary: Phases 0–9 complete. Niche-based Vectorize indexes, cron ingestion, retrieval, async RAG integration, and tests all built and passing. To activate: set `CORPUS_ENABLED=true` + Cloudflare + Postgres creds, upload game files to R2 with `manifest.json`, insert a `Game` row with `ingested=false`, restart server.**
 
 ---
 

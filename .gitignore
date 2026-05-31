@@ -50,3 +50,5 @@ src/lib/ai/*
 # Misc
 *.tsbuildinfo
 server/studio-tokens.json
+
+games/

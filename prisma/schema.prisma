@@ -8,36 +8,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum LicenseStatus {
-  approved
-  unknown
-  blocked
-}
-
-enum TrustLevel {
-  live_project
-  curated
-  open_source
-  unknown
-}
-
-enum Complexity {
-  beginner
-  intermediate
-  advanced
-}
-
-enum PlayerMode {
-  solo
-  multiplayer
-  both
-}
-
 enum ChunkType {
   summary
   system
   script
-  pattern
 }
 
 enum ScriptType {
@@ -48,101 +22,58 @@ enum ScriptType {
   unknown
 }
 
-enum PatternDifficulty {
-  beginner
-  intermediate
-  advanced
-}
-
 model Game {
-  id            String        @id @default(uuid()) @db.Uuid
-  slug          String        @unique
-  name          String
-  sourceUrl     String?       @map("source_url")
-  license       String?
-  licenseStatus LicenseStatus @default(unknown) @map("license_status")
-  trustLevel    TrustLevel    @default(open_source) @map("trust_level")
-  genre         String?
-  subgenres     String[]      @default([])
-  complexity    Complexity?
-  playerMode    PlayerMode?   @map("player_mode")
-  mechanics     String[]      @default([])
-  services      String[]      @default([])
-  frameworks    String[]      @default([])
-  scriptCount   Int           @default(0) @map("script_count")
-  r2Prefix      String        @map("r2_prefix")
-  summaryText   String?       @map("summary_text")
-  qualityScore  Float         @default(0.5) @map("quality_score")
-  ingestedAt    DateTime      @default(now()) @map("ingested_at") @db.Timestamptz
-  chunks        CorpusChunk[]
-  patternGames  PatternGame[]
+  id           String        @id @default(uuid()) @db.Uuid
+  slug         String        @unique
+  name         String
+  niche        String
+  subniches    String[]      @default([])
+  mechanics    String[]      @default([])
+  services     String[]      @default([])
+  scriptCount  Int           @default(0) @map("script_count")
+  r2Prefix     String        @map("r2_prefix")
+  summaryText  String?       @map("summary_text")
+  qualityScore Float         @default(0.5) @map("quality_score")
+  ingested     Boolean       @default(false)
+  ingestedAt   DateTime?     @map("ingested_at") @db.Timestamptz
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  chunks       CorpusChunk[]
 
-  @@index([genre])
+  @@index([niche])
   @@index([mechanics], type: Gin)
   @@index([services], type: Gin)
   @@map("games")
 }
 
 model CorpusChunk {
-  id                 String     @id @default(uuid()) @db.Uuid
-  gameId             String     @map("game_id") @db.Uuid
-  chunkType          ChunkType  @map("chunk_type")
-  vectorizeIndex     String     @map("vectorize_index")
-  vectorizeId        String     @unique @map("vectorize_id")
-  r2Path             String     @map("r2_path")
-  title              String?
-  systemName         String?    @map("system_name")
-  systemType         String?    @map("system_type")
-  filePath           String?    @map("file_path")
-  robloxPath         String?    @map("roblox_path")
-  scriptType         ScriptType? @map("script_type")
-  lineStart          Int?       @map("line_start")
-  lineEnd            Int?       @map("line_end")
-  lineCount          Int?       @map("line_count")
-  symbols            String[]   @default([])
-  requiredModules    String[]   @default([]) @map("required_modules")
-  remotes            String[]   @default([])
-  services           String[]   @default([])
-  tags               String[]   @default([])
-  qualityScore       Float      @default(0.5) @map("quality_score")
-  sourceHash         String?    @map("source_hash")
-  duplicateClusterId String?    @map("duplicate_cluster_id")
-  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz
-  game               Game       @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  id              String      @id @default(uuid()) @db.Uuid
+  gameId          String      @map("game_id") @db.Uuid
+  chunkType       ChunkType   @map("chunk_type")
+  vectorizeIndex  String      @map("vectorize_index")
+  vectorizeId     String      @unique @map("vectorize_id")
+  r2Path          String      @map("r2_path")
+  title           String?
+  systemName      String?     @map("system_name")
+  filePath        String?     @map("file_path")
+  robloxPath      String?     @map("roblox_path")
+  scriptType      ScriptType? @map("script_type")
+  lineStart       Int?        @map("line_start")
+  lineEnd         Int?        @map("line_end")
+  symbols         String[]    @default([])
+  requiredModules String[]    @default([]) @map("required_modules")
+  remotes         String[]    @default([])
+  services        String[]    @default([])
+  tags            String[]    @default([])
+  qualityScore    Float       @default(0.5) @map("quality_score")
+  sourceHash      String?     @map("source_hash")
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  game            Game        @relation(fields: [gameId], references: [id], onDelete: Cascade)
 
   @@index([gameId])
-  @@index([chunkType])
+  @@index([vectorizeIndex])
   @@index([vectorizeId])
   @@index([services], type: Gin)
   @@index([symbols], type: Gin)
   @@index([remotes], type: Gin)
   @@map("chunks")
-}
-
-model Pattern {
-  id             String             @id @default(uuid()) @db.Uuid
-  patternName    String             @map("pattern_name")
-  category       String?
-  difficulty     PatternDifficulty?
-  vectorizeId    String             @unique @map("vectorize_id")
-  r2Path         String             @map("r2_path")
-  description    String?
-  services       String[]           @default([])
-  appearsInCount Int                @default(0) @map("appears_in_count")
-  qualityScore   Float              @default(0.5) @map("quality_score")
-  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz
-  patternGames   PatternGame[]
-
-  @@index([services], type: Gin)
-  @@map("patterns")
-}
-
-model PatternGame {
-  patternId String  @map("pattern_id") @db.Uuid
-  gameId    String  @map("game_id") @db.Uuid
-  pattern   Pattern @relation(fields: [patternId], references: [id], onDelete: Cascade)
-  game      Game    @relation(fields: [gameId], references: [id], onDelete: Cascade)
-
-  @@id([patternId, gameId])
-  @@map("pattern_games")
 }

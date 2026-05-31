@@ -1,20 +1,28 @@
 import { globalScriptIndexer } from "./retrieval.ts";
 import { retrieveDocs } from "./docs.ts";
+import { retrieveCorpusContext } from "./corpus/retrieve.ts";
 
 const MAX_SOURCE_CHARS = 2000;
 
-export function buildRagContext(
+export async function buildRagContext(
   query: string,
   sessionId: string,
   opts: { codeLimit?: number; docLimit?: number } = {},
-): string | null {
+  signal?: AbortSignal,
+): Promise<string | null> {
   const { codeLimit = 5, docLimit = 2 } = opts;
   const codeChunks = globalScriptIndexer.retrieve(sessionId, query, codeLimit);
   const docChunks = retrieveDocs(query, docLimit);
-  if (!codeChunks.length && !docChunks.length) return null;
+
+  const corpusResult = await retrieveCorpusContext({ query, signal }).catch((err) => {
+    console.warn("[rag] corpus retrieval failed:", err);
+    return { chunks: [], detectedNiche: null, totalFound: 0 };
+  });
+
+  if (!codeChunks.length && !docChunks.length && !corpusResult.chunks.length) return null;
 
   const lines: string[] = ["<roblox_retrieved_context>"];
-  lines.push("Authority order: live project > official docs. Prefer project context over examples.");
+  lines.push("Authority order: live project > official Roblox docs > open-source corpus. Prefer live project above all.");
 
   if (codeChunks.length) {
     lines.push("\n[Live Studio project scripts]");
@@ -36,6 +44,19 @@ export function buildRagContext(
     for (const doc of docChunks) {
       lines.push(`\ntopic: ${doc.topic}`);
       lines.push(doc.content);
+    }
+  }
+
+  if (corpusResult.chunks.length) {
+    lines.push("\n[Open-source Roblox corpus examples]");
+    lines.push("Reference only — adapt to the live project's architecture, never blindly copy.");
+    for (const chunk of corpusResult.chunks) {
+      lines.push(`\ngame: ${chunk.gameName} | niche: ${chunk.niche} | type: ${chunk.chunkType} | quality: ${chunk.qualityScore.toFixed(2)}`);
+      if (chunk.robloxPath) lines.push(`path: ${chunk.robloxPath}`);
+      if (chunk.services.length) lines.push(`services: ${chunk.services.join(", ")}`);
+      lines.push("```luau");
+      lines.push(chunk.content);
+      lines.push("```");
     }
   }
 

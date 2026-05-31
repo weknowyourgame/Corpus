@@ -7,35 +7,37 @@ export type SetupCommand = {
   args: string[];
 };
 
+const KNOWN_NICHES = [
+  "tower-defense",
+  "fps",
+  "obby",
+  "rpg",
+  "simulator",
+  "tycoon",
+  "battle-royale",
+  "horror",
+  "racing",
+  "social",
+  "general",
+];
+
 export function buildCloudflareSetupCommands(config: CorpusConfig): SetupCommand[] {
-  const indexes = config.cloudflare.vectorizeIndexes;
-  return [
+  const prefix = config.cloudflare.nicheIndexPrefix;
+  const commands: SetupCommand[] = [
     {
       label: "Create R2 bucket",
       command: "wrangler",
       args: ["r2", "bucket", "create", config.cloudflare.r2Bucket],
     },
-    {
-      label: "Create game summary Vectorize index",
-      command: "wrangler",
-      args: ["vectorize", "create", indexes.gameSummaries, "--dimensions=768", "--metric=cosine"],
-    },
-    {
-      label: "Create systems Vectorize index",
-      command: "wrangler",
-      args: ["vectorize", "create", indexes.systems, "--dimensions=768", "--metric=cosine"],
-    },
-    {
-      label: "Create scripts Vectorize index",
-      command: "wrangler",
-      args: ["vectorize", "create", indexes.scripts, "--dimensions=768", "--metric=cosine"],
-    },
-    {
-      label: "Create patterns Vectorize index",
-      command: "wrangler",
-      args: ["vectorize", "create", indexes.patterns, "--dimensions=768", "--metric=cosine"],
-    },
   ];
+  for (const niche of KNOWN_NICHES) {
+    commands.push({
+      label: `Create Vectorize index for niche: ${niche}`,
+      command: "wrangler",
+      args: ["vectorize", "create", `${prefix}-${niche}`, "--dimensions=768", "--metric=cosine"],
+    });
+  }
+  return commands;
 }
 
 export function formatCommand(command: SetupCommand): string {
@@ -61,11 +63,11 @@ function main() {
   const commands = buildCloudflareSetupCommands(config);
 
   if (!execute) {
-    console.log("Cloudflare corpus setup commands:");
-    console.log("Run with --execute to execute them through wrangler.\n");
+    console.log("Cloudflare corpus setup commands (run with --execute to apply):\n");
     for (const command of commands) {
       console.log(`# ${command.label}`);
       console.log(formatCommand(command));
+      console.log();
     }
     return;
   }

@@ -267,7 +267,7 @@ export class AgentRuntime {
             }
           }
 
-          const ragBlock = buildRagContext(userText, conversation.studioSessionId);
+          const ragBlock = await buildRagContext(userText, conversation.studioSessionId, {}, active.controller.signal);
           const parts = [mentionBlock, ragBlock].filter(Boolean);
           if (parts.length) contextBlock = parts.join("\n\n");
         }
