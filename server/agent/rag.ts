@@ -18,6 +18,12 @@ export async function buildRagContext(
     console.warn("[rag] corpus retrieval failed:", err);
     return { chunks: [], detectedNiche: null, totalFound: 0 };
   });
+  if (corpusResult.chunks.length) {
+    console.log(`[rag] injecting ${corpusResult.chunks.length} corpus chunk(s), detectedNiche=${corpusResult.detectedNiche ?? "none"}, totalFound=${corpusResult.totalFound}`);
+    for (const chunk of corpusResult.chunks) {
+      console.log(`[rag] corpus chunk score=${chunk.score.toFixed(4)} game="${chunk.gameName}" niche=${chunk.niche} type=${chunk.chunkType} path=${chunk.robloxPath ?? chunk.r2Path} chars=${chunk.content.length}`);
+    }
+  }
 
   if (!codeChunks.length && !docChunks.length && !corpusResult.chunks.length) return null;
 

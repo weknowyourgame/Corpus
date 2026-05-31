@@ -14,7 +14,7 @@ import { createHash, randomBytes } from "node:crypto";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TOKENS_FILE = join(__dirname, "studio-tokens.json");
-import { DevelopmentConversationStore, MemoryConversationStore } from "./agent/store.ts";
+import { DevelopmentConversationStore, MemoryConversationStore, PostgresConversationStore } from "./agent/store.ts";
 import { AgentRuntime } from "./agent/runtime.ts";
 import { RobloxStudioMcpGateway } from "./agent/tools.ts";
 import { OpenCloudClient } from "./agent/open-cloud.ts";
@@ -28,6 +28,7 @@ import { PluginRelayTransport } from "./agent/studio-transport.ts";
 import { runIngestion } from "./agent/corpus/ingest.ts";
 import { corpusConfig } from "./agent/corpus/config.ts";
 import { getPendingGames } from "./agent/corpus/postgres.ts";
+import { getPrismaClient } from "./agent/prisma.ts";
 
 try {
   process.loadEnvFile?.(".env");
@@ -54,8 +55,16 @@ const studioTokens = new Map();
 const digestToken = (token) => createHash("sha256").update(token).digest("hex");
 const newSessionId = () => randomBytes(6).toString("base64url").replace(/[^A-Za-z0-9]/g, "").slice(0, 8).toUpperCase();
 
-/** Load persisted tokens from disk so server restarts don't break existing setups */
-const loadTokens = () => {
+/** Load persisted tokens so server restarts don't break existing Studio setups. */
+const loadTokens = async () => {
+  if (process.env.DATABASE_URL) {
+    const rows = await getPrismaClient().studioToken.findMany({ where: { revokedAt: null } });
+    for (const row of rows) {
+      studioTokens.set(row.tokenHash, { createdAt: row.createdAt.getTime(), sessionId: row.sessionId });
+    }
+    if (studioTokens.size) console.log(`[Stud] Loaded ${studioTokens.size} studio token(s) from Postgres`);
+    return;
+  }
   try {
     const data = JSON.parse(readFileSync(TOKENS_FILE, "utf8"));
     for (const [key, entry] of Object.entries(data)) {
@@ -69,10 +78,35 @@ const loadTokens = () => {
 };
 
 const saveTokens = () => {
+  if (process.env.DATABASE_URL) return;
   writeFileSync(TOKENS_FILE, JSON.stringify(Object.fromEntries(studioTokens), null, 2));
 };
 
-loadTokens();
+await loadTokens();
+
+const persistStudioToken = async (hash, sessionId) => {
+  if (!process.env.DATABASE_URL) {
+    saveTokens();
+    return;
+  }
+  await getPrismaClient().studioToken.upsert({
+    where: { tokenHash: hash },
+    update: { sessionId, revokedAt: null },
+    create: { tokenHash: hash, sessionId },
+  });
+};
+
+const revokeStudioToken = async (hash) => {
+  studioTokens.delete(hash);
+  if (!process.env.DATABASE_URL) {
+    saveTokens();
+    return;
+  }
+  await getPrismaClient().studioToken.updateMany({
+    where: { tokenHash: hash, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
+};
 
 const bearer = (req) => {
   const header = req.header("authorization") || "";
@@ -242,11 +276,14 @@ class FinalToolRegistry {
 
 const allTools = new FinalToolRegistry(combinedTools, subagentTool);
 
-// Durable on-disk snapshot+JSONL conversation store. Tests opt back into
-// MemoryConversationStore by setting STUD_AGENT_STORE=memory.
-const conversationStore = process.env.STUD_AGENT_STORE === "memory"
-  ? new MemoryConversationStore()
-  : new DevelopmentConversationStore();
+const createConversationStore = () => {
+  if (process.env.STUD_AGENT_STORE === "memory") return new MemoryConversationStore();
+  if (process.env.STUD_AGENT_STORE === "file") return new DevelopmentConversationStore();
+  if (process.env.DATABASE_URL) return new PostgresConversationStore();
+  return new DevelopmentConversationStore();
+};
+
+const conversationStore = createConversationStore();
 const agentRuntime = new AgentRuntime(
   conversationStore,
   createModelDriverFactory(allTools),
@@ -283,22 +320,22 @@ const buildStudioStatus = (session) => {
 // --- Studio token endpoints ---
 
 /** Generate a new studio token. Pass { oldToken } in the body to revoke the previous one. */
-app.post("/auth/studio-token/generate", (req, res) => {
+app.post("/auth/studio-token/generate", async (req, res) => {
   const oldToken = req.body?.oldToken;
-  if (oldToken) studioTokens.delete(digestToken(String(oldToken)));
+  if (oldToken) await revokeStudioToken(digestToken(String(oldToken)));
   const token = randomBytes(32).toString("base64url");
   const sessionId = newSessionId();
-  studioTokens.set(digestToken(token), { createdAt: Date.now(), sessionId });
-  saveTokens();
+  const hash = digestToken(token);
+  studioTokens.set(hash, { createdAt: Date.now(), sessionId });
+  await persistStudioToken(hash, sessionId);
   res.json({ token, sessionId });
 });
 
 /** Revoke a token explicitly (called when user clears their token in the web app) */
-app.post("/auth/studio-token/revoke", (req, res) => {
+app.post("/auth/studio-token/revoke", async (req, res) => {
   const auth = requireToken(req, res);
   if (!auth) return;
-  studioTokens.delete(auth.hash);
-  saveTokens();
+  await revokeStudioToken(auth.hash);
   res.json({ ok: true });
 });
 

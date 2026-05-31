@@ -28,33 +28,66 @@ function detectNiche(query: string): { niche: string | null; confidence: number 
   return { niche: best, confidence: bestScore };
 }
 
+const preview = (text: string) => text.replace(/\s+/g, " ").trim().slice(0, 120);
+const log = (config: CorpusConfig, message: string, extra?: unknown) => {
+  if (!config.logRetrieval) return;
+  if (extra === undefined) {
+    console.log(`[corpus:retrieve] ${message}`);
+    return;
+  }
+  console.log(`[corpus:retrieve] ${message}`, extra);
+};
+
 export async function retrieveCorpusContext(
   input: { query: string; maxChunks?: number; signal?: AbortSignal },
   config: CorpusConfig = corpusConfig,
 ): Promise<CorpusRetrievalResult> {
-  if (!config.ready) return { chunks: [], detectedNiche: null, totalFound: 0 };
+  if (!config.ready) {
+    log(config, `skipped; corpus disabled or missing env (${config.missing.join(", ") || "not enabled"})`);
+    return { chunks: [], detectedNiche: null, totalFound: 0 };
+  }
 
   const maxChunks = input.maxChunks ?? config.maxChunks;
   const { niche, confidence } = detectNiche(input.query);
+  log(config, `query="${preview(input.query)}" maxChunks=${maxChunks} detectedNiche=${niche ?? "none"} confidence=${confidence}`);
 
   let vector: number[];
   try {
+    log(config, `embedding query with ${config.cloudflare.workersAiEmbedModel}`);
     vector = await embed(input.query, config);
+    log(config, `embedding complete dims=${vector.length}`);
   } catch (err) {
     console.warn("[corpus:retrieve] embed failed:", err);
     return { chunks: [], detectedNiche: niche, totalFound: 0 };
   }
 
   const prefix = config.cloudflare.nicheIndexPrefix;
-  const searches: Promise<{ id: string; score: number; metadata: Record<string, string | number | boolean> }[]>[] = [];
+  const searches: Promise<{ indexName: string; matches: { id: string; score: number; metadata: Record<string, string | number | boolean> }[] }>[] = [];
 
-  if (niche) searches.push(queryVectors(`${prefix}-${niche}`, vector, 12, config).catch(() => []));
+  const searchIndex = async (indexName: string, topK: number) => {
+    log(config, `Vectorize query index=${indexName} topK=${topK}`);
+    const matches = await queryVectors(indexName, vector, topK, config).catch((err) => {
+      log(config, `Vectorize query failed index=${indexName}: ${err instanceof Error ? err.message : String(err)}`);
+      return [];
+    });
+    log(config, `Vectorize returned ${matches.length} match(es) from ${indexName}`);
+    for (const match of matches.slice(0, 8)) {
+      log(config, `  match id=${match.id} score=${match.score.toFixed(4)} game=${String(match.metadata.gameName ?? match.metadata.gameSlug ?? "?")} type=${String(match.metadata.chunkType ?? "?")} path=${String(match.metadata.robloxPath ?? match.metadata.r2Path ?? "")}`);
+    }
+    return { indexName, matches };
+  };
+
+  if (niche) searches.push(searchIndex(`${prefix}-${niche}`, 12));
   if (!niche || confidence < 2) {
-    searches.push(queryVectors(`${prefix}-general`, vector, 8, config).catch(() => []));
+    searches.push(searchIndex(`${prefix}-general`, 8));
   }
 
-  const allMatches = (await Promise.all(searches)).flat();
-  if (!allMatches.length) return { chunks: [], detectedNiche: niche, totalFound: 0 };
+  const searched = await Promise.all(searches);
+  const allMatches = searched.flatMap((result) => result.matches);
+  if (!allMatches.length) {
+    log(config, "no Vectorize matches; returning no corpus chunks");
+    return { chunks: [], detectedNiche: niche, totalFound: 0 };
+  }
 
   const seen = new Map<string, typeof allMatches[number]>();
   for (const r of allMatches) {
@@ -62,10 +95,13 @@ export async function retrieveCorpusContext(
     if (!existing || r.score > existing.score) seen.set(r.id, r);
   }
   const deduped = [...seen.values()].sort((a, b) => b.score - a.score);
+  log(config, `deduped ${allMatches.length} match(es) -> ${deduped.length} unique vector id(s)`);
 
   let resolved: Awaited<ReturnType<typeof resolveVectorizeIds>>;
   try {
+    log(config, `resolving ${deduped.length} vector id(s) in Postgres`);
     resolved = await resolveVectorizeIds(deduped.map((r) => r.id));
+    log(config, `Postgres resolved ${resolved.size}/${deduped.length} vector id(s)`);
   } catch (err) {
     console.warn("[corpus:retrieve] postgres resolve failed:", err);
     return { chunks: [], detectedNiche: niche, totalFound: 0 };
@@ -77,15 +113,23 @@ export async function retrieveCorpusContext(
   for (const match of deduped) {
     if (chunks.length >= maxChunks) break;
     const meta = resolved.get(match.id);
-    if (!meta) continue;
+    if (!meta) {
+      log(config, `skip id=${match.id}; no Postgres row`);
+      continue;
+    }
 
     let content: string | null;
     try {
+      log(config, `fetching R2 chunk id=${match.id} r2=${meta.r2Path}`);
       content = await getR2Object(meta.r2Path, config);
-    } catch {
+    } catch (err) {
+      log(config, `R2 fetch failed id=${match.id} r2=${meta.r2Path}: ${err instanceof Error ? err.message : String(err)}`);
       continue;
     }
-    if (!content) continue;
+    if (!content) {
+      log(config, `skip id=${match.id}; empty/missing R2 content r2=${meta.r2Path}`);
+      continue;
+    }
 
     const budget = config.contextMaxChars - totalChars;
     if (budget <= 0) break;
@@ -106,7 +150,9 @@ export async function retrieveCorpusContext(
       content: sliced,
       qualityScore: meta.qualityScore,
     });
+    log(config, `selected chunk #${chunks.length} score=${match.score.toFixed(4)} game="${meta.gameName}" niche=${meta.niche} type=${String(vmeta.chunkType ?? "script")} chars=${sliced.length}/${content.length} r2=${meta.r2Path}`);
   }
 
+  log(config, `done selected=${chunks.length} totalFound=${deduped.length} totalChars=${totalChars}`);
   return { chunks, detectedNiche: niche, totalFound: deduped.length };
 }

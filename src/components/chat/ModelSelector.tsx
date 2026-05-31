@@ -22,7 +22,10 @@ interface OpenRouterModel {
 }
 
 async function fetchModels(): Promise<OpenRouterModel[]> {
-  const res = await fetch(bridgeUrl("/agent/models"));
+  const headers = new Headers();
+  const devToken = localStorage.getItem("stud_dev_mode_token") || (import.meta.env.VITE_STUD_DEV_MODE_TOKEN as string | undefined) || "";
+  if (devToken) headers.set("X-Stud-Dev-Token", devToken);
+  const res = await fetch(bridgeUrl("/agent/models"), { headers });
   if (!res.ok) return [];
   const data = await res.json() as { models: OpenRouterModel[] };
   return data.models ?? [];
@@ -31,9 +34,10 @@ async function fetchModels(): Promise<OpenRouterModel[]> {
 interface ModelSelectorProps {
   className?: string;
   disabled?: boolean;
+  allowDevMode?: boolean;
 }
 
-export function ModelSelector({ className, disabled }: ModelSelectorProps) {
+export function ModelSelector({ className, disabled, allowDevMode = false }: ModelSelectorProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [models, setModels] = useState<OpenRouterModel[]>([]);
@@ -43,10 +47,16 @@ export function ModelSelector({ className, disabled }: ModelSelectorProps) {
 
   // Fetch models when dev mode is on and popover opens
   useEffect(() => {
-    if (!devMode || !open || models.length > 0) return;
+    if (!allowDevMode || !devMode || !open || models.length > 0) return;
     setLoading(true);
     fetchModels().then((m) => { setModels(m); setLoading(false); });
-  }, [devMode, open, models.length]);
+  }, [allowDevMode, devMode, open, models.length]);
+
+  useEffect(() => {
+    if (allowDevMode || !devMode) return;
+    setDevMode(false);
+    setDevModel("");
+  }, [allowDevMode, devMode, setDevMode, setDevModel]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return models;
@@ -78,20 +88,24 @@ export function ModelSelector({ className, disabled }: ModelSelectorProps) {
         className="stud-popover w-72 p-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        {/* Dev mode toggle */}
-        <div className="flex items-center justify-between px-3 py-2.5 border-b">
-          <div className="flex items-center gap-2">
-            <Terminal className="w-3.5 h-3.5 text-amber-500" />
-            <span className="text-xs font-medium">Dev mode</span>
+        {allowDevMode && (
+          <div className="flex items-center justify-between px-3 py-2.5 border-b">
+            <div className="flex items-center gap-2">
+              <Terminal className="w-3.5 h-3.5 text-amber-500" />
+              <span className="text-xs font-medium">Dev mode</span>
+            </div>
+            <Switch
+              checked={devMode}
+              onCheckedChange={(on) => {
+                setDevMode(on);
+                if (!on) {
+                  setSearch("");
+                  setDevModel("");
+                }
+              }}
+            />
           </div>
-          <Switch
-            checked={devMode}
-            onCheckedChange={(on) => {
-              setDevMode(on);
-              if (!on) setSearch("");
-            }}
-          />
-        </div>
+        )}
 
         {devMode ? (
           <>

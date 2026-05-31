@@ -44,7 +44,7 @@ import {
 import { useAppShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { cn } from "@/lib/utils";
 import { StudioToken } from "@/components/StudioToken";
-import { ArrowUp, Square, CheckCircle2, Download, FolderOpen, RefreshCw, Box, FileText, Play, ListTodo } from "lucide-react";
+import { ArrowUp, Square, CheckCircle2, Download, FolderOpen, RefreshCw, Box, FileText, Play, ListTodo, Terminal } from "lucide-react";
 
 const SUGGESTIONS = [
   // Gameplay systems
@@ -294,11 +294,33 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
   );
 }
 
+function DevModeHeaderToggle({
+  active,
+  onToggle,
+}: {
+  active: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={cn("stud-icon-btn nav-button", active && "is-primary")}
+      onClick={onToggle}
+      aria-pressed={active}
+      aria-label={active ? "Disable dev mode" : "Enable dev mode"}
+      title={active ? "Disable dev mode" : "Enable dev mode"}
+    >
+      <Terminal className="h-4 w-4" />
+    </button>
+  );
+}
+
 export function Home() {
   const [input, setInput] = useState("");
   const [activeChips, setActiveChips] = useState<ChipAction[]>([]);
   const [displayedSuggestions, setDisplayedSuggestions] = useState<string[]>([]);
   const [gatewayReady, setGatewayReady] = useState(false);
+  const [devModeAllowed, setDevModeAllowed] = useState(false);
   const [pendingApproval, setPendingApproval] = useState<ApprovalRequest | null>(null);
   const [mutationResults, setMutationResults] = useState<Array<MutationResult & { id: string }>>([]);
   const [runNotice, setRunNotice] = useState<string | null>(null);
@@ -320,7 +342,7 @@ export function Home() {
     clearMessages,
     replaceMessages,
   } = useChatStore();
-  const { selectedTier, devMode, devModel } = useSettingsStore();
+  const { selectedTier, devMode, devModel, setDevMode, setDevModel } = useSettingsStore();
   const { status: studioStatus, transport: studioTransport, startPolling } = useRobloxStore();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const requestApproval = useCallback((approval: ApprovalRequest) => new Promise<ApprovalDecision>((resolve) => {
@@ -368,7 +390,14 @@ export function Home() {
   }, [messages.length === 0]);
 
   useEffect(() => {
-    void getServerProviderConfig().then((cfg) => setGatewayReady(cfg.ready ?? false));
+    void getServerProviderConfig().then((cfg) => {
+      setGatewayReady(cfg.ready ?? false);
+      setDevModeAllowed(cfg.devModeAllowed === true);
+      if (!cfg.devModeAllowed) {
+        setDevMode(false);
+        setDevModel("");
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -431,6 +460,12 @@ export function Home() {
   const hasConfiguredProvider = gatewayReady;
   const hasAnyServerProvider = gatewayReady;
   const isConnected = studioStatus === "connected";
+  const toggleDevMode = useCallback(() => {
+    if (!devModeAllowed) return;
+    const next = !devMode;
+    setDevMode(next);
+    if (!next) setDevModel("");
+  }, [devModeAllowed, devMode, setDevMode, setDevModel]);
 
   const handleSubmit = useCallback(async () => {
     if (!input.trim() || isStreaming) return;
@@ -499,14 +534,14 @@ export function Home() {
           setError(error.message);
           setStreaming(false);
         },
-      }, devMode && devModel ? devModel : undefined);
+      }, devModeAllowed && devMode && devModel ? devModel : undefined);
     } catch (error) {
       console.error("[Home] Chat error:", error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       setError(errorMessage);
       setStreaming(false);
     }
-  }, [input, isStreaming, activeChips, addMessage, updateMessage, addToolCall, updateToolCall, setStreaming, setError, selectedTier, devMode, devModel, setPendingQuestion, setQuestionResolver, requestApproval]);
+  }, [input, isStreaming, activeChips, addMessage, updateMessage, addToolCall, updateToolCall, setStreaming, setError, selectedTier, devModeAllowed, devMode, devModel, setPendingQuestion, setQuestionResolver, requestApproval]);
 
   const handleSuggestionClick = (suggestion: string) => {
     setInput(suggestion);
@@ -547,7 +582,7 @@ export function Home() {
         <InstancePicker onSelect={(path) => setInput((prev) => prev + `@${path} `)} />
       </div>
       <div className="flex items-center gap-2">
-        <ModelSelector disabled={!hasAnyServerProvider} />
+        <ModelSelector disabled={!hasAnyServerProvider} allowDevMode={devModeAllowed} />
         <button
           type="button"
           className={cn("stud-icon-btn", input.trim() && !isStreaming && hasConfiguredProvider && "is-primary")}
@@ -569,7 +604,16 @@ export function Home() {
     return (
       <div className="stud-app-shell stud-workbench">
         <div className="stud-atmosphere" aria-hidden="true" />
-        <StudAppHeader status={studioStatus} transport={studioTransport} trailing={<SettingsDialog />} />
+        <StudAppHeader
+          status={studioStatus}
+          transport={studioTransport}
+          trailing={
+            <>
+              {devModeAllowed && <DevModeHeaderToggle active={devMode} onToggle={toggleDevMode} />}
+              <SettingsDialog />
+            </>
+          }
+        />
         <main className="stud-app-main stud-welcome-layout">
           <div className="stud-welcome-card">
             <div className="stud-welcome-heading">
@@ -636,6 +680,7 @@ export function Home() {
         compact
         trailing={
           <>
+            {devModeAllowed && <DevModeHeaderToggle active={devMode} onToggle={toggleDevMode} />}
             <ChatActions onClear={handleClearChat} disabled={messages.length === 0 || isStreaming} />
             <SettingsDialog />
           </>

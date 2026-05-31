@@ -2,6 +2,7 @@ export type CorpusConfig = {
   enabled: boolean;
   maxChunks: number;
   contextMaxChars: number;
+  logRetrieval: boolean;
   cloudflare: {
     accountId: string;
     apiToken: string;
@@ -50,6 +51,7 @@ export function loadCorpusConfig(env: NodeJS.ProcessEnv = process.env): CorpusCo
     enabled,
     maxChunks: int(env.CORPUS_MAX_CHUNKS, DEFAULT_MAX_CHUNKS),
     contextMaxChars: int(env.CORPUS_CONTEXT_MAX_CHARS, DEFAULT_CONTEXT_MAX_CHARS),
+    logRetrieval: bool(env.CORPUS_LOG_RETRIEVAL),
     cloudflare,
     databaseUrl,
     ready: enabled && missing.length === 0,

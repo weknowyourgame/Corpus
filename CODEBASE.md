@@ -70,7 +70,8 @@ stud/
 │       ├── drivers.ts          # ModelDriver factory (Anthropic / OpenAI abstraction)
 │       ├── gateway-driver.ts   # Driver for Stud's own gateway API
 │       ├── ai-config.ts        # AI model config loader
-│       ├── store.ts            # ConversationStore (file-based persistence)
+│       ├── store.ts            # ConversationStore (Postgres default, file/memory fallbacks)
+│       ├── prisma.ts           # Shared Prisma client / pg adapter
 │       ├── playtest.ts         # Playtest session management
 │       ├── playtest-tools.ts   # Tools for playtest control
 │       ├── toolbox.ts          # Roblox toolbox search / asset insert
@@ -282,7 +283,12 @@ Subagents are read-only; their proposals are executed by the parent agent.
 
 ### `store.ts` — ConversationStore
 
-File-based persistence under `.stud/agent-conversations/`. Each conversation is a JSON snapshot. Events are appended to a separate `.jsonl` file for efficient streaming. On startup, `recoverFromCrash()` marks any `running` runs as `error`.
+Durable persistence for agent conversations, runs, events, approvals, plans, and audit logs.
+
+- **Default:** `PostgresConversationStore` is selected automatically when `DATABASE_URL` exists.
+- **Fallbacks:** set `STUD_AGENT_STORE=file` for `.stud/agent-conversations/` JSON snapshot + JSONL event logs, or `STUD_AGENT_STORE=memory` for tests/dev-only memory state.
+- **Postgres layout:** `agent_conversations` stores conversation snapshots; `agent_events` stores append-only streamed/runtime events by `conversation_id + sequence`.
+- **Crash recovery:** `recoverFromCrash()` cancels stale running runs and clears pending approvals/interactions so reconnecting clients do not see ghost prompts.
 
 ### `drivers.ts` — Model Drivers
 
@@ -317,11 +323,29 @@ Phase 1–3 of the Roblox open-source game knowledge base plan. Currently implem
 
 ## Prisma Schema (`prisma/schema.prisma`)
 
-Three main models for the corpus knowledge base:
+Core app persistence:
+
+- **`AgentConversation` / `agent_conversations`** — one row per chat/Studio session conversation: Studio session id, access token hash, messages, runs, approved scopes, audit events, pending approvals/interactions, and plan state.
+- **`AgentEventLog` / `agent_events`** — append-only event stream for SSE/runtime events (`text_delta`, `tool_call`, `tool_result`, approvals, run completion, errors).
+- **`StudioToken` / `studio_tokens`** — hashed Studio plugin tokens and session ids. Active tokens load from Postgres on server boot; JSON file persistence is only used when `DATABASE_URL` is absent.
+- **`AppUser` / `users`** — product user records, including optional email/profile fields and a dev-only anonymous flag.
+- **`UserSettings` / `user_settings`** — persisted app/model settings per user.
+- **`ProviderCredential` / `provider_credentials`** — encrypted per-user provider credentials metadata/storage scaffold for future user-owned model keys.
+
+### Dev Mode Guard
+
+- Dev mode/model override is disabled unless `STUD_DEV_MODE_ENABLED=true`.
+- If `STUD_DEV_MODE_TOKEN` is set, server routes require `X-Stud-Dev-Token` before exposing model lists or accepting `devModel`.
+- The header dev-mode toggle is only rendered when `/agent/config` returns `devModeAllowed: true`; turning it off clears the selected dev model and returns to normal tier routing.
+
+Corpus knowledge base:
 
 - **`Game`** — one row per open-source game: slug, name, genre, mechanics[], services[], quality_score, R2 prefix, trust_level, license_status
 - **`Chunk`** — one per vector chunk: game_id, chunk_type (summary/system/script/pattern), vectorize_id, r2_path, file_path, roblox_path, script_type, symbols[], services[], quality_score
-- **`Pattern`** — cross-game distilled patterns: pattern_name, category, vectorize_id, r2_path
+
+Corpus retrieval logging:
+
+- Set `CORPUS_LOG_RETRIEVAL=true` to log live corpus retrieval stages: query/niche detection, Workers AI embedding, Vectorize indexes queried, returned matches, Postgres vector id resolution, R2 chunk fetches, selected chunks, and final RAG injection.
 
 Scripts: `db:generate`, `db:migrate`, `db:migrate:deploy`, `db:studio`
 
@@ -394,6 +418,7 @@ STUD_GATEWAY_KEY=
 
 # Corpus (all optional — corpus disabled unless CORPUS_ENABLED=true)
 CORPUS_ENABLED=false
+CORPUS_LOG_RETRIEVAL=false
 CORPUS_ALLOW_UNKNOWN_LICENSE=false
 CORPUS_MAX_CHUNKS=8
 CORPUS_CONTEXT_MAX_CHARS=12000
@@ -408,6 +433,10 @@ CLOUDFLARE_VECTORIZE_PATTERN_INDEX=roblox-patterns
 CLOUDFLARE_WORKERS_AI_EMBED_MODEL=@cf/baai/bge-base-en-v1.5
 
 DATABASE_URL=
+STUD_AGENT_STORE=postgres|file|memory  # optional override; default uses Postgres when DATABASE_URL exists
+STUD_DEV_MODE_ENABLED=false            # true only in the developer/private environment
+STUD_DEV_MODE_TOKEN=                   # optional server-side secret required for dev mode/model list
+VITE_STUD_DEV_MODE_TOKEN=              # optional local-dev convenience; do not set in public builds
 ```
 
 ---
@@ -426,6 +455,7 @@ npm run test:run               # vitest (single run)
 
 # Corpus / DB
 npm run db:generate            # bunx prisma generate
+
 npm run db:migrate             # bunx prisma migrate dev
 npm run db:migrate:deploy      # bunx prisma migrate deploy
 npm run db:studio              # Prisma Studio UI
@@ -519,6 +549,12 @@ Next.js 16.2.6 (App Router) marketing landing page for Stud. Deployed to Cloudfl
 - **`src/app/layout.tsx`** — Minimal App Router layout with metadata (title, icons).
 - **`public/stud/assets/`** — Images, video clips, fonts served at `/stud/assets/...` paths.
 - No server-side code, no API routes, no ISR — purely client-rendered.
+
+---
+
+## Product Planning Docs
+
+- **`MVP_NEXT_STEPS.md`** — Product-ready MVP checklist for Stud, including architecture decision, must-have build phases, database/storage notes, smoke tests, deferred features, and copy-paste prompts for future implementation runs.
 
 ---
 

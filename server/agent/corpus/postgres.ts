@@ -1,19 +1,5 @@
-import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import pg from "pg";
 import type { RawChunk } from "./types.ts";
-
-let _prisma: PrismaClient | null = null;
-
-function getPrisma(): PrismaClient {
-  if (_prisma) return _prisma;
-  const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-  const adapter = new PrismaPg(pool);
-  _prisma = new PrismaClient({ adapter } as ConstructorParameters<typeof PrismaClient>[0]);
-  return _prisma;
-}
-
-export const getPrismaClient = getPrisma;
+import { getPrismaClient } from "../prisma.ts";
 
 export type GameRow = {
   id: string;
@@ -29,13 +15,13 @@ export type GameRow = {
 };
 
 export async function getPendingGames(): Promise<GameRow[]> {
-  const prisma = getPrisma();
+  const prisma = getPrismaClient();
   const rows = await prisma.game.findMany({ where: { ingested: false } });
   return rows as unknown as GameRow[];
 }
 
 export async function upsertChunks(chunks: RawChunk[], gameId: string): Promise<void> {
-  const prisma = getPrisma();
+  const prisma = getPrismaClient();
   for (const chunk of chunks) {
     await prisma.corpusChunk.upsert({
       where: { vectorizeId: chunk.id },
@@ -76,7 +62,7 @@ export async function upsertChunks(chunks: RawChunk[], gameId: string): Promise<
 }
 
 export async function markGameIngested(gameId: string, scriptCount: number): Promise<void> {
-  const prisma = getPrisma();
+  const prisma = getPrismaClient();
   await prisma.game.update({
     where: { id: gameId },
     data: { ingested: true, ingestedAt: new Date(), scriptCount },
@@ -94,7 +80,7 @@ type ResolvedChunk = {
 
 export async function resolveVectorizeIds(ids: string[]): Promise<Map<string, ResolvedChunk>> {
   if (!ids.length) return new Map();
-  const prisma = getPrisma();
+  const prisma = getPrismaClient();
   const chunks = await prisma.corpusChunk.findMany({
     where: { vectorizeId: { in: ids } },
     include: { game: { select: { name: true, niche: true } } },

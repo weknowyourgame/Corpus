@@ -17,6 +17,12 @@ const startSchema = z.object({
 const answerSchema = z.object({ answers: z.array(z.union([z.string(), z.array(z.string())])) });
 const approvalSchema = z.object({ decision: z.enum(["allow_once", "allow_scope", "insert_without_scripts", "deny"]) });
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
+const devModeAllowed = (req: Request) => {
+  if (process.env.STUD_DEV_MODE_ENABLED !== "true") return false;
+  const token = process.env.STUD_DEV_MODE_TOKEN;
+  if (!token) return true;
+  return req.header("x-stud-dev-token") === token;
+};
 const publicConversation = (conversation: Conversation) => {
   const { accessTokenHash: _token, ...safe } = conversation;
   return safe;
@@ -50,11 +56,16 @@ export function createAgentRouter(runtime: AgentRuntime) {
     res.json({
       ready: useCfGateway || useOpenRouterDirect,
       mode: useCfGateway ? "cloudflare-gateway" : "openrouter-direct",
+      devModeAllowed: devModeAllowed(req),
       tiers: ["free", "pro", "hyper", "super"],
     });
   });
 
-  router.get("/models", async (_req, res) => {
+  router.get("/models", async (req, res) => {
+    if (!devModeAllowed(req)) {
+      res.json({ models: [] });
+      return;
+    }
     // Models list always comes from OpenRouter directly (not through CF gateway)
     const key = process.env.OPENROUTER_API_KEY;
     if (!key) {
@@ -115,6 +126,10 @@ export function createAgentRouter(runtime: AgentRuntime) {
     const parsed = startSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    if (parsed.data.devModel && !devModeAllowed(req)) {
+      res.status(403).json({ error: "Dev mode is disabled for this deployment" });
       return;
     }
     try {

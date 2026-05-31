@@ -42,12 +42,16 @@ type ConversationAccess = { id: string; accessToken: string };
 
 const conversationKey = (sessionId: string) => `stud_agent_conversation_${sessionId}`;
 const bootstrapKey = import.meta.env.VITE_STUD_AGENT_API_KEY as string | undefined;
+const bundledDevToken = import.meta.env.VITE_STUD_DEV_MODE_TOKEN as string | undefined;
+const devToken = () => localStorage.getItem("stud_dev_mode_token") || bundledDevToken || "";
 
 const request = async (path: string, init?: RequestInit, token?: string) => {
   const headers = new Headers(init?.headers);
   if (init?.body) headers.set("Content-Type", "application/json");
   const credential = token ?? bootstrapKey;
   if (credential) headers.set("Authorization", `Bearer ${credential}`);
+  const dev = devToken();
+  if (dev) headers.set("X-Stud-Dev-Token", dev);
   return fetch(bridgeUrl(path), { ...init, headers });
 };
 
@@ -91,7 +95,7 @@ export async function getServerProviderConfig() {
   try {
     const response = await request("/agent/config");
     if (!response.ok) return { ready: false };
-    const body = await response.json() as { ready: boolean };
+    const body = await response.json() as { ready: boolean; devModeAllowed?: boolean };
     return body;
   } catch {
     return { ready: false };

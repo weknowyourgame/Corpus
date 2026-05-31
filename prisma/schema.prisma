@@ -77,3 +77,113 @@ model CorpusChunk {
   @@index([remotes], type: Gin)
   @@map("chunks")
 }
+
+model AgentConversation {
+  id                  String          @id @db.Uuid
+  userId              String?         @map("user_id") @db.Uuid
+  studioSessionId     String          @map("studio_session_id")
+  accessTokenHash     String?         @map("access_token_hash")
+  nextSequence        Int             @default(1) @map("next_sequence")
+  messages            Json            @default("[]")
+  runs                Json            @default("[]")
+  approvedScopes      Json            @default("[]") @map("approved_scopes")
+  auditEvents         Json            @default("[]") @map("audit_events")
+  pendingApprovals    Json            @default("[]") @map("pending_approvals")
+  pendingInteractions Json            @default("[]") @map("pending_interactions")
+  proposedPlan        Json?           @map("proposed_plan")
+  approvedPlan        Json?           @map("approved_plan")
+  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  events              AgentEventLog[]
+  user                AppUser?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([studioSessionId])
+  @@index([updatedAt])
+  @@map("agent_conversations")
+}
+
+model AgentEventLog {
+  id             String            @id @default(uuid()) @db.Uuid
+  conversationId String            @map("conversation_id") @db.Uuid
+  runId          String            @map("run_id")
+  sequence       Int
+  type           String
+  payload        Json
+  timestamp      DateTime          @map("timestamp") @db.Timestamptz
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  conversation   AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, sequence])
+  @@index([conversationId])
+  @@index([runId])
+  @@index([type])
+  @@map("agent_events")
+}
+
+model StudioToken {
+  tokenHash String    @id @map("token_hash")
+  userId    String?   @map("user_id") @db.Uuid
+  sessionId String    @map("session_id")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz
+  user      AppUser?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([sessionId])
+  @@index([revokedAt])
+  @@map("studio_tokens")
+}
+
+model AppUser {
+  id                  String               @id @default(uuid()) @db.Uuid
+  email               String?              @unique
+  displayName         String?              @map("display_name")
+  avatarUrl           String?              @map("avatar_url")
+  anonymous           Boolean              @default(true)
+  userSecretHash      String?              @map("user_secret_hash")
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  lastSeenAt          DateTime             @default(now()) @map("last_seen_at") @db.Timestamptz
+  settings            UserSettings?
+  providerCredentials ProviderCredential[]
+  studioTokens        StudioToken[]
+  conversations       AgentConversation[]
+
+  @@index([anonymous])
+  @@index([lastSeenAt])
+  @@map("users")
+}
+
+model UserSettings {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @unique @map("user_id") @db.Uuid
+  selectedTier String  @default("pro") @map("selected_tier")
+  devMode     Boolean @default(false) @map("dev_mode")
+  devModel    String  @default("") @map("dev_model")
+  appSettings Json    @default("{}") @map("app_settings")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  user        AppUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+model ProviderCredential {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  provider        String
+  label           String    @default("default")
+  encryptedSecret String    @map("encrypted_secret")
+  lastFour        String?   @map("last_four")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  revokedAt       DateTime? @map("revoked_at") @db.Timestamptz
+  user            AppUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider, label])
+  @@index([userId])
+  @@index([provider])
+  @@index([revokedAt])
+  @@map("provider_credentials")
+}

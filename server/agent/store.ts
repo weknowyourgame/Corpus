@@ -12,11 +12,13 @@ import {
 } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
+import { Prisma } from "@prisma/client";
 import type {
   AgentEvent,
   Conversation,
   ConversationStore,
 } from "./types.ts";
+import { getPrismaClient } from "./prisma.ts";
 
 const now = () => new Date().toISOString();
 
@@ -254,6 +256,189 @@ const ensureDefaults = (conversation: Conversation) => {
   conversation.pendingInteractions ??= [];
   conversation.events ??= [];
 };
+
+const json = <T>(value: unknown, fallback: T): T => value === null || value === undefined ? fallback : value as T;
+const dbJson = (value: unknown): Prisma.InputJsonValue =>
+  JSON.parse(JSON.stringify(value ?? null)) as Prisma.InputJsonValue;
+
+const dbConversation = (row: {
+  id: string;
+  studioSessionId: string;
+  accessTokenHash: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  nextSequence: number;
+  messages: unknown;
+  runs: unknown;
+  approvedScopes: unknown;
+  auditEvents: unknown;
+  pendingApprovals: unknown;
+  pendingInteractions: unknown;
+  proposedPlan: unknown;
+  approvedPlan: unknown;
+}, events: AgentEvent[] = []): Conversation => {
+  const conversation: Conversation = {
+    id: row.id,
+    studioSessionId: row.studioSessionId,
+    accessTokenHash: row.accessTokenHash ?? undefined,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    nextSequence: row.nextSequence,
+    messages: json(row.messages, []),
+    runs: json(row.runs, []),
+    events,
+    approvedScopes: json(row.approvedScopes, []),
+    auditEvents: json(row.auditEvents, []),
+    pendingApprovals: json(row.pendingApprovals, []),
+    pendingInteractions: json(row.pendingInteractions, []),
+    proposedPlan: row.proposedPlan ? json(row.proposedPlan, undefined) : undefined,
+    approvedPlan: row.approvedPlan ? json(row.approvedPlan, undefined) : undefined,
+  };
+  ensureDefaults(conversation);
+  return conversation;
+};
+
+export class PostgresConversationStore implements ConversationStore {
+  private readonly prisma = getPrismaClient();
+
+  async create(studioSessionId: string, accessTokenHash?: string) {
+    const id = randomUUID();
+    const row = await this.prisma.agentConversation.create({
+      data: {
+        id,
+        studioSessionId,
+        accessTokenHash,
+      },
+    });
+    return dbConversation(row);
+  }
+
+  async get(id: string) {
+    const row = await this.prisma.agentConversation.findUnique({ where: { id } });
+    if (!row) return null;
+    const events = await this.prisma.agentEventLog.findMany({
+      where: { conversationId: id },
+      orderBy: { sequence: "asc" },
+    });
+    const conversation = dbConversation(row, events.map((event) => event.payload as AgentEvent));
+    if (conversation.events.length > 0) {
+      const next = Math.max(...conversation.events.map((event) => event.sequence)) + 1;
+      if (next > conversation.nextSequence) conversation.nextSequence = next;
+    }
+    return conversation;
+  }
+
+  async save(conversation: Conversation) {
+    const row = await this.prisma.agentConversation.update({
+      where: { id: conversation.id },
+      data: {
+        studioSessionId: conversation.studioSessionId,
+        accessTokenHash: conversation.accessTokenHash,
+        nextSequence: conversation.nextSequence,
+        messages: dbJson(conversation.messages),
+        runs: dbJson(conversation.runs),
+        approvedScopes: dbJson(conversation.approvedScopes),
+        auditEvents: dbJson(conversation.auditEvents),
+        pendingApprovals: dbJson(conversation.pendingApprovals ?? []),
+        pendingInteractions: dbJson(conversation.pendingInteractions ?? []),
+        proposedPlan: conversation.proposedPlan ? dbJson(conversation.proposedPlan) : undefined,
+        approvedPlan: conversation.approvedPlan ? dbJson(conversation.approvedPlan) : undefined,
+      },
+    });
+    conversation.updatedAt = row.updatedAt.toISOString();
+  }
+
+  async appendEvent(conversationId: string, event: AgentEvent) {
+    await this.prisma.agentEventLog.upsert({
+      where: { conversationId_sequence: { conversationId, sequence: event.sequence } },
+      update: {
+        runId: event.runId,
+        type: event.type,
+        payload: dbJson(event),
+        timestamp: new Date(event.timestamp),
+      },
+      create: {
+        conversationId,
+        runId: event.runId,
+        sequence: event.sequence,
+        type: event.type,
+        payload: dbJson(event),
+        timestamp: new Date(event.timestamp),
+      },
+    });
+  }
+
+  async recoverFromCrash() {
+    const recovered: string[] = [];
+    const rows = await this.prisma.agentConversation.findMany({
+      where: {
+        OR: [
+          { runs: { array_contains: [{ status: "running" }] } },
+          { NOT: { pendingApprovals: { equals: [] } } },
+          { NOT: { pendingInteractions: { equals: [] } } },
+        ],
+      },
+    });
+
+    for (const row of rows) {
+      const conversation = await this.get(row.id);
+      if (!conversation) continue;
+      const dirty = conversation.runs.some((run) => run.status === "running");
+      const hadPendings = (conversation.pendingApprovals?.length ?? 0) > 0 || (conversation.pendingInteractions?.length ?? 0) > 0;
+      if (!dirty && !hadPendings) continue;
+
+      const timestamp = now();
+      for (const run of conversation.runs) {
+        if (run.status !== "running") continue;
+        run.status = "cancelled";
+        run.completedAt = timestamp;
+        run.error = "Server restarted before this run completed";
+        conversation.auditEvents.push({
+          id: randomUUID(),
+          timestamp,
+          runId: run.id,
+          type: "run_recovered",
+          actor: "system",
+          summary: "Run cancelled after server restart.",
+        });
+      }
+
+      const pendingApprovals = conversation.pendingApprovals ?? [];
+      const pendingInteractions = conversation.pendingInteractions ?? [];
+      conversation.pendingApprovals = [];
+      conversation.pendingInteractions = [];
+
+      for (const pending of pendingApprovals) {
+        const event: AgentEvent = {
+          type: "approval_resolved",
+          approvalId: pending.approvalId,
+          decision: "deny",
+          sequence: conversation.nextSequence++,
+          conversationId: conversation.id,
+          runId: pending.runId,
+          timestamp,
+        };
+        conversation.events.push(event);
+        await this.appendEvent(conversation.id, event);
+      }
+      for (const pending of pendingInteractions) {
+        const event: AgentEvent = {
+          type: "interaction_resolved",
+          interactionId: pending.interactionId,
+          sequence: conversation.nextSequence++,
+          conversationId: conversation.id,
+          runId: pending.runId,
+          timestamp,
+        };
+        conversation.events.push(event);
+        await this.appendEvent(conversation.id, event);
+      }
+      await this.save(conversation);
+      recovered.push(conversation.id);
+    }
+    return recovered;
+  }
+}
 
 export class MemoryConversationStore implements ConversationStore {
   private readonly conversations = new Map<string, Conversation>();
