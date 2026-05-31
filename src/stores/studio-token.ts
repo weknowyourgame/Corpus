@@ -25,7 +25,12 @@ export const useStudioTokenStore = create<StudioTokenState>()(
       generate: async () => {
         set({ isGenerating: true, error: null });
         try {
-          const res = await fetch(bridgeUrl("/auth/studio-token/generate"), { method: "POST" });
+          const { token: oldToken } = get();
+          const res = await fetch(bridgeUrl("/auth/studio-token/generate"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ oldToken }),
+          });
           if (!res.ok) throw new Error("Failed to generate token");
           const data = await res.json();
           setSessionId(data.sessionId);
@@ -35,7 +40,16 @@ export const useStudioTokenStore = create<StudioTokenState>()(
         }
       },
 
-      clear: () => set({ token: null, sessionId: null, error: null }),
+      clear: () => {
+        const { token } = get();
+        if (token) {
+          fetch(bridgeUrl("/auth/studio-token/revoke"), {
+            method: "POST",
+            headers: { "X-Stud-Token": token },
+          }).catch(() => {});
+        }
+        set({ token: null, sessionId: null, error: null });
+      },
 
       checkStudioConnected: async () => {
         const { token } = get();
