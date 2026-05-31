@@ -4,7 +4,7 @@ import type { ConnectionStatus, StudioTransportStatus } from "@/stores/roblox";
 
 function statusLabel(status: ConnectionStatus, transport?: StudioTransportStatus | null) {
   if (status === "connected" && transport?.mcpConnected) return "Official MCP";
-  if (status === "connected" && transport?.pluginConnected) return "Plugin fallback";
+  if (status === "connected" && transport?.pluginConnected) return "All services running";
   if (status === "connected") return "Studio connected";
   if (status === "bridge_only") return "Waiting for Studio";
   return "Offline";

@@ -158,17 +158,7 @@ OUTPUT: Modified server/index.js and server/agent/routes.ts. Show me the diff.
 
 This is the last Lua change ever made to the plugin. After submission to Creator Store it never changes again.
 
-### Change 1 — Hardcode Production URL
-
-```lua
--- Remove:
-local DEFAULT_BRIDGE = "http://127.0.0.1:3001"
-
--- Add:
-local DEFAULT_BRIDGE = "https://your-production-server.com"
-```
-
-### Change 2 — Token Auth on Every Poll
+### Change 1 — Token Auth on Every Poll
 
 ```lua
 local function pollForWork()
@@ -195,7 +185,7 @@ local function pollForWork()
 end
 ```
 
-### Change 3 — New Poll Response Format
+### Change 2 — New Poll Response Format
 
 ```lua
 -- Old: { id = "req_1", request = { path = "/script/set", body = "..." } }
@@ -208,7 +198,7 @@ local handler = handlers[request.path]
 local handler = handlers[response.tool]
 ```
 
-### Change 4 — Rename Handler Keys to MCP Tool Names
+### Change 3 — Rename Handler Keys to MCP Tool Names
 
 
 | Old key                 | New key            |
@@ -235,7 +225,7 @@ local handler = handlers[response.tool]
 
 **Handler bodies do not change. Only the keys change.**
 
-### Change 5 — New Respond Format
+### Change 4 — New Respond Format
 
 ```lua
 -- Old:
@@ -248,7 +238,7 @@ local handler = handlers[response.tool]
 { id = requestId, result = nil, isError = true, error = errorMessage }
 ```
 
-### Change 6 — Simplified Onboarding UI
+### Change 5 — Simplified Onboarding UI
 
 Replace "enter bridge URL + session code" with:
 
