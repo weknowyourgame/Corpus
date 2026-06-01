@@ -162,6 +162,7 @@ export type PendingInteractionRecord = {
 
 export type Conversation = {
   id: string;
+  userId?: string | null;
   studioSessionId: string;
   accessTokenHash?: string;
   createdAt: string;
@@ -266,7 +267,7 @@ export interface AgentToolRegistry {
 }
 
 export interface ConversationStore {
-  create(studioSessionId: string, accessTokenHash?: string): Promise<Conversation>;
+  create(studioSessionId: string, accessTokenHash?: string, userId?: string | null): Promise<Conversation>;
   get(id: string): Promise<Conversation | null>;
   /**
    * Persist the conversation's snapshot fields (messages, runs, audit, pendings,

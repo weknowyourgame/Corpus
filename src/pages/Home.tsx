@@ -30,6 +30,7 @@ import { useChatStore } from "@/stores/chat";
 import { useSettingsStore } from "@/stores/settings";
 import { useRobloxStore, ConnectionStatus } from "@/stores/roblox";
 import { usePluginStore } from "@/stores/plugin";
+import { useAuthStore } from "@/stores/auth";
 import {
   cancelServerRun,
   clearServerConversation,
@@ -191,8 +192,8 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
           <StudioToken />
           <ConnectionBadges status={status} />
           <div className="stud-agent-tasks stud-agent-tasks-connection" aria-hidden="true">
-            <div className="stud-agent-task is-active"><span />Bridge check <strong>Polling Studio</strong></div>
-            <div className="stud-agent-task"><span />Task ready <strong>Install plugin</strong></div>
+            <div className="stud-agent-task is-active"><span />Bridge check <strong>Command queue</strong></div>
+            <div className="stud-agent-task"><span />Task ready <strong>Studio plugin</strong></div>
             <div className="stud-agent-task"><span />Safety on <strong>Approvals locked</strong></div>
           </div>
 
@@ -200,7 +201,7 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
             <ConnectionStep
               step={1}
               title="Bridge server running"
-              description="Started automatically with npm run dev"
+              description="The browser sends Studio commands to the bridge"
               status={getStepStatus(1)}
             />
 
@@ -208,8 +209,8 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
 
             <ConnectionStep
               step={2}
-              title="Install the Stud plugin"
-              description="Download and copy to your Roblox Plugins folder"
+              title="Install the Stud Studio plugin"
+              description="Download and copy it to your Roblox Plugins folder"
               status={getStepStatus(2)}
             />
 
@@ -218,7 +219,7 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
             <ConnectionStep
               step={3}
               title="Open Roblox Studio"
-              description="Enable HTTP requests in Game Settings → Security"
+              description="The Studio plugin polls the bridge for queued commands"
               status={getStepStatus(3)}
             />
 
@@ -227,7 +228,7 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
             <ConnectionStep
               step={4}
               title="Connect in Studio"
-              description="Paste your session code in the plugin and click Connect"
+              description="The plugin executes commands inside Roblox Studio"
               status={getStepStatus(4)}
             />
           </div>
@@ -315,6 +316,76 @@ function DevModeHeaderToggle({
   );
 }
 
+function LoginScreen() {
+  const [email, setEmail] = useState("");
+  const [token, setToken] = useState("");
+  const [sent, setSent] = useState(false);
+  const { error, devLoginToken, startEmailLogin, verifyEmailLogin, startGoogleLogin } = useAuthStore();
+
+  const requestEmail = async () => {
+    if (!email.trim()) return;
+    await startEmailLogin(email.trim());
+    setSent(true);
+  };
+
+  const verifyEmail = async () => {
+    if (!email.trim() || !token.trim()) return;
+    await verifyEmailLogin(email.trim(), token.trim());
+  };
+
+  return (
+    <div className="stud-app-shell stud-workbench">
+      <div className="stud-atmosphere" aria-hidden="true" />
+      <StudAppHeader status="disconnected" trailing={<SettingsDialog />} />
+      <main className="stud-connection-layout">
+        <div className="stud-connection-stack">
+          <div className="text-center">
+            <span className="stud-eyebrow">STUD ACCOUNT</span>
+            <h1 className="stud-display-title mt-6" style={{ fontSize: "2.25rem" }}>
+              Sign in to Stud
+            </h1>
+          </div>
+
+          <div className="stud-panel p-5 space-y-3">
+            <Button type="button" className="w-full" onClick={() => void startGoogleLogin()}>
+              Continue with Google
+            </Button>
+            <div className="stud-divider" />
+            <input
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+            {sent && (
+              <input
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                placeholder="Login token"
+                value={token}
+                onChange={(event) => setToken(event.target.value)}
+              />
+            )}
+            {devLoginToken && (
+              <code className="block rounded-md px-3 py-2 text-xs break-all" style={{ background: "var(--stud-soft)" }}>
+                {devLoginToken}
+              </code>
+            )}
+            <Button
+              type="button"
+              variant={sent ? "default" : "outline"}
+              className="w-full"
+              onClick={() => void (sent ? verifyEmail() : requestEmail())}
+            >
+              {sent ? "Verify email token" : "Email me a login token"}
+            </Button>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
 export function Home() {
   const [input, setInput] = useState("");
   const [activeChips, setActiveChips] = useState<ChipAction[]>([]);
@@ -342,7 +413,8 @@ export function Home() {
     clearMessages,
     replaceMessages,
   } = useChatStore();
-  const { selectedTier, devMode, devModel, setDevMode, setDevModel } = useSettingsStore();
+  const { selectedTier, devMode, devModel, setDevMode, setDevModel, loadFromServer: loadSettingsFromServer } = useSettingsStore();
+  const { user, loading: authLoading, loadMe, finishGoogleLogin } = useAuthStore();
   const { status: studioStatus, transport: studioTransport, startPolling } = useRobloxStore();
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const requestApproval = useCallback((approval: ApprovalRequest) => new Promise<ApprovalDecision>((resolve) => {
@@ -383,6 +455,17 @@ export function Home() {
     return cleanup;
   }, [startPolling]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const state = params.get("state");
+    if (code && state) {
+      void finishGoogleLogin(code, state).catch(() => loadMe());
+      return;
+    }
+    void loadMe();
+  }, [finishGoogleLogin, loadMe]);
+
   // Shuffle and pick random suggestions on mount and when messages clear
   useEffect(() => {
     const shuffled = [...SUGGESTIONS].sort(() => Math.random() - 0.5);
@@ -390,6 +473,7 @@ export function Home() {
   }, [messages.length === 0]);
 
   useEffect(() => {
+    if (!user) return;
     void getServerProviderConfig().then((cfg) => {
       setGatewayReady(cfg.ready ?? false);
       setDevModeAllowed(cfg.devModeAllowed === true);
@@ -398,10 +482,18 @@ export function Home() {
         setDevModel("");
       }
     });
-  }, []);
+  }, [user, setDevMode, setDevModel]);
+
+  // Sync settings from server for authenticated non-anonymous users.
+  // Anonymous local-dev sessions keep localStorage as the only store.
+  useEffect(() => {
+    if (user?.id && !user.anonymous) {
+      void loadSettingsFromServer();
+    }
+  }, [user, loadSettingsFromServer]);
 
   useEffect(() => {
-    if (studioStatus !== "connected" || messages.length) return;
+    if (!user || studioStatus !== "connected" || messages.length) return;
     void loadServerMessages().then(async (saved) => {
       if (saved.length) replaceMessages(saved);
       let assistantId: string | null = null;
@@ -455,6 +547,7 @@ export function Home() {
     requestApproval,
     setStreaming,
     setError,
+    user,
   ]);
 
   const hasConfiguredProvider = gatewayReady;
@@ -571,6 +664,21 @@ export function Home() {
     setRunNotice("Run cancelled by user.");
   };
 
+  if (authLoading) {
+    return (
+      <div className="stud-app-shell stud-workbench">
+        <div className="stud-atmosphere" aria-hidden="true" />
+        <main className="stud-connection-layout">
+          <Loader variant="terminal" text="Loading Stud session" size="sm" />
+        </main>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginScreen />;
+  }
+
   // Show connection screen if not connected
   if (!isConnected) {
     return <ConnectionScreen status={studioStatus} />;
@@ -644,7 +752,7 @@ export function Home() {
                 placeholder={
                   hasConfiguredProvider
                       ? "Describe the world, mechanic, or script you want to build..."
-                      : "Configure a server provider in .env to start..."
+                      : "Stud model access is unavailable..."
                 }
               >
                 {composerActions}
@@ -663,7 +771,7 @@ export function Home() {
               ))}
             </div>
             {!hasConfiguredProvider && (
-              <RecoveryBanner error="No server AI provider credential configured." />
+              <RecoveryBanner error="Stud model access is unavailable." />
             )}
           </div>
         </main>
@@ -701,7 +809,7 @@ export function Home() {
           <div className="stud-session-tasks" aria-label="Agent task status">
             <div className="stud-session-task is-active"><span />Running <strong>Read Studio state</strong></div>
             <div className="stud-session-task"><span />Waiting <strong>Human approvals</strong></div>
-            <div className="stud-session-task"><span />Ready <strong>MCP + plugin tools</strong></div>
+            <div className="stud-session-task"><span />Ready <strong>Studio plugin tools</strong></div>
           </div>
           <div className="stud-rail-image" aria-hidden="true" />
         </aside>
@@ -852,7 +960,7 @@ export function Home() {
           onSubmit={handleSubmit}
           isLoading={isStreaming}
           disabled={!hasConfiguredProvider}
-          placeholder={hasConfiguredProvider ? "Ask a follow-up..." : "Configure a server provider in .env to continue..."}
+          placeholder={hasConfiguredProvider ? "Ask a follow-up..." : "Stud model access is unavailable..."}
           className="mt-3"
         >
           {composerActions}

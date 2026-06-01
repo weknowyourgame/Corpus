@@ -62,10 +62,11 @@ export class DevelopmentConversationStore implements ConversationStore {
     return join(this.dir, `${id}.json`);
   }
 
-  async create(studioSessionId: string, accessTokenHash?: string) {
+  async create(studioSessionId: string, accessTokenHash?: string, userId?: string | null) {
     const timestamp = now();
     const conversation: Conversation = {
       id: randomUUID(),
+      userId: userId ?? null,
       studioSessionId,
       accessTokenHash,
       createdAt: timestamp,
@@ -263,6 +264,7 @@ const dbJson = (value: unknown): Prisma.InputJsonValue =>
 
 const dbConversation = (row: {
   id: string;
+  userId: string | null;
   studioSessionId: string;
   accessTokenHash: string | null;
   createdAt: Date;
@@ -279,6 +281,7 @@ const dbConversation = (row: {
 }, events: AgentEvent[] = []): Conversation => {
   const conversation: Conversation = {
     id: row.id,
+    userId: row.userId,
     studioSessionId: row.studioSessionId,
     accessTokenHash: row.accessTokenHash ?? undefined,
     createdAt: row.createdAt.toISOString(),
@@ -301,11 +304,12 @@ const dbConversation = (row: {
 export class PostgresConversationStore implements ConversationStore {
   private readonly prisma = getPrismaClient();
 
-  async create(studioSessionId: string, accessTokenHash?: string) {
+  async create(studioSessionId: string, accessTokenHash?: string, userId?: string | null) {
     const id = randomUUID();
     const row = await this.prisma.agentConversation.create({
       data: {
         id,
+        userId: userId ?? null,
         studioSessionId,
         accessTokenHash,
       },
@@ -333,6 +337,7 @@ export class PostgresConversationStore implements ConversationStore {
       where: { id: conversation.id },
       data: {
         studioSessionId: conversation.studioSessionId,
+        userId: conversation.userId ?? null,
         accessTokenHash: conversation.accessTokenHash,
         nextSequence: conversation.nextSequence,
         messages: dbJson(conversation.messages),
@@ -443,10 +448,11 @@ export class PostgresConversationStore implements ConversationStore {
 export class MemoryConversationStore implements ConversationStore {
   private readonly conversations = new Map<string, Conversation>();
 
-  async create(studioSessionId: string, accessTokenHash?: string) {
+  async create(studioSessionId: string, accessTokenHash?: string, userId?: string | null) {
     const timestamp = now();
     const conversation: Conversation = {
       id: randomUUID(),
+      userId: userId ?? null,
       studioSessionId,
       accessTokenHash,
       createdAt: timestamp,

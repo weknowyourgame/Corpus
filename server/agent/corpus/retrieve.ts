@@ -4,6 +4,25 @@ import type { CorpusRetrievalResult, CorpusChunkResult, ChunkType } from "./type
 import { embed, queryVectors, getR2Object } from "./cloudflare.ts";
 import { resolveVectorizeIds } from "./postgres.ts";
 
+// Short casual/meta inputs that never need corpus context.
+const CASUAL_RE = /^(hi+|hey+|hello+|howdy|sup|yo|thanks?|thank\s+you|thx|ok+|okay|sure|yep+|nope|cool|nice|great|awesome|lol+|haha+|wow|good\s+(morning|afternoon|evening|night))[!?.,\s]*$/i;
+const META_RE = /\b(what\s+can\s+you\s+do|what\s+do\s+you\s+do|how\s+do\s+you\s+work|what\s+are\s+you|who\s+are\s+you|are\s+you\s+(claude|gpt|an?\s+ai|a\s+bot)|what('s|\s+is)\s+(your\s+(name|purpose)|stud)|what\s+(model|llm|version)\s+(are|is)\s+you)\b/i;
+
+// Any of these terms signals Roblox/game/scripting intent → corpus is useful.
+const GAME_TERMS_RE = /\b(roblox|rbxl?|luau|studio(?:\.lua)?|serverscriptservice|localscript|modulescript|remoteevent|remotefunction|bindableevent|bindablefunction|startergui|starterpack|replicatedstorage|datastore(?:service)?|humanoid|leaderstats|playeradded|playerremoving|characteradded|gamepass|devproduct|badgeservice|tweenservice|runservice|collectionservice|httpservice|marketplaceservice|groupservice|tycoon|obby|simulator|combat(\s+system)?|inventory(\s+system)?|round(\s+system)?|npc|tower\s+defense|battle\s+royale|placement(\s+system)?|monetization|screengui|textlabel|textbutton|imagelabel|viewportframe)\b/i;
+
+/**
+ * Returns true only when the query clearly calls for Roblox game/code examples.
+ * Casual greetings, meta questions, and model questions are always skipped.
+ */
+export function shouldUseCorpus(query: string): boolean {
+  const trimmed = query.trim();
+  if (trimmed.length < 4) return false;
+  if (CASUAL_RE.test(trimmed)) return false;
+  if (META_RE.test(trimmed)) return false;
+  return GAME_TERMS_RE.test(trimmed);
+}
+
 const NICHE_KEYWORDS: Record<string, string[]> = {
   "tower-defense": ["tower", "defense", "defend", "wave", "enemy", "placement", "turret", "mob", "path"],
   "fps": ["fps", "gun", "shoot", "bullet", "rifle", "weapon", "aim", "fire", "combat", "kill", "damage", "hitbox"],
@@ -44,6 +63,11 @@ export async function retrieveCorpusContext(
 ): Promise<CorpusRetrievalResult> {
   if (!config.ready) {
     log(config, `skipped; corpus disabled or missing env (${config.missing.join(", ") || "not enabled"})`);
+    return { chunks: [], detectedNiche: null, totalFound: 0 };
+  }
+
+  if (!shouldUseCorpus(input.query)) {
+    log(config, `skipped by intent gate; query="${preview(input.query)}"`);
     return { chunks: [], detectedNiche: null, totalFound: 0 };
   }
 
@@ -96,6 +120,12 @@ export async function retrieveCorpusContext(
   }
   const deduped = [...seen.values()].sort((a, b) => b.score - a.score);
   log(config, `deduped ${allMatches.length} match(es) -> ${deduped.length} unique vector id(s)`);
+
+  const bestScore = deduped[0]?.score ?? 0;
+  if (bestScore < config.minScore) {
+    log(config, `skipped by low score; best=${bestScore.toFixed(4)} threshold=${config.minScore.toFixed(4)}`);
+    return { chunks: [], detectedNiche: niche, totalFound: deduped.length };
+  }
 
   let resolved: Awaited<ReturnType<typeof resolveVectorizeIds>>;
   try {

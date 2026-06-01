@@ -45,8 +45,8 @@ const initialChecks: PrereqCheck[] = [
   },
   {
     id: "api-provider",
-    name: "AI Provider",
-    description: "A provider credential must be configured on the agent server",
+    name: "Model Access",
+    description: "Stud-managed model access must be available on the server",
     status: "pending",
   },
   {
@@ -103,12 +103,12 @@ export const usePrereqStore = create<PrereqStore>((set, get) => ({
     if (config.ready) {
       updateCheck("api-provider", {
         status: "passed",
-        message: "AI Gateway configured on server",
+        message: "Stud model access is available",
       });
     } else {
       updateCheck("api-provider", {
         status: "failed",
-        message: "AI Gateway not configured. Add AI_GATEWAY_URL and OPENROUTER_API_KEY to .env and restart.",
+        message: "Stud-managed model access is unavailable on this server.",
       });
     }
     set({ checks: [...checks] });

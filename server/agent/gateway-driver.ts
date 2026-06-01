@@ -28,7 +28,7 @@ const OPENROUTER_DIRECT = "https://openrouter.ai/api/v1/chat/completions";
 function resolveUrlAndHeaders(): { url: string; headers: Record<string, string> } {
   const orKey = process.env.OPENROUTER_API_KEY;
   if (!orKey) {
-    throw new Error("OPENROUTER_API_KEY is not set in .env");
+    throw new Error("Stud model access is unavailable on this server");
   }
 
   const gatewayBase = (process.env.AI_GATEWAY_URL ?? "").replace(/\/$/, "");

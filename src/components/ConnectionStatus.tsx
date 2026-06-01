@@ -95,15 +95,15 @@ export function ConnectionStatus({
 
   const transportLabel =
     transport === "official_mcp"
-      ? "official MCP"
+      ? "Studio plugin"
       : transport === "plugin_fallback"
-        ? "plugin fallback"
+        ? "Studio plugin"
         : null;
   const transportTitle =
     transport === "official_mcp"
-      ? "Studio is connected through Roblox's built-in StudioMCP server (--stdio)"
+      ? "Browser commands go to the bridge; the Stud Studio plugin polls the bridge and executes them in Roblox Studio"
       : transport === "plugin_fallback"
-        ? "Studio is connected through the stud-bridge polling plugin (compatibility fallback)"
+        ? "Browser commands go to the bridge; the Stud Studio plugin polls the bridge and executes them in Roblox Studio"
         : "Transport not yet determined";
 
   return (

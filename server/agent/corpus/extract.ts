@@ -3,7 +3,7 @@ import type { CorpusConfig } from "./config.ts";
 import type { ScriptFile, ScriptType, GameMeta } from "./types.ts";
 import { getR2Object } from "./cloudflare.ts";
 
-function inferScriptType(filePath: string): ScriptType {
+export function inferScriptType(filePath: string): ScriptType {
   const lower = filePath.toLowerCase();
   if (lower.endsWith(".server.lua") || lower.endsWith(".server.luau")) return "server";
   if (lower.endsWith(".client.lua") || lower.endsWith(".client.luau")) return "client";
@@ -13,7 +13,7 @@ function inferScriptType(filePath: string): ScriptType {
   return "unknown";
 }
 
-function filePathToRobloxPath(filePath: string): string {
+export function filePathToRobloxPath(filePath: string): string {
   const rel = filePath.replace(/^raw\//, "");
   const noExt = rel
     .replace(/\.(server|client)\.(lua|luau)$/, "")

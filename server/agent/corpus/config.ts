@@ -1,5 +1,6 @@
 export type CorpusConfig = {
   enabled: boolean;
+  minScore: number;
   maxChunks: number;
   contextMaxChars: number;
   logRetrieval: boolean;
@@ -15,8 +16,9 @@ export type CorpusConfig = {
   missing: string[];
 };
 
-const DEFAULT_MAX_CHUNKS = 8;
-const DEFAULT_CONTEXT_MAX_CHARS = 12_000;
+const DEFAULT_MIN_SCORE = 0.70;
+const DEFAULT_MAX_CHUNKS = 4;
+const DEFAULT_CONTEXT_MAX_CHARS = 6_000;
 const DEFAULT_R2_BUCKET = "roblox-games";
 const DEFAULT_EMBED_MODEL = "@cf/baai/bge-base-en-v1.5";
 const DEFAULT_INDEX_PREFIX = "roblox";
@@ -25,6 +27,10 @@ const bool = (v: string | undefined) => v?.toLowerCase() === "true" || v === "1"
 const int = (v: string | undefined, fallback: number) => {
   const n = Number.parseInt(v ?? "", 10);
   return Number.isFinite(n) && n > 0 ? n : fallback;
+};
+const float = (v: string | undefined, fallback: number) => {
+  const n = Number.parseFloat(v ?? "");
+  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : fallback;
 };
 const str = (v: string | undefined, fallback = "") => v?.trim() || fallback;
 
@@ -49,6 +55,7 @@ export function loadCorpusConfig(env: NodeJS.ProcessEnv = process.env): CorpusCo
 
   return {
     enabled,
+    minScore: float(env.CORPUS_MIN_SCORE, DEFAULT_MIN_SCORE),
     maxChunks: int(env.CORPUS_MAX_CHUNKS, DEFAULT_MAX_CHUNKS),
     contextMaxChars: int(env.CORPUS_CONTEXT_MAX_CHARS, DEFAULT_CONTEXT_MAX_CHARS),
     logRetrieval: bool(env.CORPUS_LOG_RETRIEVAL),

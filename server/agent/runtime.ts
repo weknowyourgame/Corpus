@@ -68,8 +68,8 @@ export class AgentRuntime {
     return [];
   }
 
-  createConversation(studioSessionId: string, accessTokenHash?: string) {
-    return this.store.create(studioSessionId, accessTokenHash);
+  createConversation(studioSessionId: string, accessTokenHash?: string, userId?: string | null) {
+    return this.store.create(studioSessionId, accessTokenHash, userId);
   }
 
   getConversation(id: string) {

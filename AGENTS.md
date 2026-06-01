@@ -1,3 +1,5 @@
+Actively follow patterns used in claude-code/ dir
+
 # Agent Instructions
 
 ## After EVERY run

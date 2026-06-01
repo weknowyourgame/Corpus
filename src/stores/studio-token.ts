@@ -28,6 +28,7 @@ export const useStudioTokenStore = create<StudioTokenState>()(
           const { token: oldToken } = get();
           const res = await fetch(bridgeUrl("/auth/studio-token/generate"), {
             method: "POST",
+            credentials: "include",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ oldToken }),
           });
@@ -45,6 +46,7 @@ export const useStudioTokenStore = create<StudioTokenState>()(
         if (token) {
           fetch(bridgeUrl("/auth/studio-token/revoke"), {
             method: "POST",
+            credentials: "include",
             headers: { "X-Stud-Token": token },
           }).catch(() => {});
         }

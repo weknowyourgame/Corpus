@@ -16,12 +16,18 @@
  *   bun run scripts/embed-games.ts --slug=flood-escape
  *   bun run scripts/embed-games.ts --games=5 --dry-run
  *   bun run scripts/embed-games.ts --slug=flood-escape --cleanup
+ *   bun run scripts/embed-games.ts --slug=flood-escape --backfill-metadata
  */
 
 import { createHash } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
+import { filePathToRobloxPath, parseScriptMetadata } from "../server/agent/corpus/extract.ts";
+import type { GameMeta, ScriptFile, ScriptType } from "../server/agent/corpus/types.ts";
 
 // ── Args + env ────────────────────────────────────────────────────────────────
 
@@ -30,6 +36,7 @@ const slugArg     = process.argv.find((a) => a.startsWith("--slug="))?.split("="
 const DRY_RUN     = process.argv.includes("--dry-run");
 const RE_VECTORIZE = process.argv.includes("--re-vectorize"); // re-push existing chunks to Vectorize only
 const CLEANUP     = process.argv.includes("--cleanup"); // delete chunk rows, chunk R2 files, and Vectorize ids for --slug
+const BACKFILL_METADATA = process.argv.includes("--backfill-metadata"); // update Postgres metadata only
 const GAME_LIMIT  = gamesArg === "all" ? Infinity : parseInt(gamesArg);
 
 const accountId   = process.env.CLOUDFLARE_ACCOUNT_ID!;
@@ -136,7 +143,9 @@ type Chunk = {
   id: string; type: "summary" | "system" | "script";
   title: string; r2Path: string; content: string; embedText: string;
   filePath?: string; robloxPath?: string; scriptType?: string; systemName?: string;
-  services: string[]; remotes: string[]; symbols: string[];
+  lineStart?: number; lineEnd?: number; sourceHash?: string;
+  services: string[]; remotes: string[]; symbols: string[]; requiredModules: string[];
+  tags: string[]; qualityScore: number;
 };
 
 type VectorRow = {
@@ -151,35 +160,93 @@ const chunkId = (slug: string, type: string, path: string, content: string) => {
   return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20,32)}`;
 };
 
-// ── Metadata extraction ───────────────────────────────────────────────────────
+// ── Metadata helpers ─────────────────────────────────────────────────────────
 
-const SVC_RX    = /game:GetService\(["'](\w+)["']\)/g;
-const REMOTE_RX = /(?:FireServer|FireClient|FireAllClients|OnServerEvent|OnClientEvent|RemoteEvent|RemoteFunction)\b/g;
-const FUNC_RX   = /(?:^|\n)\s*(?:local\s+)?function\s+([\w.]+)\s*\(/gm;
+type LocalMeta = Partial<GameMeta> & {
+  subNiches?: string[];
+  sub_niches?: string[];
+  subniches?: string[];
+  quality?: number;
+};
 
-function extractMeta(src: string) {
-  return {
-    services: [...new Set([...src.matchAll(new RegExp(SVC_RX.source, "g"))].map((m) => m[1]))],
-    remotes:  [...new Set([...src.matchAll(new RegExp(REMOTE_RX.source, "g"))].map((m) => m[0]))],
-    symbols:  [...new Set([...src.matchAll(new RegExp(FUNC_RX.source, "gm"))].map((m) => m[1]))].slice(0, 40),
-  };
+const CONVERTED = join(homedir(), "stud", "games", "converted");
+
+function unique(values: string[], limit = Infinity): string[] {
+  return [...new Set(values.filter(Boolean))].slice(0, limit);
 }
 
-const inferType = (p: string): string =>
-  p.endsWith(".server.lua") || p.endsWith(".server.luau") ? "server"
-  : p.endsWith(".client.lua") || p.endsWith(".client.luau") ? "client"
-  : "module";
+function readLocalMeta(slug: string): LocalMeta {
+  const metaPath = join(CONVERTED, slug, "meta.json");
+  if (!existsSync(metaPath)) return {};
+  try {
+    return JSON.parse(readFileSync(metaPath, "utf8")) as LocalMeta;
+  } catch (err) {
+    console.warn(`  ⚠ ${slug}: could not read local meta.json (${err instanceof Error ? err.message : err})`);
+    return {};
+  }
+}
+
+function normalizeSubniches(meta: LocalMeta): string[] | undefined {
+  return meta.subniches ?? meta.subNiches ?? meta.sub_niches;
+}
+
+function inferMechanics(slug: string, services: string[], folders: string[]): string[] {
+  const haystack = `${slug} ${folders.join(" ")} ${services.join(" ")}`.toLowerCase();
+  const mechanics: string[] = [];
+  if (/\b(wave|round|spawn|enemy|tower|defense)\b/.test(haystack)) mechanics.push("wave progression");
+  if (/\b(datastore|leaderstats|save|profile)\b/.test(haystack)) mechanics.push("player progression");
+  if (/\b(remoteevent|remotefunction|replicatedstorage)\b/.test(haystack)) mechanics.push("client-server networking");
+  if (/\b(gui|startergui|screen|ui|hud)\b/.test(haystack)) mechanics.push("user interface");
+  if (/\b(weapon|gun|combat|damage|health)\b/.test(haystack)) mechanics.push("combat");
+  if (/\b(pet|egg|rebirth|click|cash|coin)\b/.test(haystack)) mechanics.push("economy");
+  return unique(mechanics, 8);
+}
+
+function toScriptFiles(files: { path: string; source: string }[]): ScriptFile[] {
+  return files.map((file) => ({
+    filePath: file.path,
+    robloxPath: filePathToRobloxPath(file.path),
+    ...parseScriptMetadata(file.source, file.path),
+  }));
+}
+
+function folderName(filePath: string): string {
+  const parts = filePath.replace(/^raw\//, "").split("/");
+  return parts.length > 2 ? parts.slice(0, -1).join("/") : parts[0];
+}
+
+function buildSummaryText(meta: GameMeta, files: ScriptFile[]): string {
+  const services = unique(files.flatMap((f) => f.services));
+  const remotes = unique(files.flatMap((f) => f.remotes));
+  const folders = unique(files.map((f) => folderName(f.filePath)), 12);
+  return [
+    `${meta.name} is a ${meta.niche} Roblox game corpus entry with ${files.length} scripts.`,
+    services.length ? `Top services: ${services.slice(0, 8).join(", ")}.` : "Top services: none detected.",
+    remotes.length ? `Remote usage: ${remotes.slice(0, 8).join(", ")}.` : "Remote usage: none detected.",
+    folders.length ? `Major systems/folders: ${folders.join(", ")}.` : "",
+  ].filter(Boolean).join(" ");
+}
+
+function legacySummaryServices(files: ScriptFile[]): string[] {
+  // Compatibility only: summary chunk IDs historically hashed GetService-only content.
+  const serviceRx = /game:GetService\(["'](\w+)["']\)/g;
+  return unique(files.flatMap((file) => [...file.source.matchAll(serviceRx)].map((m) => m[1])));
+}
 
 // ── Chunk builder (pure — no side effects) ────────────────────────────────────
 
-function buildChunks(slug: string, name: string, niche: string, files: { path: string; source: string }[]): Chunk[] {
+function buildChunks(meta: GameMeta, files: ScriptFile[]): Chunk[] {
   const chunks: Chunk[] = [];
+  const { slug, name, niche } = meta;
+  const qualityScore = meta.qualityScore ?? 0.7;
 
   // 1. Summary
-  const allSvc = [...new Set(files.flatMap((f) => extractMeta(f.source).services))];
+  const allSvc = unique(files.flatMap((f) => f.services));
+  const allRemotes = unique(files.flatMap((f) => f.remotes));
+  const idSvc = legacySummaryServices(files);
   const summaryContent = [`# ${name}`, `niche: ${niche}`, `scripts: ${files.length}`,
-    allSvc.length ? `services: ${allSvc.join(", ")}` : "",
-    `\nFiles:\n${files.map((f) => `  ${f.path}`).join("\n")}`,
+    idSvc.length ? `services: ${idSvc.join(", ")}` : "",
+    `\nFiles:\n${files.map((f) => `  ${f.filePath}`).join("\n")}`,
   ].filter(Boolean).join("\n");
 
   chunks.push({
@@ -187,47 +254,49 @@ function buildChunks(slug: string, name: string, niche: string, files: { path: s
     type: "summary", title: `${name} — summary`,
     r2Path: `${slug}/chunks/summary.txt`, content: summaryContent,
     embedText: `game: ${name}\nniche: ${niche}\nservices: ${allSvc.join(", ")}`,
-    services: allSvc, remotes: [], symbols: [],
+    services: allSvc, remotes: allRemotes, symbols: [], requiredModules: [],
+    tags: ["summary"], qualityScore,
   });
 
   // 2. System chunks (2+ scripts in same folder)
-  const byFolder = new Map<string, typeof files>();
+  const byFolder = new Map<string, ScriptFile[]>();
   for (const f of files) {
-    const parts = f.path.replace(/^raw\//, "").split("/");
-    const folder = parts.length > 2 ? parts.slice(0, -1).join("/") : parts[0];
+    const folder = folderName(f.filePath);
     byFolder.set(folder, [...(byFolder.get(folder) ?? []), f]);
   }
   for (const [folder, group] of byFolder) {
     if (group.length < 2) continue;
-    const metas   = group.map((f) => extractMeta(f.source));
-    const svcSet  = [...new Set(metas.flatMap((m) => m.services))];
-    const symSet  = [...new Set(metas.flatMap((m) => m.symbols))].slice(0, 40);
-    const remSet  = [...new Set(metas.flatMap((m) => m.remotes))];
+    const svcSet  = unique(group.flatMap((f) => f.services));
+    const symSet  = unique(group.flatMap((f) => f.symbols), 40);
+    const remSet  = unique(group.flatMap((f) => f.remotes));
+    const reqSet  = unique(group.flatMap((f) => f.requiredModules), 40);
     const sysName = folder.split("/").pop() ?? folder;
-    const content = group.map((f) => `-- ${f.path}\n${f.source.slice(0, 4000)}`).join("\n\n---\n\n");
+    const content = group.map((f) => `-- ${f.filePath}\n${f.source.slice(0, 4000)}`).join("\n\n---\n\n");
     chunks.push({
       id: chunkId(slug, "system", folder, content),
       type: "system", title: `${name} — ${sysName}`, systemName: sysName,
       r2Path: `${slug}/chunks/system-${createHash("sha256").update(folder).digest("hex").slice(0, 8)}.txt`,
       content, embedText: `game: ${name}\nniche: ${niche}\nsystem: ${sysName}\nservices: ${svcSet.join(", ")}\n${content.slice(0, 600)}`,
-      services: svcSet, remotes: remSet, symbols: symSet,
+      services: svcSet, remotes: remSet, symbols: symSet, requiredModules: reqSet,
+      tags: ["system"], qualityScore,
     });
   }
 
   // 3. Script chunks (one per file)
   for (const file of files) {
-    const meta  = extractMeta(file.source);
-    const rPath = "game." + file.path.replace(/^raw\//, "").replace(/\.(server|client)?\.(lua|luau)$/, "").replace(/\.(lua|luau)$/, "").replace(/\//g, ".");
-    const sType = inferType(file.path);
+    const rPath = file.robloxPath;
+    const sType = file.scriptType;
     const src   = file.source.length > 6000 ? file.source.slice(0, 6000) + "\n-- [truncated]" : file.source;
-    const content = [`-- path: ${rPath}`, `-- run_side: ${sType}`, meta.services.length ? `-- services: ${meta.services.join(", ")}` : "", src].filter(Boolean).join("\n");
+    const content = [`-- path: ${rPath}`, `-- run_side: ${sType}`, file.services.length ? `-- services: ${file.services.join(", ")}` : "", src].filter(Boolean).join("\n");
     chunks.push({
-      id: chunkId(slug, "script", file.path, file.source),
+      id: chunkId(slug, "script", file.filePath, file.source),
       type: "script", title: `${name} — ${rPath}`,
-      r2Path: `${slug}/chunks/script-${createHash("sha256").update(file.path).digest("hex").slice(0, 8)}.txt`,
-      filePath: file.path, robloxPath: rPath, scriptType: sType, content,
-      embedText: `game: ${name}\nniche: ${niche}\npath: ${rPath}\nrun_side: ${sType}\nservices: ${meta.services.join(", ")}\n${file.source.slice(0, 600)}`,
-      services: meta.services, remotes: meta.remotes, symbols: meta.symbols,
+      r2Path: `${slug}/chunks/script-${createHash("sha256").update(file.filePath).digest("hex").slice(0, 8)}.txt`,
+      filePath: file.filePath, robloxPath: rPath, scriptType: sType, content,
+      lineStart: 1, lineEnd: file.lineCount, sourceHash: file.sourceHash,
+      embedText: `game: ${name}\nniche: ${niche}\npath: ${rPath}\nrun_side: ${sType}\nservices: ${file.services.join(", ")}\n${file.source.slice(0, 600)}`,
+      services: file.services, remotes: file.remotes, symbols: file.symbols,
+      requiredModules: file.requiredModules, tags: [sType], qualityScore,
     });
   }
 
@@ -237,28 +306,80 @@ function buildChunks(slug: string, name: string, niche: string, files: { path: s
 // ── Per-game ACID embedding ───────────────────────────────────────────────────
 
 type EmbedResult = { slug: string; ok: boolean; chunks: number; skipped: number; error?: string };
+type GameRow = { id: string; slug: string; niche: string; name: string; r2Prefix: string; subniches?: string[]; mechanics?: string[]; services?: string[]; qualityScore?: number };
+type PreparedGame = { meta: GameMeta; chunks: Chunk[]; gameUpdate: GameAggregateUpdate };
+type GameAggregateUpdate = {
+  services: string[];
+  summaryText: string;
+  subniches: string[];
+  mechanics: string[];
+  scriptCount: number;
+  qualityScore: number;
+};
 
-async function embedGame(game: { id: string; slug: string; niche: string; name: string; r2Prefix: string }): Promise<EmbedResult> {
-  const { slug, niche, name, r2Prefix, id: gameId } = game;
-  const indexName = `${indexPrefix}-${niche}`;
+async function prepareGame(game: GameRow): Promise<PreparedGame> {
+  const manifestRaw = await r2Get(`${game.r2Prefix}manifest.json`);
+  if (!manifestRaw) throw new Error("manifest.json not in R2");
+  const manifest: string[] = JSON.parse(manifestRaw);
+
+  const rawFiles: { path: string; source: string }[] = [];
+  for (const filePath of manifest) {
+    const source = await r2Get(`${game.r2Prefix}${filePath}`);
+    if (source) rawFiles.push({ path: filePath, source });
+    await sleep(30);
+  }
+  if (!rawFiles.length) throw new Error("no script files in R2");
+
+  const files = toScriptFiles(rawFiles);
+  const localMeta = readLocalMeta(game.slug);
+  const services = unique(files.flatMap((f) => f.services));
+  const folders = unique(files.map((f) => folderName(f.filePath)));
+  const subniches = normalizeSubniches(localMeta) ?? game.subniches ?? [];
+  const inferredMechanics = inferMechanics(game.slug, services, folders);
+  const mechanics = localMeta.mechanics ?? (game.mechanics?.length ? game.mechanics : inferredMechanics);
+  const qualityScore = localMeta.qualityScore ?? localMeta.quality ?? game.qualityScore ?? 0.7;
+  const meta: GameMeta = {
+    slug: game.slug,
+    name: game.name,
+    niche: game.niche,
+    subniches,
+    mechanics,
+    services,
+    qualityScore,
+  };
+  const chunks = buildChunks(meta, files);
+  const summaryText = buildSummaryText(meta, files);
+
+  return {
+    meta,
+    chunks,
+    gameUpdate: {
+      services,
+      summaryText,
+      subniches,
+      mechanics,
+      scriptCount: files.length,
+      qualityScore,
+    },
+  };
+}
+
+async function embedGame(game: GameRow): Promise<EmbedResult> {
+  const { slug, id: gameId } = game;
 
   // ── Phase 0: fetch from R2 (read-only) ───────────────────────────────────
 
-  const manifestRaw = await r2Get(`${r2Prefix}manifest.json`);
-  if (!manifestRaw) return { slug, ok: false, chunks: 0, skipped: 0, error: "manifest.json not in R2" };
-  const manifest: string[] = JSON.parse(manifestRaw);
-
-  const files: { path: string; source: string }[] = [];
-  for (const filePath of manifest) {
-    const source = await r2Get(`${r2Prefix}${filePath}`);
-    if (source) files.push({ path: filePath, source });
-    await sleep(30);
+  let prepared: PreparedGame;
+  try {
+    prepared = await prepareGame(game);
+  } catch (err) {
+    return { slug, ok: false, chunks: 0, skipped: 0, error: err instanceof Error ? err.message : String(err) };
   }
-  if (!files.length) return { slug, ok: false, chunks: 0, skipped: 0, error: "no script files in R2" };
+  const { meta, chunks: allChunks, gameUpdate } = prepared;
+  const { niche, name } = meta;
+  const indexName = `${indexPrefix}-${niche}`;
 
   // ── Phase 1: pure computation — build chunks, filter new, embed all ───────
-
-  const allChunks = buildChunks(slug, name, niche, files);
 
   const existingIds = new Set(
     (await prisma.corpusChunk.findMany({
@@ -270,7 +391,15 @@ async function embedGame(game: { id: string; slug: string; niche: string; name: 
   const newChunks = allChunks.filter((c) => !existingIds.has(c.id));
   const skipped   = allChunks.length - newChunks.length;
 
-  if (!newChunks.length) return { slug, ok: true, chunks: 0, skipped };
+  if (!newChunks.length) {
+    if (!DRY_RUN) {
+      await prisma.game.update({
+        where: { id: gameId },
+        data: { ingested: true, ingestedAt: new Date(), ...gameUpdate },
+      });
+    }
+    return { slug, ok: true, chunks: 0, skipped };
+  }
   if (DRY_RUN) return { slug, ok: true, chunks: newChunks.length, skipped };
 
   // Embed everything BEFORE writing anything (pure computation phase)
@@ -279,7 +408,7 @@ async function embedGame(game: { id: string; slug: string; niche: string; name: 
     const values = await embedText(chunk.embedText);
     vectors.push({
       id: chunk.id, values,
-      metadata: { gameSlug: slug, gameName: name, niche, chunkType: chunk.type, r2Path: chunk.r2Path, robloxPath: chunk.robloxPath ?? "", qualityScore: 0.7 },
+      metadata: { gameSlug: slug, gameName: name, niche, chunkType: chunk.type, r2Path: chunk.r2Path, robloxPath: chunk.robloxPath ?? "", qualityScore: chunk.qualityScore },
     });
     await sleep(50);
   }
@@ -315,15 +444,18 @@ async function embedGame(game: { id: string; slug: string; niche: string; name: 
           filePath: chunk.filePath ?? null,
           robloxPath: chunk.robloxPath ?? null,
           scriptType: (chunk.scriptType as "server" | "client" | "module" | "shared" | "unknown") ?? null,
+          lineStart: chunk.lineStart ?? null,
+          lineEnd: chunk.lineEnd ?? null,
           symbols: chunk.symbols, remotes: chunk.remotes,
-          services: chunk.services, requiredModules: [],
-          tags: [chunk.type], qualityScore: 0.7,
+          services: chunk.services, requiredModules: chunk.requiredModules,
+          tags: chunk.tags, qualityScore: chunk.qualityScore,
+          sourceHash: chunk.sourceHash ?? null,
         })),
         skipDuplicates: true,
       });
       await tx.game.update({
         where: { id: gameId },
-        data: { ingested: true, ingestedAt: new Date(), scriptCount: files.length },
+        data: { ingested: true, ingestedAt: new Date(), ...gameUpdate },
       });
     }, { timeout: txTimeout, maxWait: 10_000 });
 
@@ -339,6 +471,126 @@ async function embedGame(game: { id: string; slug: string; niche: string; name: 
     return {
       slug, ok: false, chunks: 0, skipped,
       error: `${err instanceof Error ? err.message : err} — rolled back`,
+    };
+  }
+}
+
+// ── Metadata backfill mode: Postgres only, no embeddings / Vectorize writes ──
+
+type BackfillResult = {
+  slug: string;
+  ok: boolean;
+  scriptUpdated: number;
+  systemUpdated: number;
+  summaryUpdated: number;
+  missing: number;
+  gameUpdated: boolean;
+  error?: string;
+};
+
+function chunkUpdateData(chunk: Chunk) {
+  return {
+    r2Path: chunk.r2Path,
+    title: chunk.title,
+    systemName: chunk.systemName ?? null,
+    filePath: chunk.filePath ?? null,
+    robloxPath: chunk.robloxPath ?? null,
+    scriptType: (chunk.scriptType as ScriptType | undefined) ?? null,
+    lineStart: chunk.lineStart ?? null,
+    lineEnd: chunk.lineEnd ?? null,
+    symbols: chunk.symbols,
+    requiredModules: chunk.requiredModules,
+    remotes: chunk.remotes,
+    services: chunk.services,
+    tags: chunk.tags,
+    qualityScore: chunk.qualityScore,
+    sourceHash: chunk.sourceHash ?? null,
+  };
+}
+
+async function backfillGame(game: GameRow): Promise<BackfillResult> {
+  const empty: BackfillResult = {
+    slug: game.slug,
+    ok: false,
+    scriptUpdated: 0,
+    systemUpdated: 0,
+    summaryUpdated: 0,
+    missing: 0,
+    gameUpdated: false,
+  };
+
+  try {
+    const prepared = await prepareGame(game);
+    const existing = await prisma.corpusChunk.findMany({
+      where: { gameId: game.id, vectorizeId: { in: prepared.chunks.map((c) => c.id) } },
+      select: { vectorizeId: true, r2Path: true },
+    });
+    const existingById = new Map(existing.map((row) => [row.vectorizeId, row]));
+    const existingIds = new Set(existing.map((row) => row.vectorizeId));
+    const missingChunks = prepared.chunks.filter((chunk) => !existingIds.has(chunk.id));
+    const updateChunks = prepared.chunks.filter((chunk) => existingIds.has(chunk.id));
+
+    for (const chunk of missingChunks) {
+      console.warn(`  ⚠ ${game.slug}: missing Postgres chunk row for ${chunk.type} ${chunk.id} (${chunk.filePath ?? chunk.systemName ?? "summary"})`);
+    }
+
+    let r2Repairs = 0;
+    if (!DRY_RUN) {
+      for (const chunk of updateChunks) {
+        const row = existingById.get(chunk.id);
+        if (!row?.r2Path) continue;
+        const existingContent = await r2Get(row.r2Path);
+        if (existingContent === null) {
+          await r2Put(row.r2Path, chunk.content);
+          r2Repairs++;
+        }
+      }
+    }
+
+    if (DRY_RUN) {
+      return {
+        slug: game.slug,
+        ok: true,
+        scriptUpdated: updateChunks.filter((c) => c.type === "script").length,
+        systemUpdated: updateChunks.filter((c) => c.type === "system").length,
+        summaryUpdated: updateChunks.filter((c) => c.type === "summary").length,
+        missing: missingChunks.length,
+        gameUpdated: true,
+      };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      for (const chunk of updateChunks) {
+        await tx.corpusChunk.update({
+          where: { vectorizeId: chunk.id },
+          data: chunkUpdateData(chunk),
+        });
+      }
+      await tx.game.update({
+        where: { id: game.id },
+        data: {
+          ...prepared.gameUpdate,
+          ingested: true,
+          ingestedAt: new Date(),
+        },
+      });
+    }, { timeout: Math.min(5000 + updateChunks.length * 300, 120_000), maxWait: 10_000 });
+
+    if (r2Repairs) console.log(`  ↻ ${game.slug}: repaired ${r2Repairs} missing R2 chunk file(s) referenced by existing rows`);
+
+    return {
+      slug: game.slug,
+      ok: true,
+      scriptUpdated: updateChunks.filter((c) => c.type === "script").length,
+      systemUpdated: updateChunks.filter((c) => c.type === "system").length,
+      summaryUpdated: updateChunks.filter((c) => c.type === "summary").length,
+      missing: missingChunks.length,
+      gameUpdated: true,
+    };
+  } catch (err) {
+    return {
+      ...empty,
+      error: err instanceof Error ? err.message : String(err),
     };
   }
 }
@@ -416,7 +668,7 @@ async function cleanupGame(slug: string) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 const query = {
-  where: slugArg ? { slug: slugArg } : { ingested: false },
+  where: slugArg ? { slug: slugArg } : BACKFILL_METADATA ? {} : { ingested: false },
   orderBy: { createdAt: "asc" as const },
   ...(Number.isFinite(GAME_LIMIT) ? { take: GAME_LIMIT } : {}),
 };
@@ -438,9 +690,34 @@ if (CLEANUP) {
 const games = await prisma.game.findMany(query);
 
 if (!games.length) {
-  console.log(slugArg ? `"${slugArg}" not found` : "No un-ingested games — run sync-corpus.ts first");
+  console.log(slugArg ? `"${slugArg}" not found` : BACKFILL_METADATA ? "No games found to backfill" : "No un-ingested games — run sync-corpus.ts first");
   await pool.end();
   process.exit(0);
+}
+
+if (BACKFILL_METADATA) {
+  console.log(`Backfilling metadata for ${games.length} game(s)${DRY_RUN ? " (DRY RUN)" : ""}\n`);
+
+  let done = 0, failed = 0, scriptUpdated = 0, systemUpdated = 0, summaryUpdated = 0, missing = 0, gameUpdated = 0;
+  for (const game of games) {
+    const r = await backfillGame(game as GameRow);
+    if (r.ok) {
+      console.log(`  ✓  ${r.slug}: scripts=${r.scriptUpdated}, systems=${r.systemUpdated}, summaries=${r.summaryUpdated}, missing=${r.missing}, game=${r.gameUpdated ? "updated" : "unchanged"}`);
+      scriptUpdated += r.scriptUpdated;
+      systemUpdated += r.systemUpdated;
+      summaryUpdated += r.summaryUpdated;
+      missing += r.missing;
+      if (r.gameUpdated) gameUpdated++;
+      done++;
+    } else {
+      console.log(`  ✗  ${r.slug}: ${r.error}`);
+      failed++;
+    }
+  }
+
+  await pool.end();
+  console.log(`\n${done} games | ${scriptUpdated} script chunks | ${systemUpdated} system chunks | ${summaryUpdated} summary chunks | ${missing} missing rows | ${gameUpdated} game metadata updates | ${failed} failed`);
+  process.exit(failed > 0 ? 1 : 0);
 }
 
 console.log(`Embedding ${games.length} game(s)${DRY_RUN ? " (DRY RUN)" : ""}\n`);
@@ -448,7 +725,7 @@ console.log(`Embedding ${games.length} game(s)${DRY_RUN ? " (DRY RUN)" : ""}\n`)
 let done = 0, failed = 0, totalChunks = 0, totalSkipped = 0;
 
 for (const game of games) {
-  const r = await embedGame(game as { id: string; slug: string; niche: string; name: string; r2Prefix: string });
+  const r = await embedGame(game as GameRow);
   if (r.ok) {
     const tag = r.chunks === 0 ? "already done" : `${r.chunks} new chunks`;
     console.log(`  ✓  ${r.slug}  ${tag}${r.skipped ? ` (${r.skipped} skipped)` : ""}`);

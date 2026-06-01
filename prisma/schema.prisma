@@ -103,6 +103,37 @@ model AgentConversation {
   @@map("agent_conversations")
 }
 
+model AuthSession {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz
+  user      AppUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+  @@map("auth_sessions")
+}
+
+model LoginToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  email      String?
+  provider   String    @default("email")
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([email])
+  @@index([provider])
+  @@index([expiresAt])
+  @@index([consumedAt])
+  @@map("login_tokens")
+}
+
 model AgentEventLog {
   id             String            @id @default(uuid()) @db.Uuid
   conversationId String            @map("conversation_id") @db.Uuid
@@ -149,6 +180,7 @@ model AppUser {
   providerCredentials ProviderCredential[]
   studioTokens        StudioToken[]
   conversations       AgentConversation[]
+  authSessions        AuthSession[]
 
   @@index([anonymous])
   @@index([lastSeenAt])

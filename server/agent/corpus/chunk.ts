@@ -5,6 +5,15 @@ const MAX_SCRIPT_CHARS = 6000;
 
 const nicheIndex = (prefix: string, niche: string) => `${prefix}-${niche}`;
 
+export type ChunkIdFactory = (input: {
+  chunkType: ChunkType;
+  path: string;
+  content: string;
+  meta: GameMeta;
+}) => string;
+
+const defaultChunkIdFactory: ChunkIdFactory = () => randomUUID();
+
 function buildEmbedText(meta: GameMeta, extra: {
   systemName?: string;
   robloxPath?: string;
@@ -24,8 +33,7 @@ function buildEmbedText(meta: GameMeta, extra: {
   ].filter(Boolean).join("\n");
 }
 
-export function buildGameSummaryChunk(meta: GameMeta, files: ScriptFile[], indexPrefix: string): RawChunk {
-  const id = randomUUID();
+export function buildGameSummaryChunk(meta: GameMeta, files: ScriptFile[], indexPrefix: string, idFactory = defaultChunkIdFactory): RawChunk {
   const allServices = [...new Set(files.flatMap((f) => f.services))];
   const allRemotes = [...new Set(files.flatMap((f) => f.remotes))];
 
@@ -39,6 +47,7 @@ export function buildGameSummaryChunk(meta: GameMeta, files: ScriptFile[], index
     allRemotes.length ? `networking: ${allRemotes.join(", ")}` : "",
     `\nScript inventory:\n${files.map((f) => `  ${f.robloxPath} (${f.scriptType}, ${f.lineCount} lines)`).join("\n")}`,
   ].filter(Boolean).join("\n");
+  const id = idFactory({ chunkType: "summary", path: "summary", content, meta });
 
   return {
     id,
@@ -65,7 +74,7 @@ export function buildGameSummaryChunk(meta: GameMeta, files: ScriptFile[], index
   };
 }
 
-export function buildSystemChunks(meta: GameMeta, files: ScriptFile[], indexPrefix: string): RawChunk[] {
+export function buildSystemChunks(meta: GameMeta, files: ScriptFile[], indexPrefix: string, idFactory = defaultChunkIdFactory): RawChunk[] {
   const byFolder = new Map<string, ScriptFile[]>();
   for (const file of files) {
     const parts = file.filePath.replace(/^raw\//, "").split("/");
@@ -78,16 +87,17 @@ export function buildSystemChunks(meta: GameMeta, files: ScriptFile[], indexPref
   const chunks: RawChunk[] = [];
   for (const [folder, group] of byFolder) {
     if (group.length < 2) continue;
-    const id = randomUUID();
     const allServices = [...new Set(group.flatMap((f) => f.services))];
     const allSymbols = [...new Set(group.flatMap((f) => f.symbols))].slice(0, 40);
     const allRemotes = [...new Set(group.flatMap((f) => f.remotes))];
+    const allRequiredModules = [...new Set(group.flatMap((f) => f.requiredModules))].slice(0, 40);
     const systemName = folder.split("/").pop() ?? folder;
 
     const content = group.map((f) => [
       `-- path: ${f.robloxPath} (${f.scriptType})`,
       f.source.slice(0, MAX_SCRIPT_CHARS),
     ].join("\n")).join("\n\n---\n\n");
+    const id = idFactory({ chunkType: "system", path: folder, content, meta });
 
     chunks.push({
       id,
@@ -100,7 +110,7 @@ export function buildSystemChunks(meta: GameMeta, files: ScriptFile[], indexPref
       title: `${meta.name} — ${systemName} system`,
       systemName,
       symbols: allSymbols,
-      requiredModules: [],
+      requiredModules: allRequiredModules,
       remotes: allRemotes,
       services: allServices,
       tags: ["system"],
@@ -112,9 +122,8 @@ export function buildSystemChunks(meta: GameMeta, files: ScriptFile[], indexPref
   return chunks;
 }
 
-export function buildScriptChunks(meta: GameMeta, files: ScriptFile[], indexPrefix: string): RawChunk[] {
+export function buildScriptChunks(meta: GameMeta, files: ScriptFile[], indexPrefix: string, idFactory = defaultChunkIdFactory): RawChunk[] {
   return files.map((file): RawChunk => {
-    const id = randomUUID();
     const truncated = file.source.length > MAX_SCRIPT_CHARS
       ? file.source.slice(0, MAX_SCRIPT_CHARS) + "\n-- [truncated]"
       : file.source;
@@ -125,6 +134,7 @@ export function buildScriptChunks(meta: GameMeta, files: ScriptFile[], indexPref
       file.services.length ? `-- services: ${file.services.join(", ")}` : "",
       truncated,
     ].filter(Boolean).join("\n");
+    const id = idFactory({ chunkType: "script", path: file.filePath, content: file.source, meta });
 
     return {
       id,
@@ -158,10 +168,10 @@ export function buildScriptChunks(meta: GameMeta, files: ScriptFile[], indexPref
   });
 }
 
-export function buildChunks(meta: GameMeta, files: ScriptFile[], indexPrefix: string): RawChunk[] {
+export function buildChunks(meta: GameMeta, files: ScriptFile[], indexPrefix: string, idFactory = defaultChunkIdFactory): RawChunk[] {
   return [
-    buildGameSummaryChunk(meta, files, indexPrefix),
-    ...buildSystemChunks(meta, files, indexPrefix),
-    ...buildScriptChunks(meta, files, indexPrefix),
+    buildGameSummaryChunk(meta, files, indexPrefix, idFactory),
+    ...buildSystemChunks(meta, files, indexPrefix, idFactory),
+    ...buildScriptChunks(meta, files, indexPrefix, idFactory),
   ];
 }

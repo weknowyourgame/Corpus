@@ -8,8 +8,8 @@ export function recoveryCopy(error: string) {
 
   if (provider) {
     return {
-      title: "AI provider is not configured on the server",
-      detail: "Add ANTHROPIC_API_KEY=... or OPENROUTER_API_KEY=... to .env, then restart npm run dev. Credentials stay on the server.",
+      title: "Model access is not available",
+      detail: "Stud-managed model access is unavailable on this server. Retry later or contact the workspace admin.",
     };
   }
   if (plugin) {
@@ -26,7 +26,7 @@ export function recoveryCopy(error: string) {
   }
   return {
     title: "The run stopped before completion",
-    detail: "Check the provider and Studio connection badges, then retry your message.",
+    detail: "Check the Studio connection badges, then retry your message.",
   };
 }
 

@@ -53,7 +53,7 @@ export function SettingsPanel({ trigger }: SettingsPanelProps) {
 
           <TabsContent value="tier" className="mt-4 space-y-3">
             <p className="text-xs text-muted-foreground">
-              AI credentials are configured server-side in <code>.env</code>.
+              Model access is managed by Stud. Users choose a tier, not provider credentials.
             </p>
             {ALL_TIERS.map((tier: Tier) => (
               <button

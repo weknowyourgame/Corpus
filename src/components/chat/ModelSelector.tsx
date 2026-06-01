@@ -23,9 +23,9 @@ interface OpenRouterModel {
 
 async function fetchModels(): Promise<OpenRouterModel[]> {
   const headers = new Headers();
-  const devToken = localStorage.getItem("stud_dev_mode_token") || (import.meta.env.VITE_STUD_DEV_MODE_TOKEN as string | undefined) || "";
+  const devToken = localStorage.getItem("stud_dev_mode_token") || "";
   if (devToken) headers.set("X-Stud-Dev-Token", devToken);
-  const res = await fetch(bridgeUrl("/agent/models"), { headers });
+  const res = await fetch(bridgeUrl("/agent/models"), { headers, credentials: "include" });
   if (!res.ok) return [];
   const data = await res.json() as { models: OpenRouterModel[] };
   return data.models ?? [];
@@ -132,7 +132,7 @@ export function ModelSelector({ className, disabled, allowDevMode = false }: Mod
               )}
               {!loading && filtered.length === 0 && (
                 <p className="text-center text-xs text-muted-foreground py-6">
-                  {models.length === 0 ? "No models loaded — is OPENROUTER_API_KEY set?" : "No results"}
+                  {models.length === 0 ? "No models loaded from the server" : "No results"}
                 </p>
               )}
               {!loading && filtered.map((m) => (

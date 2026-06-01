@@ -20,7 +20,7 @@ import {
   ExternalLink,
   Download,
   Plug,
-  Key,
+  Sparkles,
   Server,
   Monitor,
 } from "lucide-react";
@@ -28,7 +28,7 @@ import {
 const iconMap: Record<string, React.ElementType> = {
   "roblox-studio": Monitor,
   "stud-plugin": Plug,
-  "api-provider": Key,
+  "api-provider": Sparkles,
   "bridge-server": Server,
   "studio-connection": Plug,
 };
@@ -92,10 +92,8 @@ function CheckItem({
         )}
         {check.id === "api-provider" && check.status === "failed" && (
           <div className="stud-provider-help mt-3">
-            <p>Configure one server credential in <code>.env</code>:</p>
-            <code>OPENROUTER_API_KEY=sk-or-...</code>
-            <code>ANTHROPIC_API_KEY=sk-ant-...</code>
-            <p>Then restart <code>npm run dev</code>. Credentials are never sent to the browser chat.</p>
+            <p>Stud-managed model access is unavailable on this server.</p>
+            <p>Users do not enter provider API keys in the app. Ask the workspace admin to check private server configuration.</p>
           </div>
         )}
 

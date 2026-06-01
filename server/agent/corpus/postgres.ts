@@ -27,6 +27,13 @@ export async function upsertChunks(chunks: RawChunk[], gameId: string): Promise<
       where: { vectorizeId: chunk.id },
       update: {
         r2Path: chunk.r2Path,
+        title: chunk.title,
+        systemName: chunk.systemName ?? null,
+        filePath: chunk.filePath ?? null,
+        robloxPath: chunk.robloxPath ?? null,
+        scriptType: (chunk.scriptType as "server" | "client" | "module" | "shared" | "unknown") ?? null,
+        lineStart: chunk.lineStart ?? null,
+        lineEnd: chunk.lineEnd ?? null,
         qualityScore: chunk.qualityScore,
         symbols: chunk.symbols,
         services: chunk.services,

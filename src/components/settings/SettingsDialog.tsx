@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Icon } from "@/components/icons/Icon";
 import { useSettingsStore } from "@/stores/settings";
+import { useAuthStore } from "@/stores/auth";
 import { ALL_TIERS, TIER_LABELS, TIER_DESCRIPTIONS } from "@/lib/ai/profiles";
 import type { Tier } from "@/lib/ai/profiles";
 import { cn } from "@/lib/utils";
@@ -43,6 +44,7 @@ interface SettingsDialogProps {
 
 export function SettingsDialog({ children }: SettingsDialogProps) {
   const { selectedTier, setTier } = useSettingsStore();
+  const { user, logout } = useAuthStore();
 
   return (
     <Dialog>
@@ -57,7 +59,7 @@ export function SettingsDialog({ children }: SettingsDialogProps) {
         <DialogHeader>
           <DialogTitle>AI Tier</DialogTitle>
           <DialogDescription>
-            Choose your AI capability tier. Models are managed automatically.
+            Choose your AI capability tier. Model access is managed by Stud.
           </DialogDescription>
         </DialogHeader>
 
@@ -73,8 +75,21 @@ export function SettingsDialog({ children }: SettingsDialogProps) {
         </div>
 
         <p className="text-xs text-muted-foreground pt-1">
-          Server credentials are configured in <code>.env</code> — never stored in the browser.
+          Provider credentials are Stud-owned server configuration and are never entered in the browser.
         </p>
+
+        {user && (
+          <div className="border-t pt-3 space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Signed in as {user.anonymous ? "anonymous dev user" : user.email}
+            </p>
+            {!user.anonymous && (
+              <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => void logout()}>
+                Sign out
+              </button>
+            )}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

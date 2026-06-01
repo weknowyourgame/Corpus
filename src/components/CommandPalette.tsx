@@ -53,7 +53,7 @@ const COMMANDS = [
         id: "settings",
         icon: <Settings className="w-4 h-4" />,
         label: "Open Settings",
-        description: "Configure API keys and preferences",
+        description: "Choose tier and interface preferences",
         shortcut: "⌘,",
       },
     ],

@@ -29,6 +29,14 @@ import { runIngestion } from "./agent/corpus/ingest.ts";
 import { corpusConfig } from "./agent/corpus/config.ts";
 import { getPendingGames } from "./agent/corpus/postgres.ts";
 import { getPrismaClient } from "./agent/prisma.ts";
+import {
+  logout,
+  publicUser,
+  requireCurrentUser,
+  resolveCurrentUser,
+  startLogin,
+  verifyLogin,
+} from "./auth.ts";
 
 try {
   process.loadEnvFile?.(".env");
@@ -42,7 +50,7 @@ const POLL_HOLD_MS = 500; // long-poll hold time; drops idle rate to ~1.7 req/s 
 const SESSION_ID_PATTERN = /^[A-Za-z0-9]{6,12}$/;
 
 const app = express();
-app.use(cors({ origin: true }));
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: "10mb" }));
 
 /** @type {Map<string, { pending: Map<string, PendingRequest>, completed: Map<string, { result: unknown, completedAt: number }>, lastPoll: number, counter: number, pollWakeup: null | ((payload: unknown) => void), pluginVersion?: string, capabilities?: string[] }>} */
@@ -60,7 +68,7 @@ const loadTokens = async () => {
   if (process.env.DATABASE_URL) {
     const rows = await getPrismaClient().studioToken.findMany({ where: { revokedAt: null } });
     for (const row of rows) {
-      studioTokens.set(row.tokenHash, { createdAt: row.createdAt.getTime(), sessionId: row.sessionId });
+      studioTokens.set(row.tokenHash, { createdAt: row.createdAt.getTime(), sessionId: row.sessionId, userId: row.userId });
     }
     if (studioTokens.size) console.log(`[Stud] Loaded ${studioTokens.size} studio token(s) from Postgres`);
     return;
@@ -84,15 +92,15 @@ const saveTokens = () => {
 
 await loadTokens();
 
-const persistStudioToken = async (hash, sessionId) => {
+const persistStudioToken = async (hash, sessionId, userId = null) => {
   if (!process.env.DATABASE_URL) {
     saveTokens();
     return;
   }
   await getPrismaClient().studioToken.upsert({
     where: { tokenHash: hash },
-    update: { sessionId, revokedAt: null },
-    create: { tokenHash: hash, sessionId },
+    update: { sessionId, userId, revokedAt: null },
+    create: { tokenHash: hash, sessionId, userId },
   });
 };
 
@@ -293,7 +301,22 @@ const agentRuntime = new AgentRuntime(
 agentRuntime.recoverFromCrash()
   .then((ids) => { if (ids.length) console.log(`[agent] recovered ${ids.length} crashed conversation(s)`); })
   .catch((err) => console.error("[agent] crash recovery failed:", err));
-app.use("/agent", createAgentRouter(agentRuntime));
+const authMiddleware = requireCurrentUser();
+const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+
+app.post("/auth/login/start", asyncRoute(startLogin));
+app.post("/auth/login/verify", asyncRoute(verifyLogin));
+app.post("/auth/logout", asyncRoute(logout));
+app.get("/auth/me", asyncRoute(async (req, res) => {
+  const user = await resolveCurrentUser(req);
+  if (!user) {
+    res.status(401).json({ user: null });
+    return;
+  }
+  res.json({ user: publicUser(user) });
+}));
+
+app.use("/agent", createAgentRouter(agentRuntime, { requireUser: authMiddleware }));
 
 // --- Cloud Studio routes (web + plugin) ---
 
@@ -320,21 +343,41 @@ const buildStudioStatus = (session) => {
 // --- Studio token endpoints ---
 
 /** Generate a new studio token. Pass { oldToken } in the body to revoke the previous one. */
-app.post("/auth/studio-token/generate", async (req, res) => {
+app.post("/auth/studio-token/generate", authMiddleware, async (req, res) => {
+  const allowAnonymous = process.env.STUD_ALLOW_ANONYMOUS === "true";
+  const userId = req.currentUser?.id ?? null;
+  if (!allowAnonymous && !userId) {
+    res.status(401).json({ error: "Sign in to generate a Studio token" });
+    return;
+  }
   const oldToken = req.body?.oldToken;
-  if (oldToken) await revokeStudioToken(digestToken(String(oldToken)));
+  if (oldToken) {
+    const oldHash = digestToken(String(oldToken));
+    const oldEntry = studioTokens.get(oldHash);
+    // Never revoke another user's token via oldToken — skip silently if ownership mismatch
+    if (!oldEntry?.userId || oldEntry.userId === userId) {
+      await revokeStudioToken(oldHash);
+    }
+  }
   const token = randomBytes(32).toString("base64url");
   const sessionId = newSessionId();
   const hash = digestToken(token);
-  studioTokens.set(hash, { createdAt: Date.now(), sessionId });
-  await persistStudioToken(hash, sessionId);
+  studioTokens.set(hash, { createdAt: Date.now(), sessionId, userId });
+  await persistStudioToken(hash, sessionId, userId);
   res.json({ token, sessionId });
 });
 
 /** Revoke a token explicitly (called when user clears their token in the web app) */
-app.post("/auth/studio-token/revoke", async (req, res) => {
+app.post("/auth/studio-token/revoke", authMiddleware, async (req, res) => {
   const auth = requireToken(req, res);
   if (!auth) return;
+  const tokenUserId = auth.entry.userId ?? null;
+  const currentUserId = req.currentUser?.id ?? null;
+  // User-owned tokens can only be revoked by their owner
+  if (tokenUserId && tokenUserId !== currentUserId) {
+    res.status(403).json({ error: "Not your token" });
+    return;
+  }
   await revokeStudioToken(auth.hash);
   res.json({ ok: true });
 });

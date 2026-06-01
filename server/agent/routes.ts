@@ -1,11 +1,30 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { Router, type Request } from "express";
+import { Router, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
 import type { AgentRuntime } from "./runtime.ts";
 import { RateLimiter } from "./rate-limit.ts";
 import type { Conversation } from "./types.ts";
+import type { CurrentUser } from "../auth.ts";
+import { getPrismaClient } from "./prisma.ts";
 
 const rateLimiter = new RateLimiter();
+
+const appSettingsSchema = z.object({
+  animationsEnabled: z.boolean().optional(),
+  soundEnabled: z.boolean().optional(),
+  compactMode: z.boolean().optional(),
+  showToolDetails: z.boolean().optional(),
+  autoScrollChat: z.boolean().optional(),
+  confirmDestructiveActions: z.boolean().optional(),
+  saveHistory: z.boolean().optional(),
+  maxHistoryMessages: z.number().int().min(10).max(500).optional(),
+});
+const userSettingsPatchSchema = z.object({
+  selectedTier: z.enum(["free", "pro", "hyper", "super"]).optional(),
+  devMode: z.boolean().optional(),
+  devModel: z.string().optional(),
+  appSettings: appSettingsSchema.optional(),
+});
 
 const sessionSchema = z.string().regex(/^[A-Za-z0-9]{6,12}$/);
 const startSchema = z.object({
@@ -28,29 +47,116 @@ const publicConversation = (conversation: Conversation) => {
   return safe;
 };
 
-export function createAgentRouter(runtime: AgentRuntime) {
+type AuthRequest = Request & { currentUser?: CurrentUser };
+
+export function createAgentRouter(
+  runtime: AgentRuntime,
+  auth: {
+    requireUser: (req: AuthRequest, res: Response, next: NextFunction) => void;
+  },
+) {
   const router = Router();
-  const bootstrapKey = process.env.STUD_AGENT_API_KEY;
+  router.use(auth.requireUser);
 
   const bearer = (req: Request) => {
     const header = req.header("authorization") ?? "";
     return header.startsWith("Bearer ") ? header.slice(7) : "";
   };
-  const bootstrapAllowed = (req: Request) => !bootstrapKey || bearer(req) === bootstrapKey;
-  const authorize = async (req: Request, id: string) => {
+  const tokenMatches = (req: Request, conversation: Conversation) => {
+    if (!conversation.accessTokenHash) return true;
+    const token = bearer(req);
+    if (!token) return false;
+    const actual = Buffer.from(digest(token));
+    const expected = Buffer.from(conversation.accessTokenHash);
+    return actual.length === expected.length && timingSafeEqual(actual, expected);
+  };
+  const ownsConversation = (req: AuthRequest, conversation: Conversation) => {
+    const user = req.currentUser;
+    if (!user) return false;
+    if (user.id) return conversation.userId === user.id;
+    return user.anonymous && !conversation.userId;
+  };
+  const authorize = async (req: AuthRequest, id: string) => {
     const conversation = await runtime.getConversation(id);
     if (!conversation) return null;
-    if (!conversation.accessTokenHash) return bootstrapAllowed(req) ? conversation : null;
-    const actual = Buffer.from(digest(bearer(req)));
-    const expected = Buffer.from(conversation.accessTokenHash);
-    return actual.length === expected.length && timingSafeEqual(actual, expected) ? conversation : null;
+    if (!ownsConversation(req, conversation)) return null;
+    // Session-authenticated (non-anonymous) users: the cookie session + userId
+    // match is the primary identity proof. The bearer access token is secondary
+    // and may not be present when accessing from a new device or browser session.
+    const user = req.currentUser;
+    if (user?.id && !user.anonymous) return conversation;
+    // Anonymous sessions have no persistent userId, so the bearer token is the
+    // only per-conversation identity guard.
+    return tokenMatches(req, conversation) ? conversation : null;
   };
 
-  router.get("/config", (req, res) => {
-    if (!bootstrapAllowed(req)) {
-      res.status(401).json({ error: "Unauthorized" });
+  // --- User settings ---
+
+  router.get("/user/settings", async (req: AuthRequest, res) => {
+    const userId = req.currentUser?.id;
+    if (!userId) {
+      res.status(401).json({ error: "Not authenticated" });
       return;
     }
+    const row = await getPrismaClient().userSettings.findUnique({ where: { userId } });
+    if (!row) {
+      res.json({ settings: null });
+      return;
+    }
+    res.json({
+      settings: {
+        selectedTier: row.selectedTier,
+        devMode: row.devMode,
+        devModel: row.devModel,
+        appSettings: row.appSettings,
+      },
+    });
+  });
+
+  router.patch("/user/settings", async (req: AuthRequest, res) => {
+    const userId = req.currentUser?.id;
+    if (!userId) {
+      res.status(401).json({ error: "Not authenticated" });
+      return;
+    }
+    const parsed = userSettingsPatchSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const { selectedTier, devMode, devModel, appSettings } = parsed.data;
+    const existing = await getPrismaClient().userSettings.findUnique({ where: { userId } });
+    const mergedAppSettings = {
+      ...(existing?.appSettings as Record<string, unknown> ?? {}),
+      ...(appSettings ?? {}),
+    };
+    const row = await getPrismaClient().userSettings.upsert({
+      where: { userId },
+      update: {
+        ...(selectedTier !== undefined ? { selectedTier } : {}),
+        ...(devMode !== undefined ? { devMode } : {}),
+        ...(devModel !== undefined ? { devModel } : {}),
+        appSettings: mergedAppSettings,
+      },
+      create: {
+        userId,
+        selectedTier: selectedTier ?? "pro",
+        devMode: devMode ?? false,
+        devModel: devModel ?? "",
+        appSettings: mergedAppSettings,
+      },
+    });
+    res.json({
+      settings: {
+        selectedTier: row.selectedTier,
+        devMode: row.devMode,
+        devModel: row.devModel,
+        appSettings: row.appSettings,
+      },
+    });
+  });
+
+  router.get("/config", (req, res) => {
     const useCfGateway = Boolean(process.env.AI_GATEWAY_URL && process.env.CLOUDFLARE_API_TOKEN);
     const useOpenRouterDirect = Boolean(process.env.OPENROUTER_API_KEY);
     res.json({
@@ -95,18 +201,45 @@ export function createAgentRouter(runtime: AgentRuntime) {
   });
 
   router.post("/conversations", async (req, res) => {
-    if (!bootstrapAllowed(req)) {
-      res.status(401).json({ error: "Unauthorized" });
-      return;
-    }
     const parsed = sessionSchema.safeParse(req.body?.studioSessionId);
     if (!parsed.success) {
       res.status(400).json({ error: "Invalid Studio session id" });
       return;
     }
     const accessToken = randomBytes(32).toString("base64url");
-    const conversation = await runtime.createConversation(parsed.data, digest(accessToken));
+    const conversation = await runtime.createConversation(parsed.data, digest(accessToken), (req as AuthRequest).currentUser?.id ?? null);
     res.status(201).json({ conversation: publicConversation(conversation), accessToken });
+  });
+
+  router.get("/conversations", async (req: AuthRequest, res) => {
+    if (!process.env.DATABASE_URL) {
+      res.json({ conversations: [] });
+      return;
+    }
+    const userId = req.currentUser?.id;
+    const rows = await getPrismaClient().agentConversation.findMany({
+      where: userId ? { userId } : { userId: null },
+      orderBy: { updatedAt: "desc" },
+      take: 50,
+    });
+    res.json({
+      conversations: rows.map((row) => publicConversation({
+        id: row.id,
+        userId: row.userId,
+        studioSessionId: row.studioSessionId,
+        accessTokenHash: row.accessTokenHash ?? undefined,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString(),
+        nextSequence: row.nextSequence,
+        messages: [],
+        runs: [],
+        events: [],
+        approvedScopes: [],
+        auditEvents: [],
+        pendingApprovals: [],
+        pendingInteractions: [],
+      })),
+    });
   });
 
   router.get("/conversations/:conversationId", async (req, res) => {
@@ -241,7 +374,7 @@ export function createAgentRouter(runtime: AgentRuntime) {
     }
     const orKey = process.env.OPENROUTER_API_KEY;
     if (!orKey) {
-      res.json({ improved: prompt, error: "OPENROUTER_API_KEY not set in .env" });
+      res.json({ improved: prompt, error: "Stud model access is unavailable on this server" });
       return;
     }
     const gatewayBase = (process.env.AI_GATEWAY_URL ?? "").replace(/\/$/, "");
