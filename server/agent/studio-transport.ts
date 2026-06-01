@@ -1,6 +1,6 @@
 import type { JsonValue } from "./types.ts";
 
-export type TransportMode = "plugin_fallback" | "unknown";
+export type TransportMode = "studio_plugin" | "unknown";
 
 /** Maps legacy /endpoint paths (used in tools.ts) to the tool names the plugin handler table now uses */
 const PATH_TO_TOOL: Record<string, string> = {
@@ -44,7 +44,7 @@ export type StudioStatus = {
 };
 
 export class PluginRelayTransport {
-  readonly mode: TransportMode = "plugin_fallback";
+  readonly mode: TransportMode = "studio_plugin";
   lastUsed: TransportMode = "unknown";
 
   constructor(private readonly relay: StudioRelayFn) {}
@@ -59,7 +59,7 @@ export class PluginRelayTransport {
     // Convert legacy /path endpoints (from tools.ts) to tool names the plugin expects
     const resolved = tool.startsWith("/") ? (PATH_TO_TOOL[tool] ?? tool) : tool;
     const value = await this.relay(sessionId, resolved, args, signal, operationId);
-    this.lastUsed = "plugin_fallback";
+    this.lastUsed = "studio_plugin";
     return value;
   }
 

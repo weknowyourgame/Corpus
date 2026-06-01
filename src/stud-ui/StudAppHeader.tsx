@@ -3,8 +3,7 @@ import { StudStatusPill } from "./StudStatusPill";
 import type { ConnectionStatus, StudioTransportStatus } from "@/stores/roblox";
 
 function statusLabel(status: ConnectionStatus, transport?: StudioTransportStatus | null) {
-  if (status === "connected" && transport?.mcpConnected) return "Studio plugin";
-  if (status === "connected" && transport?.pluginConnected) return "All services running";
+  if (status === "connected" && transport?.pluginConnected) return "Studio plugin";
   if (status === "connected") return "Studio connected";
   if (status === "bridge_only") return "Waiting for Studio";
   return "Offline";
@@ -32,7 +31,7 @@ export function StudAppHeader({
           <StudStatusPill
             label={statusLabel(status, transport)}
             connected={status === "connected"}
-            className={transport?.pluginConnected && !transport.mcpConnected ? "is-fallback" : undefined}
+            className={undefined}
           />
         )}
         {trailing}

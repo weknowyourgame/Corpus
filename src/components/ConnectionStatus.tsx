@@ -10,7 +10,7 @@ import { CheckCircle2, XCircle, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type ConnectionState = "connected" | "disconnected" | "bridge-only" | "checking";
-type TransportMode = "official_mcp" | "plugin_fallback" | "unknown";
+type TransportMode = "studio_plugin" | "unknown";
 
 interface ConnectionStatusProps {
   className?: string;
@@ -93,18 +93,11 @@ export function ConnectionStatus({
 
   const current = config[state];
 
-  const transportLabel =
-    transport === "official_mcp"
-      ? "Studio plugin"
-      : transport === "plugin_fallback"
-        ? "Studio plugin"
-        : null;
+  const transportLabel = transport === "studio_plugin" ? "Studio plugin" : null;
   const transportTitle =
-    transport === "official_mcp"
-      ? "Browser commands go to the bridge; the Stud Studio plugin polls the bridge and executes them in Roblox Studio"
-      : transport === "plugin_fallback"
-        ? "Browser commands go to the bridge; the Stud Studio plugin polls the bridge and executes them in Roblox Studio"
-        : "Transport not yet determined";
+    transport === "studio_plugin"
+      ? "Your browser talks to the bridge; the Stud Studio plugin polls the bridge and executes commands in Roblox Studio"
+      : "Not connected";
 
   return (
     <div
