@@ -178,6 +178,50 @@ const nextRequestId = (session) => {
   return `op_${session.counter}_${timestamp()}`;
 };
 
+/**
+ * Small ring buffer of recently-cancelled internal pending IDs.
+ * Used to emit a more useful log line when the Studio plugin responds after
+ * the pending entry has already been removed by cancelRunRequests().
+ */
+const recentlyCancelledIds = new Map(); // Map<internalPendingId, timestamp>
+const CANCELLED_ID_TTL_MS = 60_000;
+
+const trackCancelledPendingId = (id) => {
+  if (recentlyCancelledIds.size >= 300) {
+    const cutoff = Date.now() - CANCELLED_ID_TTL_MS;
+    for (const [k, ts] of recentlyCancelledIds) {
+      if (ts < cutoff) recentlyCancelledIds.delete(k);
+    }
+  }
+  recentlyCancelledIds.set(id, Date.now());
+};
+
+/**
+ * Cancel all pending Studio bridge requests whose operationId starts with
+ * `${runId}:`. Safe to call for any runId regardless of which session it
+ * belongs to — only the correct session is touched.
+ * Returns the number of requests removed.
+ */
+const cancelRunRequests = (sessionId, runId) => {
+  const session = sessions.get(sessionId);
+  if (!session) return 0;
+  const prefix = `${runId}:`;
+  let cancelled = 0;
+  for (const [id, pending] of session.pending) {
+    if (pending.operationId?.startsWith(prefix)) {
+      clearTimeout(pending.timer);
+      session.pending.delete(id);
+      trackCancelledPendingId(id);
+      pending.reject(new Error("Run cancelled"));
+      cancelled++;
+    }
+  }
+  if (cancelled > 0) {
+    console.log(`[studio] cancelled ${cancelled} queued Studio request(s) for run ${runId.slice(0, 8)}`);
+  }
+  return cancelled;
+};
+
 const relayStudioRequest = (sessionId, tool, args, signal, operationId) => {
   const session = getSession(sessionId);
   if (!session) return Promise.reject(new Error("Invalid Studio session"));
@@ -297,6 +341,8 @@ const agentRuntime = new AgentRuntime(
   createModelDriverFactory(allTools),
   allTools,
 );
+// Wire in bridge-level cancellation so cancelRun can also purge queued Studio requests.
+agentRuntime.setCancelRunRequests(cancelRunRequests);
 // Reconcile any runs that were "running" when a previous bridge process exited.
 agentRuntime.recoverFromCrash()
   .then((ids) => { if (ids.length) console.log(`[agent] recovered ${ids.length} crashed conversation(s)`); })
@@ -450,6 +496,12 @@ const handleStudioRespond = (req, res) => {
 
   const pending = session.pending.get(id);
   if (!pending) {
+    // Log whether this looks like a late response for a cancelled run or just unknown.
+    if (recentlyCancelledIds.has(id)) {
+      console.log(`[studio] ignored late Studio response for cancelled run (id=${id})`);
+    } else {
+      console.log(`[studio] respond for unknown/timed-out id=${id}`);
+    }
     res.json({ error: "Request not found" });
     return;
   }

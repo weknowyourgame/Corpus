@@ -28,10 +28,13 @@ export interface SettingsState {
   devMode: boolean;
   devModel: string;
   appSettings: AppSettings;
+  /** Local-only full access preference. Server validates before accepting. */
+  fullAccess: boolean;
 
   setTier: (tier: Tier) => void;
   setDevMode: (on: boolean) => void;
   setDevModel: (model: string) => void;
+  setFullAccess: (on: boolean) => void;
   updateAppSettings: (settings: Partial<AppSettings>) => void;
   resetAppSettings: () => void;
   /** Fetch settings from server and merge over current state. No-op on 401. */
@@ -66,6 +69,7 @@ export const useSettingsStore = create<SettingsState>()(
       devMode: false,
       devModel: "",
       appSettings: DEFAULT_APP_SETTINGS,
+      fullAccess: false,
 
       setTier: (tier) => {
         set({ selectedTier: tier });
@@ -80,6 +84,11 @@ export const useSettingsStore = create<SettingsState>()(
       setDevModel: (model) => {
         set({ devModel: model });
         saveToServer({ devModel: model });
+      },
+
+      setFullAccess: (on) => {
+        set({ fullAccess: on });
+        // Note: fullAccess is local-only; not synced to server — server validates via env.
       },
 
       updateAppSettings: (settings) => {

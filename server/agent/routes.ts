@@ -32,6 +32,7 @@ const startSchema = z.object({
   tier: z.enum(["free", "pro", "hyper", "super"]).default("pro"),
   devModel: z.string().optional(),
   mode: z.enum(["execute", "plan"]).default("execute"),
+  fullAccess: z.boolean().optional(),
 });
 const answerSchema = z.object({ answers: z.array(z.union([z.string(), z.array(z.string())])) });
 const approvalSchema = z.object({ decision: z.enum(["allow_once", "allow_scope", "insert_without_scripts", "deny"]) });
@@ -41,6 +42,15 @@ const devModeAllowed = (req: Request) => {
   const token = process.env.STUD_DEV_MODE_TOKEN;
   if (!token) return true;
   return req.header("x-stud-dev-token") === token;
+};
+// Full access: server env gates whether the client can enable it at all.
+// STUD_FULL_ACCESS_ENABLED=true → allowed on this server.
+// STUD_FULL_ACCESS_TOKEN (optional) → client must send X-Stud-Full-Access-Token header.
+const fullAccessAllowed = (req: Request) => {
+  if (process.env.STUD_FULL_ACCESS_ENABLED !== "true") return false;
+  const requiredToken = process.env.STUD_FULL_ACCESS_TOKEN;
+  if (!requiredToken) return true;
+  return req.header("x-stud-full-access-token") === requiredToken;
 };
 const publicConversation = (conversation: Conversation) => {
   const { accessTokenHash: _token, ...safe } = conversation;
@@ -163,6 +173,7 @@ export function createAgentRouter(
       ready: useCfGateway || useOpenRouterDirect,
       mode: useCfGateway ? "cloudflare-gateway" : "openrouter-direct",
       devModeAllowed: devModeAllowed(req),
+      fullAccessAllowed: fullAccessAllowed(req),
       tiers: ["free", "pro", "hyper", "super"],
     });
   });
@@ -265,6 +276,12 @@ export function createAgentRouter(
       res.status(403).json({ error: "Dev mode is disabled for this deployment" });
       return;
     }
+    // Full access: client may request it only if server env permits.
+    const clientWantsFullAccess = parsed.data.fullAccess === true;
+    if (clientWantsFullAccess && !fullAccessAllowed(req)) {
+      res.status(403).json({ error: "Full access mode is not enabled on this server" });
+      return;
+    }
     try {
       const rlKey = `${parsed.data.tier}:${req.params.conversationId}`;
       await rateLimiter.acquire(rlKey, parsed.data.tier);
@@ -274,6 +291,7 @@ export function createAgentRouter(
         tier: parsed.data.tier,
         devModel: parsed.data.devModel,
         mode: parsed.data.mode,
+        fullAccess: clientWantsFullAccess && fullAccessAllowed(req),
         rateLimiterRelease: release,
       }));
     } catch (error) {

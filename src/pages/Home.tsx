@@ -18,7 +18,6 @@ import { ContextChips, ChipAction } from "@/components/chat/ContextChips";
 import { QuestionPrompt } from "@/components/chat/QuestionPrompt";
 import { ApprovalPrompt } from "@/components/chat/ApprovalPrompt";
 import { InstancePicker } from "@/components/chat/InstancePicker";
-import { MutationDiff } from "@/components/chat/MutationDiff";
 import { ConnectionBadges } from "@/components/chat/ConnectionBadges";
 import { RecoveryBanner } from "@/components/chat/RecoveryBanner";
 import { RunContextNotice } from "@/components/chat/RunContextNotice";
@@ -40,12 +39,11 @@ import {
   sendServerMessage,
   type ApprovalDecision,
   type ApprovalRequest,
-  type MutationResult,
 } from "@/lib/ai/server-agent";
 import { useAppShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { cn } from "@/lib/utils";
 import { StudioToken } from "@/components/StudioToken";
-import { ArrowUp, Square, CheckCircle2, Download, FolderOpen, RefreshCw, Box, FileText, Play, ListTodo, Terminal } from "lucide-react";
+import { ArrowUp, Square, CheckCircle2, Download, FolderOpen, RefreshCw, Box, FileText, Play, ListTodo, Terminal, Zap } from "lucide-react";
 
 const SUGGESTIONS = [
   // Gameplay systems
@@ -316,6 +314,28 @@ function DevModeHeaderToggle({
   );
 }
 
+function FullAccessToggle({
+  active,
+  onToggle,
+}: {
+  active: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={cn("stud-icon-btn nav-button", active && "is-primary")}
+      onClick={onToggle}
+      aria-pressed={active}
+      aria-label={active ? "Disable full access mode" : "Enable full access mode"}
+      title={active ? "Full access ON — mutations auto-approved. Click to disable." : "Enable full access mode (local/dev only)"}
+      style={active ? { color: "var(--stud-warning, #f59e0b)" } : undefined}
+    >
+      <Zap className="h-4 w-4" />
+    </button>
+  );
+}
+
 function LoginScreen() {
   const [email, setEmail] = useState("");
   const [token, setToken] = useState("");
@@ -392,8 +412,8 @@ export function Home() {
   const [displayedSuggestions, setDisplayedSuggestions] = useState<string[]>([]);
   const [gatewayReady, setGatewayReady] = useState(false);
   const [devModeAllowed, setDevModeAllowed] = useState(false);
+  const [fullAccessAllowed, setFullAccessAllowed] = useState(false);
   const [pendingApproval, setPendingApproval] = useState<ApprovalRequest | null>(null);
-  const [mutationResults, setMutationResults] = useState<Array<MutationResult & { id: string }>>([]);
   const [runNotice, setRunNotice] = useState<string | null>(null);
   const approvalResolver = useRef<((decision: ApprovalDecision) => void) | null>(null);
   const {
@@ -413,7 +433,7 @@ export function Home() {
     clearMessages,
     replaceMessages,
   } = useChatStore();
-  const { selectedTier, devMode, devModel, setDevMode, setDevModel, loadFromServer: loadSettingsFromServer } = useSettingsStore();
+  const { selectedTier, devMode, devModel, fullAccess, setDevMode, setDevModel, setFullAccess, loadFromServer: loadSettingsFromServer } = useSettingsStore();
   const { user, loading: authLoading, loadMe, finishGoogleLogin } = useAuthStore();
   const { status: studioStatus, transport: studioTransport, startPolling } = useRobloxStore();
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -477,9 +497,14 @@ export function Home() {
     void getServerProviderConfig().then((cfg) => {
       setGatewayReady(cfg.ready ?? false);
       setDevModeAllowed(cfg.devModeAllowed === true);
+      setFullAccessAllowed((cfg as { fullAccessAllowed?: boolean }).fullAccessAllowed === true);
       if (!cfg.devModeAllowed) {
         setDevMode(false);
         setDevModel("");
+      }
+      // If server no longer allows full access, clear local state
+      if (!(cfg as { fullAccessAllowed?: boolean }).fullAccessAllowed) {
+        setFullAccess(false);
       }
     });
   }, [user, setDevMode, setDevModel]);
@@ -521,7 +546,7 @@ export function Home() {
           return requestApproval(approval);
         },
         onMutationResult: (result) => {
-          setMutationResults((prev) => [{ ...result, id: result.transactionId }, ...prev]);
+          if (result.toolCallId) updateToolCall(target(), result.toolCallId, { result });
         },
         onFinish: () => {
           setPendingApproval(null);
@@ -559,6 +584,11 @@ export function Home() {
     setDevMode(next);
     if (!next) setDevModel("");
   }, [devModeAllowed, devMode, setDevMode, setDevModel]);
+
+  const toggleFullAccess = useCallback(() => {
+    if (!fullAccessAllowed) return;
+    setFullAccess(!fullAccess);
+  }, [fullAccessAllowed, fullAccess, setFullAccess]);
 
   const handleSubmit = useCallback(async () => {
     if (!input.trim() || isStreaming) return;
@@ -616,7 +646,7 @@ export function Home() {
           return requestApproval(approval);
         },
         onMutationResult: (result) => {
-          setMutationResults((prev) => [{ ...result, id: result.transactionId }, ...prev]);
+          if (result.toolCallId) updateToolCall(assistantId, result.toolCallId, { result });
         },
         onFinish: () => {
           setPendingApproval(null);
@@ -627,14 +657,14 @@ export function Home() {
           setError(error.message);
           setStreaming(false);
         },
-      }, devModeAllowed && devMode && devModel ? devModel : undefined);
+      }, devModeAllowed && devMode && devModel ? devModel : undefined, fullAccessAllowed && fullAccess ? true : undefined);
     } catch (error) {
       console.error("[Home] Chat error:", error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       setError(errorMessage);
       setStreaming(false);
     }
-  }, [input, isStreaming, activeChips, addMessage, updateMessage, addToolCall, updateToolCall, setStreaming, setError, selectedTier, devModeAllowed, devMode, devModel, setPendingQuestion, setQuestionResolver, requestApproval]);
+  }, [input, isStreaming, activeChips, addMessage, updateMessage, addToolCall, updateToolCall, setStreaming, setError, selectedTier, devModeAllowed, devMode, devModel, fullAccessAllowed, fullAccess, setPendingQuestion, setQuestionResolver, requestApproval]);
 
   const handleSuggestionClick = (suggestion: string) => {
     setInput(suggestion);
@@ -703,11 +733,6 @@ export function Home() {
       </div>
     </>
   );
-  const mutationOwner = (result: MutationResult) =>
-    [...messages].reverse().find((message) =>
-      message.toolCalls?.some((toolCall) => toolCall.name === result.toolName)
-    )?.id;
-
   if (messages.length === 0) {
     return (
       <div className="stud-app-shell stud-workbench">
@@ -718,6 +743,7 @@ export function Home() {
           trailing={
             <>
               {devModeAllowed && <DevModeHeaderToggle active={devMode} onToggle={toggleDevMode} />}
+              {fullAccessAllowed && <FullAccessToggle active={fullAccess} onToggle={toggleFullAccess} />}
               <SettingsDialog />
             </>
           }
@@ -789,6 +815,7 @@ export function Home() {
         trailing={
           <>
             {devModeAllowed && <DevModeHeaderToggle active={devMode} onToggle={toggleDevMode} />}
+            {fullAccessAllowed && <FullAccessToggle active={fullAccess} onToggle={toggleFullAccess} />}
             <ChatActions onClear={handleClearChat} disabled={messages.length === 0 || isStreaming} />
             <SettingsDialog />
           </>
@@ -856,17 +883,6 @@ export function Home() {
                   {message.role === "assistant" && message.toolCalls && message.toolCalls.length > 0 && (
                     <div className="stud-tool-card">
                       <ToolCalls toolCalls={message.toolCalls} />
-                      {mutationResults.filter((result) => mutationOwner(result) === message.id).slice(0, 5).map((result) => (
-                        <MutationDiff
-                          key={result.id}
-                          toolName={result.toolName}
-                          path={result.path}
-                          before={result.before}
-                          after={result.after}
-                          transactionId={result.transactionId}
-                          className="mt-2"
-                        />
-                      ))}
                     </div>
                   )}
                   {message.content ? (
@@ -896,22 +912,6 @@ export function Home() {
               </div>
             </div>
           ))}
-
-          {/* Mutation diffs */}
-          {mutationResults.some((result) => !mutationOwner(result)) && (
-            <div className="space-y-1.5 px-1">
-              {mutationResults.filter((result) => !mutationOwner(result)).slice(0, 5).map((r) => (
-                <MutationDiff
-                  key={r.id}
-                  toolName={r.toolName}
-                  path={r.path}
-                  before={r.before}
-                  after={r.after}
-                  transactionId={r.transactionId}
-                />
-              ))}
-            </div>
-          )}
 
           {error && (
             <RecoveryBanner error={error} onDismiss={() => setError(null)} />

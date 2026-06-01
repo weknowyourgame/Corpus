@@ -29,6 +29,7 @@ export type AgentRun = {
   completedAt?: string;
   error?: string;
   iterations: number;
+  fullAccess?: boolean;
 };
 
 export type AgentEventBase = {
@@ -82,6 +83,8 @@ export type AgentEventData =
       input: Record<string, unknown>;
       summary: string;
       scope: string;
+      /** Human-readable description of what will be remembered if user clicks "Approve this scope". */
+      scopeDescription?: string;
       risk: Exclude<ToolRisk, "read">;
       preview?: JsonValue;
       allowStripScripts?: boolean;
@@ -97,7 +100,22 @@ export type AgentEventData =
   | { type: "run_cancelled"; reason: string }
   | { type: "run_error"; error: string }
   | { type: "context_snapshot"; studioConnected: boolean; selectedPaths: string[]; atMentions: Array<{ path: string; summary: string }> }
-  | { type: "mutation_result"; transactionId: string; toolName: string; path: string; before?: string; after?: string; undoWaypoint?: string };
+  | {
+      type: "mutation_result";
+      transactionId: string;
+      toolCallId?: string;
+      toolName: string;
+      path: string;
+      before?: string;
+      after?: string;
+      beforeSource?: string;
+      afterSource?: string;
+      undoWaypoint?: string;
+      revisionBefore?: string;
+      revisionAfter?: string;
+      created?: boolean;
+      deleted?: boolean;
+    };
 
 export type AgentEvent = AgentEventBase & AgentEventData;
 
@@ -116,10 +134,14 @@ export type AgentQuestion = {
 
 export type AgentAnswer = string | string[];
 
+export type ScopeMatchStrategy = "exact" | "path_prefix" | "parent_class" | "tool_family";
+
 export type ApprovedScope = {
   id: string;
   toolName: string;
-  scope: string;
+  scope: string;           // exact scope shown to user in approval UI
+  matchStrategy: ScopeMatchStrategy;
+  canonicalScope: string;  // normalized scope used for future matching
   approvedAt: string;
   approvalId: string;
 };
@@ -146,6 +168,7 @@ export type PendingApprovalRecord = {
   input: Record<string, unknown>;
   summary: string;
   scope: string;
+  scopeDescription?: string;
   risk: Exclude<ToolRisk, "read">;
   preview?: JsonValue;
   allowStripScripts?: boolean;
@@ -184,6 +207,7 @@ export type StartRunInput = {
   tier: AgentTier;
   devModel?: string;
   mode?: RunMode;
+  fullAccess?: boolean;
   rateLimiterRelease?: () => void;
 };
 

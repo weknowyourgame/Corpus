@@ -13,6 +13,7 @@ export type ApprovalRequest = {
   toolName: string;
   summary: string;
   scope: string;
+  scopeDescription?: string;
   risk: string;
   preview?: unknown;
   allowStripScripts?: boolean;
@@ -134,11 +135,18 @@ export async function loadServerMessages(): Promise<Array<Omit<Message, "id" | "
 
 export type MutationResult = {
   transactionId: string;
+  toolCallId?: string;
   toolName: string;
   path: string;
   before?: string;
   after?: string;
+  beforeSource?: string;
+  afterSource?: string;
   undoWaypoint?: string;
+  revisionBefore?: string;
+  revisionAfter?: string;
+  created?: boolean;
+  deleted?: boolean;
 };
 
 export interface ServerChatCallbacks {
@@ -187,6 +195,7 @@ async function handleEvent(
       toolName: event.toolName ?? "",
       summary: event.summary ?? "",
       scope: event.scope ?? "",
+      scopeDescription: event.scopeDescription,
       risk: event.risk ?? "",
       preview: event.preview,
       allowStripScripts: event.allowStripScripts,
@@ -204,11 +213,18 @@ async function handleEvent(
   if (event.type === "mutation_result" && callbacks.onMutationResult) {
     callbacks.onMutationResult({
       transactionId: (event as unknown as { transactionId: string }).transactionId,
+      toolCallId: (event as unknown as { toolCallId?: string }).toolCallId,
       toolName: event.toolName ?? "",
       path: (event as unknown as { path: string }).path ?? "",
       before: (event as unknown as { before?: string }).before,
       after: (event as unknown as { after?: string }).after,
+      beforeSource: (event as unknown as { beforeSource?: string }).beforeSource,
+      afterSource: (event as unknown as { afterSource?: string }).afterSource,
       undoWaypoint: (event as unknown as { undoWaypoint?: string }).undoWaypoint,
+      revisionBefore: (event as unknown as { revisionBefore?: string }).revisionBefore,
+      revisionAfter: (event as unknown as { revisionAfter?: string }).revisionAfter,
+      created: (event as unknown as { created?: boolean }).created,
+      deleted: (event as unknown as { deleted?: boolean }).deleted,
     });
   }
   if (event.type === "interaction_resolved") resolvedInteractions.add(event.interactionId ?? "");
@@ -271,11 +287,12 @@ export async function sendServerMessage(
   mode: "execute" | "plan",
   callbacks: ServerChatCallbacks,
   devModel?: string,
+  fullAccess?: boolean,
 ) {
   const { conversation, access } = await getConversation();
   const response = await request(`/agent/conversations/${conversation.id}/runs`, {
     method: "POST",
-    body: JSON.stringify({ message, tier, mode, ...(devModel ? { devModel } : {}) }),
+    body: JSON.stringify({ message, tier, mode, ...(devModel ? { devModel } : {}), ...(fullAccess ? { fullAccess } : {}) }),
   }, access.accessToken);
   const result = await response.json() as { id?: string; error?: string };
   if (!response.ok || !result.id) throw new Error(result.error ?? "Unable to start run");

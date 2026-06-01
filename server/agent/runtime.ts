@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { PermissionPolicy } from "./policy.ts";
+import { PermissionPolicy, deriveScopeInfo } from "./policy.ts";
 import { parseAtMentions, resolveAtMentions, buildContextBlock } from "./context.ts";
 import { buildRagContext } from "./rag.ts";
 import { RobloxStudioMcpGateway } from "./tools.ts";
@@ -47,6 +47,10 @@ type Listener = (event: AgentEvent) => void;
 export class AgentRuntime {
   private readonly active = new Map<string, ActiveRun>();
   private readonly listeners = new Map<string, Set<Listener>>();
+  /** Synchronous gate set before abort() fires so post-cancel emits are blocked immediately. */
+  private readonly cancelledRuns = new Set<string>();
+  /** Optional bridge-level cancellation callback wired up after construction. */
+  private cancelRunStudioRequestsFn?: (sessionId: string, runId: string) => number;
 
   constructor(
     private readonly store: ConversationStore,
@@ -55,6 +59,14 @@ export class AgentRuntime {
     private readonly maxIterations = 50,
     private readonly policy = new PermissionPolicy(),
   ) {}
+
+  /**
+   * Wire up bridge-level cancellation so cancelRun can also purge queued
+   * Studio commands for this run. Call once after construction in server/index.js.
+   */
+  setCancelRunRequests(fn: (sessionId: string, runId: string) => number): void {
+    this.cancelRunStudioRequestsFn = fn;
+  }
 
   /**
    * Should be called once on process bootstrap. Cancels any "running" runs
@@ -89,6 +101,7 @@ export class AgentRuntime {
       tier: input.tier,
       startedAt: now(),
       iterations: 0,
+      fullAccess: input.fullAccess ?? false,
     };
     conversation.messages.push({ role: "user", content: input.message });
     conversation.runs.push(run);
@@ -112,6 +125,9 @@ export class AgentRuntime {
 
     void this.execute(conversation.id, run.id, input).finally(() => {
       this.active.delete(run.id);
+      // Keep the cancelledRuns entry for 60 s to gate any background tool ops that
+      // outlive the main execute loop (relay requests that resolved just before abort).
+      setTimeout(() => this.cancelledRuns.delete(run.id), 60_000);
       input.rateLimiterRelease?.();
     });
 
@@ -119,11 +135,28 @@ export class AgentRuntime {
   }
 
   async cancelRun(conversationId: string, runId: string) {
+    // Synchronous idempotency: if cancellation already in progress, bail immediately
+    // without touching the store or emitting duplicate events.
+    if (this.cancelledRuns.has(runId)) return false;
+
     const conversation = await this.requiredConversation(conversationId);
     const run = conversation.runs.find((item) => item.id === runId);
     if (!run || run.status !== "running") return false;
+
+    // Double-check after the await in case a concurrent cancelRun raced here.
+    if (this.cancelledRuns.has(runId)) return false;
+
+    // Set the gate BEFORE abort() so the execute loop sees it synchronously
+    // in any throwIfAborted / cancelledRuns check that runs after the abort fires.
+    this.cancelledRuns.add(runId);
+
     const active = this.active.get(runId);
     active?.controller.abort("Cancelled by user");
+
+    // Clear queued Studio bridge requests for this run before the plugin polls them.
+    const studioCleared = this.cancelRunStudioRequestsFn?.(conversation.studioSessionId, runId) ?? 0;
+    console.log(`[agent ${runId.slice(0, 8)}] run cancelled; ${studioCleared} Studio request(s) cleared`);
+
     for (const pending of active?.interactions.values() ?? []) pending.reject(new Error("Cancelled by user"));
     for (const pending of active?.approvals.values() ?? []) pending.reject(new Error("Cancelled by user"));
     active?.interactions.clear();
@@ -355,7 +388,9 @@ export class AgentRuntime {
       const conversation = await this.requiredConversation(conversationId);
       const run = this.requiredRun(conversation, runId);
       const cancelled = active.controller.signal.aborted;
-      if (cancelled && run.status === "cancelled") return;
+      // cancelledRuns is set synchronously before abort() fires, so checking it
+      // here covers the race where cancelRun's store-save hasn't landed yet.
+      if (cancelled && (run.status === "cancelled" || this.cancelledRuns.has(runId))) return;
       run.status = cancelled ? "cancelled" : "error";
       run.completedAt = now();
       if (cancelled) {
@@ -400,11 +435,13 @@ export class AgentRuntime {
       active.controller.signal,
     );
 
-    if (active.controller.signal.aborted) return;
+    if (active.controller.signal.aborted || this.cancelledRuns.has(runId)) return;
 
     for (const outcome of outcomes) {
-      if (active.controller.signal.aborted) return;
+      if (active.controller.signal.aborted || this.cancelledRuns.has(runId)) return;
       const next = await this.requiredConversation(conversationId);
+      // Re-check after the await — cancelRun may have saved while we awaited the store.
+      if (active.controller.signal.aborted || this.cancelledRuns.has(runId)) return;
       next.messages.push({
         role: "tool",
         toolCallId: outcome.toolCallId,
@@ -436,15 +473,28 @@ export class AgentRuntime {
     const hasTransaction = "transactionId" in out;
     if (!hasDiff && !hasTransaction) return;
     const call = calls.find((item) => item.id === toolCallId);
-    const p = typeof call?.input.path === "string" ? call.input.path : "";
+    const p = typeof out.path === "string"
+      ? out.path
+      : typeof call?.input.path === "string"
+        ? call.input.path
+        : typeof call?.input.parent === "string"
+          ? call.input.parent
+          : "";
     await this.emitById(conversationId, runId, {
       type: "mutation_result",
       transactionId: typeof out.transactionId === "string" ? out.transactionId : toolCallId,
+      toolCallId,
       toolName,
       path: p,
       before: typeof out.beforeSource === "string" ? out.beforeSource : typeof out.before === "string" ? out.before : undefined,
       after: typeof out.afterSource === "string" ? out.afterSource : typeof out.after === "string" ? out.after : undefined,
+      beforeSource: typeof out.beforeSource === "string" ? out.beforeSource : undefined,
+      afterSource: typeof out.afterSource === "string" ? out.afterSource : undefined,
       undoWaypoint: typeof out.undoWaypoint === "string" ? out.undoWaypoint : undefined,
+      revisionBefore: typeof out.revisionBefore === "string" ? out.revisionBefore : undefined,
+      revisionAfter: typeof out.revisionAfter === "string" ? out.revisionAfter : undefined,
+      created: out.created === true,
+      deleted: out.deleted === true,
     });
   }
 
@@ -471,6 +521,7 @@ export class AgentRuntime {
     conversation.auditEvents.push({
       ...this.audit(runId, "policy_decision", "policy", assessment.reason, {
         scope: assessment.scope,
+        matchReason: assessment.matchReason ?? null,
         planStepIndex: assessment.planStepIndex ?? null,
       }),
       toolCallId,
@@ -504,6 +555,7 @@ export class AgentRuntime {
         input,
         assessment.summary,
         assessment.scope,
+        assessment.scopeDescription,
         preview,
       );
       if (approval.decision === "deny") {
@@ -521,10 +573,13 @@ export class AgentRuntime {
       if (approval.decision === "insert_without_scripts") executionInput = { ...input, stripScripts: true };
       if (approval.decision === "allow_scope") {
         const current = await this.requiredConversation(conversationId);
+        const { canonicalScope, matchStrategy } = deriveScopeInfo(toolName, assessment.scope);
         current.approvedScopes.push({
           id: randomUUID(),
           toolName,
           scope: assessment.scope,
+          matchStrategy,
+          canonicalScope,
           approvedAt: now(),
           approvalId: approval.approvalId,
         });
@@ -614,6 +669,7 @@ export class AgentRuntime {
     input: Record<string, unknown>,
     summary: string,
     scope: string,
+    scopeDescription?: string,
     preview?: JsonValue,
   ) {
     const active = this.active.get(runId);
@@ -635,6 +691,7 @@ export class AgentRuntime {
       input: safeInput,
       summary,
       scope,
+      scopeDescription,
       risk: tool.risk as Exclude<ToolRisk, "read">,
       preview,
       allowStripScripts,
@@ -655,6 +712,7 @@ export class AgentRuntime {
       input: safeInput,
       summary,
       scope,
+      scopeDescription,
       risk: tool.risk as Exclude<ToolRisk, "read">,
       preview,
       allowStripScripts,
@@ -703,6 +761,13 @@ export class AgentRuntime {
   }
 
   private async emit(conversation: Conversation, runId: string, data: AgentEventData) {
+    // Gate: once a run is cancelled, only run_cancelled itself may pass through.
+    // This prevents late tool results, mutation results, or run_completed from being
+    // appended after cancellation, even if a background tool call raced to completion.
+    if (this.cancelledRuns.has(runId) && data.type !== "run_cancelled") {
+      console.log(`[agent ${runId.slice(0, 8)}] drop ${data.type} (run cancelled)`);
+      return;
+    }
     const event = {
       ...data,
       sequence: conversation.nextSequence,

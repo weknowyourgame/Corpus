@@ -24,6 +24,29 @@ type StudioRelay = (
 const asJson = (value: unknown) => JSON.parse(JSON.stringify(value)) as JsonValue;
 const stable = (value: unknown) => JSON.stringify(value);
 
+// Surface errors from Studio so the agent always sees them.
+// The plugin may return { error: "...", success: false } for any failed operation.
+// Without explicit surfacing the model sometimes misses the failure and continues.
+const surfaceStudioError = (result: JsonValue, toolName?: string): JsonValue => {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) return result;
+  const r = result as Record<string, unknown>;
+  if (r.success === false || (typeof r.error === "string" && r.error)) {
+    const error = String(r.error ?? "Studio operation failed");
+    // Add a type-hint for common property value mismatches
+    let hint: string | undefined;
+    if (toolName === "set_property" || toolName === "bulk_set_property") {
+      if (error.toLowerCase().includes("expected") || error.toLowerCase().includes("got string")) {
+        hint = "Property value type mismatch. For Vector3 use Vector3.new(x,y,z). For Color3 use Color3.fromRGB(r,g,b). For numbers pass plain digits. For booleans pass true/false.";
+      }
+    }
+    if (error.includes("Instance not found") || error.includes("Parent not found")) {
+      hint = "The instance path does not exist. Call list_children on the parent first to find the correct path, then retry.";
+    }
+    return { success: false, error, ...(hint ? { hint } : {}), _raw: r } as JsonValue;
+  }
+  return result;
+};
+
 // Normalize a Roblox path: bare service names like "ReplicatedStorage" become
 // "game.ReplicatedStorage" so the plugin's getInstanceFromPath always gets a
 // fully-qualified path starting with "game".
@@ -229,6 +252,7 @@ const studioTools: Array<{
 export class RobloxStudioMcpGateway implements AgentToolRegistry {
   private readonly tools: AgentTool[];
   private readonly tracker = new ScriptRevisionTracker();
+  private readonly createdPathsBySession = new Map<string, Set<string>>();
 
   constructor(
     private readonly relay: StudioRelay,
@@ -271,19 +295,39 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
             parsed.path = normalizePath(parsed.path);
             // Check current source first
             const currentResult = await this.relay(context.studioSessionId, "read_script", { path: parsed.path }, context.signal, `${context.operationId}:check`).catch(() => null);
+            let beforeSource = "";
+            let revisionBefore: string | undefined;
             if (currentResult) {
               const currentSrc = typeof currentResult === "object" && currentResult !== null && "source" in currentResult
                 ? String((currentResult as Record<string, unknown>).source ?? "")
                 : "";
+              beforeSource = currentSrc;
+              revisionBefore = typeof currentResult === "object" && currentResult !== null && "revision" in currentResult
+                ? String((currentResult as Record<string, unknown>).revision ?? "")
+                : undefined;
               const conflict = this.tracker.check(context.studioSessionId, parsed.path, currentSrc);
               if (conflict.conflict) {
                 return { conflict: true, reason: conflict.reason, currentRevision: conflict.currentHash } as JsonValue;
               }
             }
             const result = await this.relay(context.studioSessionId, item.mcpTool, parsed, context.signal, context.operationId);
-            this.tracker.record(context.studioSessionId, parsed.path, parsed.source);
+            const errored = surfaceStudioError(result, "write_script");
+            if (typeof errored === "object" && errored !== null && !Array.isArray(errored) && (errored as Record<string, unknown>).success === false) {
+              return errored;
+            }
+            const revisionAfter = this.tracker.record(context.studioSessionId, parsed.path, parsed.source);
             globalScriptIndexer.index(context.studioSessionId, parsed.path, parsed.source);
-            return { ...result as Record<string, unknown>, transactionId: context.operationId, undoWaypoint: "Stud: write_script" } as JsonValue;
+            const created = this.consumeCreatedPath(context.studioSessionId, parsed.path);
+            return {
+              ...result as Record<string, unknown>,
+              transactionId: context.operationId,
+              undoWaypoint: "Stud: write_script",
+              beforeSource: created ? "" : beforeSource,
+              afterSource: parsed.source,
+              revisionBefore,
+              revisionAfter,
+              created,
+            } as JsonValue;
           },
         };
       }
@@ -315,16 +359,51 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
             const result = await this.relay(context.studioSessionId, item.mcpTool, parsed, context.signal, context.operationId);
             const afterSource = beforeSource !== undefined ? beforeSource.replace(parsed.oldCode, parsed.newCode) : undefined;
             if (afterSource !== undefined) {
-              this.tracker.record(context.studioSessionId, parsed.path, afterSource);
+              const revisionAfter = this.tracker.record(context.studioSessionId, parsed.path, afterSource);
               globalScriptIndexer.index(context.studioSessionId, parsed.path, afterSource);
+              return {
+                ...result as Record<string, unknown>,
+                transactionId: context.operationId,
+                undoWaypoint: "Stud: edit_script",
+                beforeSource,
+                afterSource,
+                revisionBefore: beforeSource ? createHash("sha256").update(beforeSource).digest("hex").slice(0, 12) : undefined,
+                revisionAfter,
+              } as JsonValue;
             }
             return {
               ...result as Record<string, unknown>,
               transactionId: context.operationId,
               undoWaypoint: "Stud: edit_script",
-              beforeSource,
-              afterSource,
-            } as JsonValue;
+              ...(beforeSource !== undefined ? { beforeSource } : {}),
+            } as unknown as JsonValue;
+          },
+        };
+      }
+      if (item.name === "mcp__roblox_studio__create_instance") {
+        return {
+          name: item.name,
+          description: item.description,
+          transport: "studio_mcp" as const,
+          risk: item.risk,
+          concurrency: "exclusive_mutation" as const,
+          inputSchema: item.schema,
+          scope: item.scope,
+          execute: async (input: Record<string, unknown>, context: ToolExecutionContext) => {
+            const parsed = item.schema.parse(input);
+            const normalized = normalizeBody(parsed);
+            const result = await this.relay(context.studioSessionId, item.mcpTool, normalized, context.signal, context.operationId);
+            const errored = surfaceStudioError(result, item.mcpTool);
+            if (typeof errored === "object" && errored !== null && !Array.isArray(errored) && (errored as Record<string, unknown>).success === false) {
+              return errored;
+            }
+            const out = typeof result === "object" && result !== null && !Array.isArray(result) ? result as Record<string, unknown> : {};
+            const createdPath = typeof out.path === "string" ? out.path : "";
+            const className = typeof normalized.className === "string" ? normalized.className : "";
+            if (createdPath && ["Script", "LocalScript", "ModuleScript"].includes(className)) {
+              this.rememberCreatedPath(context.studioSessionId, createdPath);
+            }
+            return { ...out, transactionId: context.operationId, created: true, className } as JsonValue;
           },
         };
       }
@@ -338,7 +417,8 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
         scope: item.scope,
         execute: async (input: Record<string, unknown>, context: ToolExecutionContext) => {
           const parsed = item.schema.parse(input);
-          return this.relay(context.studioSessionId, item.mcpTool, normalizeBody(parsed), context.signal, context.operationId);
+          const result = await this.relay(context.studioSessionId, item.mcpTool, normalizeBody(parsed), context.signal, context.operationId);
+          return surfaceStudioError(result, item.mcpTool);
         },
       };
     });
@@ -424,5 +504,19 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
 
   get(name: string) {
     return this.tools.find((tool) => tool.name === name);
+  }
+
+  private rememberCreatedPath(sessionId: string, path: string) {
+    const paths = this.createdPathsBySession.get(sessionId) ?? new Set<string>();
+    paths.add(path);
+    this.createdPathsBySession.set(sessionId, paths);
+  }
+
+  private consumeCreatedPath(sessionId: string, path: string) {
+    const paths = this.createdPathsBySession.get(sessionId);
+    if (!paths?.has(path)) return false;
+    paths.delete(path);
+    if (paths.size === 0) this.createdPathsBySession.delete(sessionId);
+    return true;
   }
 }

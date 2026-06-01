@@ -126,7 +126,12 @@ export function ApprovalPrompt({
         </span>
       </div>
       <p className="stud-approval-summary">{approval.summary}</p>
-      <p className="stud-approval-scope">Approved scope: {approval.scope}</p>
+      <p className="stud-approval-scope">Scope: {approval.scope}</p>
+      {!highRisk && approval.scopeDescription && (
+        <p className="stud-approval-scope" style={{ opacity: 0.7 }}>
+          Will remember: {approval.scopeDescription}
+        </p>
+      )}
       {dsPreview && <DataStorePreviewCard preview={dsPreview} />}
       {!dsPreview && preview && (
         <div className="stud-approval-preview">
@@ -162,7 +167,7 @@ export function ApprovalPrompt({
           {elevated ? "Allow once (PRODUCTION)" : "Allow once"}
         </Button>
         {!highRisk && (
-          <Button variant="outline" size="sm" onClick={() => onDecision("allow_scope")}>
+          <Button variant="outline" size="sm" onClick={() => onDecision("allow_scope")} title={approval.scopeDescription ? `Will remember: ${approval.scopeDescription}` : undefined}>
             Approve this scope
           </Button>
         )}

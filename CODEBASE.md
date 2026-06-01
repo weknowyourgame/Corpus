@@ -151,8 +151,17 @@ Key components:
 
 Prompt-kit components used: `PromptInput`, `ChatContainer`, `Message`, `ToolCall`, `Loader`, `Reasoning`, `ResponseStream`, `Markdown`, `CodeBlock`, `PromptSuggestion`, `ScrollButton`.
 
-- User-facing connection copy should describe the single active path: browser → bridge → Stud Studio plugin polling → Roblox Studio command execution.
-- Internal MCP adapter names may remain in server/tool implementation details, but the app UI should say "Studio plugin" or "Stud Studio plugin" rather than legacy transport/fallback labels.
+**Connection model** — one active path: browser → bridge → Stud Studio plugin (polls bridge) → Roblox Studio. No "official MCP" or "plugin fallback" concepts in the UI.
+
+**Transport strings** — `effectiveTransport` / `preferredTransport` / `lastUsedTransport` are `"studio_plugin" | "unknown"`. `"official_mcp"` and `"plugin_fallback"` no longer appear anywhere in user-facing code. Internal `mcp__roblox_studio__*` tool-name prefixes and `mcp-server.ts` (JSON-RPC adapter) keep their names as implementation details.
+
+### Tool Result UX
+
+- Tool input/output JSON is debug-only and lives under a collapsed **Raw details** disclosure.
+- Script write/edit mutation results render Claude Code-style structured diffs with file headers, hunks, line numbers, +/− stats, red/green changed lines, word-level highlights, copy-after-source, and full-diff expansion.
+- Script creation is inferred when `create_instance` is followed by `write_script` for the same new script path; the write result renders as a green full-file `Created Script` diff.
+- Read-only Studio tools render summaries instead of diffs: script reads show path/revision/line count plus a collapsed source preview; children/search/selection/properties render compact lists or tables.
+- Non-script mutation tools render human-readable change cards such as created instance, deleted path, changed property, moved/cloned path, or bulk counts with expandable item previews.
 
 ---
 
@@ -258,10 +267,30 @@ The system prompt enforces:
 
 Classifies every tool call by risk and decides `allow`, `ask`, or `deny`:
 - `read` risk → always `allow`
-- `mutation` risk → `ask` unless scope pre-approved
+- `low_mutation` / `destructive` risk → `ask` unless pre-approved (see scope matching below)
 - `external_asset` risk → `ask` with optional "insert without scripts" option
-- `elevated` risk → always `ask` regardless of scope
+- `elevated`, `runtime_code`, `secret` → always `ask` even in full-access mode
 - Plan mode: cross-references proposed/approved plan steps
+
+**Scope matching** — four strategies so "Approve this scope" is reusable:
+- `exact` — future tool calls with the same exact scope auto-approved (write_script, edit_script, clone_instance)
+- `path_prefix` — any property on the same instance path (set_property: scope=`path.property` → canonical=`path`)
+- `parent_class` — any instance of the same class under the same parent (create_instance: scope=`parent/*:class`)
+- `tool_family` — bulk operations covering the same parent/class patterns or instance paths (bulk_create, bulk_set_property)
+
+When user clicks "Approve this scope", `deriveScopeInfo(toolName, scope)` computes the canonical scope and strategy stored in `approvedScopes`. The `scopeApprovalDescription` helper generates human-readable copy shown in the approval UI ("Will remember: Any property on game.Workspace.Part").
+
+**Audit trail** — every policy decision includes a `matchReason` field: `exact_scope | path_prefix | parent_class | tool_family | full_access | plan`.
+
+**Full access mode** — opt-in for local/dev:
+- Server env: `STUD_FULL_ACCESS_ENABLED=true` (default false). Optional `STUD_FULL_ACCESS_TOKEN` requires matching `X-Stud-Full-Access-Token` header.
+- `/agent/config` returns `fullAccessAllowed: true/false` — client only shows toggle when allowed.
+- Client passes `fullAccess: true` in run request body. Server validates against env before accepting.
+- When `run.fullAccess === true`, policy allows `low_mutation` and `destructive` without prompting. `runtime_code`, `external_asset`, `secret`, and `elevated` still require approval.
+- Disabling full access returns to normal approval flow immediately.
+- UI: `FullAccessToggle` (⚡ icon) only visible when server reports `fullAccessAllowed`. Active state shown in amber. `fullAccess` preference stored localStorage-only — not synced to server.
+
+**Studio error surfacing** — `surfaceStudioError()` in `tools.ts` normalizes all Studio plugin error responses to `{ success: false, error: "...", hint?: "..." }`. Prevents the agent from silently ignoring failed tool calls. Type-mismatch errors (Vector3/Color3/etc.) get a hint string guiding the agent to correct value format.
 
 ### `plan.ts` — Plan Mode
 
@@ -284,6 +313,25 @@ Spawns focused sub-runs with restricted tool sets and specialist system prompts:
 - `network_specialist` — remote events, security, server authority
 
 Subagents are read-only; their proposals are executed by the parent agent.
+
+### Cancellation Model
+
+When the user presses Stop, `POST /agent/conversations/:id/runs/:runId/cancel` is called. The flow:
+
+1. **`AgentRuntime.cancelRun`** — adds `runId` to `cancelledRuns` (synchronous gate) **before** calling `abort()`. This means:
+   - The gate is visible to all concurrent coroutines as soon as `cancelRun` starts executing.
+   - Any `emit()` call for that `runId` (except `run_cancelled` itself) is dropped and logged.
+   - The `runToolBatch` outcomes loop checks `cancelledRuns` after each `await` so no tool results are saved after cancellation.
+
+2. **Bridge-level cleanup** — `cancelRunStudioRequestsFn(sessionId, runId)` is called immediately after `abort()`. It scans `session.pending` for entries whose `operationId` starts with `${runId}:`, rejects them (`"Run cancelled"`), and removes them so the plugin never picks them up. The count is logged.
+
+3. **In-flight Studio requests** — if the plugin already picked up a request (it was dequeued from `session.pending` but no response yet), the abort listener in `relayStudioRequest` removes it when the signal fires. When the plugin eventually responds via `POST /studio/respond`, the pending entry is gone; the response is silently dropped and logged (`[studio] ignored late Studio response for cancelled run`).
+
+4. **Idempotency** — `cancelRun` checks `cancelledRuns.has(runId)` twice (before and after the store `await`) and returns `false` immediately if the run is already being cancelled. Repeated calls to the HTTP cancel endpoint are safe.
+
+5. **SSE client** — `run_cancelled` is a terminal event. The `server-agent.ts` SSE loop calls `callbacks.onFinish()` and exits when it sees `run_cancelled`, matching `run_completed` behaviour.
+
+6. **Other agents unaffected** — `cancelledRuns` is keyed by `runId` (UUID). `cancelRunRequests` filters by `operationId.startsWith(runId + ":")`. Neither touches other conversations or other runs.
 
 ### `store.ts` — ConversationStore
 
@@ -491,6 +539,8 @@ STUD_AGENT_STORE=postgres|file|memory  # optional override; default uses Postgre
 STUD_DEV_MODE_ENABLED=false            # default; set true only in local/private environments — never in public deployments
 STUD_DEV_MODE_TOKEN=                   # optional server-side secret; if set, client must send X-Stud-Dev-Token header to unlock dev mode
                                        # set the matching value in browser devtools: localStorage.setItem("stud_dev_mode_token","<token>")
+STUD_FULL_ACCESS_ENABLED=false         # default; allow client to enable full-access mode (bypasses mutation approvals)
+STUD_FULL_ACCESS_TOKEN=                # optional; if set, client must send X-Stud-Full-Access-Token header
 ```
 
 ---
@@ -618,6 +668,10 @@ Next.js 16.2.6 (App Router) marketing landing page for Stud. Deployed to Cloudfl
 - **`MVP_NEXT_STEPS.md`** — Product-ready MVP checklist for Stud, including architecture decision, must-have build phases, database/storage notes, smoke tests, deferred features, and copy-paste prompts for future implementation runs.
 - Auth/dev-mode/provider-key follow-up prompts were drafted in chat; provider credentials MVP direction is Stud-owned server credentials only, with user-facing provider key entry removed/hidden.
 - Prompt status audit: corpus gating, auth sessions/login routes, user-owned conversations, settings persistence, provider-key UI removal, and metadata backfill are present; MCP transport wording still has legacy `plugin_fallback`/`official_mcp` labels in UI/status code.
+- Local anonymous auth debug: frontend shows login whenever `/auth/me` returns 401; with `STUD_ALLOW_ANONYMOUS=true`, verify the running bridge actually loaded `.env` and is not running with `NODE_ENV=production`.
+- Dev mode debug: when `STUD_DEV_MODE_TOKEN` is set, browser must set `localStorage.stud_dev_mode_token` to the same value; `/agent/config` returns `devModeAllowed=false` without the `X-Stud-Dev-Token` header.
+- Bug prompt audit: cancellation currently aborts the agent run but should also cancel queued/in-flight Studio relay work; approve-scope is exact tool+scope matching and needs broader/persistent scope matching plus an explicit full-access mode.
+- Diff prompt audit: Claude Code reference has structured/color diff code under `claude-code/native-ts/color-diff/`; Stud should render script mutations as first-class before/after hunks with line numbers and word highlights, not raw tool JSON.
 
 ---
 
@@ -631,3 +685,14 @@ Next.js 16.2.6 (App Router) marketing landing page for Stud. Deployed to Cloudfl
 - No co-author lines in git commits
 - Parallel tool calls whenever possible in agent/scheduler code
 - No comments unless the WHY is non-obvious
+
+
+1. Fix MCP/plugin wording
+2. Finish frontend login/logout UX
+3. Audit Studio token ownership end-to-end
+4. Run corpus metadata backfill
+5. Do provider-key UI final cleanup
+6. Set production env safely
+7. Deploy with anonymous/dev mode disabled
+8. Test full user flow:
+   login → create Studio token → connect plugin → chat → agent edits Studio → logout
