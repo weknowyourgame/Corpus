@@ -373,8 +373,10 @@ Phase 1–3 of the Roblox open-source game knowledge base plan. Currently implem
 
 **Demand-driven corpus retrieval** — `shouldUseCorpus(query)` in `retrieve.ts` gates all corpus calls:
 - Skips corpus for greetings, casual chat, and meta/model questions ("what can you do", "hi", "thanks", "are you Claude", etc.)
-- Allows corpus only when the query contains explicit Roblox/game/scripting signals (service names, system keywords, game-type terms like `remoteevent`, `tycoon`, `leaderstats`, `npc`, etc.)
-- After Vectorize returns matches, a second gate skips injection if the best score is below `CORPUS_MIN_SCORE`
+- `GAME_TERMS_RE` covers full Roblox/game-dev vocabulary: services, scripting concepts (cframe, tween, raycast, debounce), game mechanics (health, damage, coins, shop, stamina), world/UI (frame, hud, billboard, terrain), player systems (leaderboard, xp, badge, vip), and all original service names
+- When niche confidence ≥ 2, searches only the specific niche index (topK=12). When confidence < 2, searches ALL niche indexes in parallel (topK=4 each) — no longer searches a non-existent `${prefix}-general` index
+- After Vectorize returns matches, a second gate skips injection if the best score is below `CORPUS_MIN_SCORE` (default now **0.50**, previously 0.70)
+- Score-gate log line includes top-3 filtered scores for threshold calibration
 - Logs skip reason at each gate when `CORPUS_LOG_RETRIEVAL=true`; selected chunks are only logged when actually injected
 
 ---
@@ -435,8 +437,10 @@ Auth routes and env:
 
 - `POST /auth/login/start` — starts email token login or Google OAuth (`provider: "email" | "google"`); stores only hashed login/state tokens.
 - `POST /auth/login/verify` — verifies email token, Google OAuth code, or Google ID credential; creates an HTTP-only `stud_session` cookie backed by `auth_sessions`.
-- `POST /auth/logout` — revokes the current session hash and clears the cookie.
+- `POST /auth/logout` — revokes the current session hash and clears the cookie. Setting `user: null` in auth store causes `Home.tsx` to render `LoginScreen` immediately.
 - `GET /auth/me` — returns current user, 401 when logged out and anonymous dev bypass is not enabled.
+- **Login UX** — `LoginScreen` in `Home.tsx`: email field is disabled once a token is sent; when token verify fails the error is shown plus a "Try a different email" button that resets to the initial email-entry state.
+- **User badge** — `UserBadge` in `StudAppHeader.tsx` shows avatar (or initial) + truncated display name / email for non-anonymous users. Clicking signs out via `useAuthStore().logout()`.
 - Env: `DATABASE_URL`, `STUD_ALLOW_ANONYMOUS`, `STUD_LOGIN_TOKEN_ECHO`, `STUD_COOKIE_SECURE`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`.
 
 Corpus knowledge base:
@@ -672,6 +676,14 @@ Next.js 16.2.6 (App Router) marketing landing page for Stud. Deployed to Cloudfl
 - Dev mode debug: when `STUD_DEV_MODE_TOKEN` is set, browser must set `localStorage.stud_dev_mode_token` to the same value; `/agent/config` returns `devModeAllowed=false` without the `X-Stud-Dev-Token` header.
 - Bug prompt audit: cancellation currently aborts the agent run but should also cancel queued/in-flight Studio relay work; approve-scope is exact tool+scope matching and needs broader/persistent scope matching plus an explicit full-access mode.
 - Diff prompt audit: Claude Code reference has structured/color diff code under `claude-code/native-ts/color-diff/`; Stud should render script mutations as first-class before/after hunks with line numbers and word highlights, not raw tool JSON.
+- Claude Code Part 3 integration: added run-scoped task tools/events (`stud_task_create`, `stud_task_update`, `stud_task_list`) plus `TaskProgress` UI during streaming.
+- Claude Code Part 3 integration: plan steps now accept richer structured fields (`index`, `title`, `description`, `toolNames`, `risk`, `scope`, `estimatedChanges`) with `PlanStepList` approval UI.
+- Claude Code Part 3 integration: session memory now extracts/stores recent project/preference/pattern facts in `agent_memories` and injects them into future run context.
+- Claude Code Part 3 integration: runtime auto-compacts long conversations, emits `context_compacted`, and shows a subtle chat notice.
+- Claude Code Part 3 integration: post-run prompt suggestions are generated via `/agent/conversations/:id/suggestions` and shown under the composer.
+- Claude Code Part 3 integration: each run creates a Studio ChangeHistoryService waypoint and exposes `/agent/conversations/:id/runs/:runId/restore` for UI "Undo run".
+- Claude Code Part 3 integration: external MCP servers from `STUD_MCP_SERVERS=name:url` load as first-class agent tools and `/agent/mcp/status` powers the MCP connection badge.
+- Claude Code Part 3 integration: `roblox_spawn_subagent` now supports explore, plan, debugger, ui_specialist, and network_specialist specialists with scoped tools/progress events.
 
 ---
 

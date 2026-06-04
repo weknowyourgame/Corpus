@@ -520,3 +520,61 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
     return true;
   }
 }
+
+export function createTaskTools(): AgentTool[] {
+  return [
+    {
+      name: "stud_task_create",
+      description: "Create a visible run-scoped task for complex multi-step work. Use this at the start of substantial operations.",
+      transport: "server",
+      risk: "read",
+      concurrency: "parallel_read",
+      inputSchema: z.object({
+        title: z.string().min(1).max(120),
+        description: z.string().max(600).optional(),
+      }),
+      scope: () => "run.tasks",
+      execute: async (input, context) => {
+        const parsed = z.object({
+          title: z.string().min(1).max(120),
+          description: z.string().max(600).optional(),
+        }).parse(input);
+        if (!context.createTask) return { error: "Task tracking is unavailable." } as JsonValue;
+        return asJson(await context.createTask(parsed.title, parsed.description));
+      },
+    },
+    {
+      name: "stud_task_update",
+      description: "Update a run-scoped task status as work progresses.",
+      transport: "server",
+      risk: "read",
+      concurrency: "parallel_read",
+      inputSchema: z.object({
+        taskId: z.string().min(1),
+        status: z.enum(["pending", "in_progress", "completed", "blocked"]),
+        note: z.string().max(600).optional(),
+      }),
+      scope: () => "run.tasks",
+      execute: async (input, context) => {
+        const parsed = z.object({
+          taskId: z.string().min(1),
+          status: z.enum(["pending", "in_progress", "completed", "blocked"]),
+          note: z.string().max(600).optional(),
+        }).parse(input);
+        if (!context.updateTask) return { error: "Task tracking is unavailable." } as JsonValue;
+        const task = await context.updateTask(parsed.taskId, parsed.status, parsed.note);
+        return task ? asJson(task) : { error: `Unknown task: ${parsed.taskId}` } as JsonValue;
+      },
+    },
+    {
+      name: "stud_task_list",
+      description: "List the current run's task checklist.",
+      transport: "server",
+      risk: "read",
+      concurrency: "parallel_read",
+      inputSchema: z.object({}),
+      scope: () => "run.tasks",
+      execute: async (_input, context) => asJson({ tasks: context.listTasks?.() ?? [] }),
+    },
+  ];
+}

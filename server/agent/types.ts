@@ -39,10 +39,20 @@ export type AgentEventBase = {
   timestamp: string;
 };
 
+export type PlanStepRisk = "read" | "low_mutation" | "destructive";
+
 export type PlanStep = {
-  toolName: string;
+  index?: number;
+  title?: string;
+  description?: string;
+  toolNames?: string[];
+  risk?: PlanStepRisk;
   scope: string;
-  summary: string;
+  estimatedChanges?: number;
+  /** Backwards-compatible display text for older clients/tests. */
+  summary?: string;
+  /** Backwards-compatible single tool field accepted by older plan captures. */
+  toolName?: string;
 };
 
 export type ProposedPlan = {
@@ -63,6 +73,18 @@ export type ApprovedPlan = {
 };
 
 export type SubagentProgressKind = "started" | "iteration" | "finding" | "completed" | "cancelled";
+
+export type AgentTaskStatus = "pending" | "in_progress" | "completed" | "blocked";
+
+export type AgentTask = {
+  id: string;
+  title: string;
+  description?: string;
+  status: AgentTaskStatus;
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
+};
 
 export type AgentEventData =
   | { type: "run_started"; tier: AgentTier; mode: RunMode }
@@ -96,6 +118,8 @@ export type AgentEventData =
   | { type: "plan_approved"; planId: string; steps: PlanStep[] }
   | { type: "plan_rejected"; planId: string }
   | { type: "subagent_progress"; subagentId: string; subagentType: string; kind: SubagentProgressKind; message: string; iteration?: number }
+  | { type: "task_update"; taskId: string; title: string; status: AgentTaskStatus; note?: string; runId: string }
+  | { type: "context_compacted"; before: number; after: number; iteration: number }
   | { type: "run_completed"; text: string; iterations: number }
   | { type: "run_cancelled"; reason: string }
   | { type: "run_error"; error: string }
@@ -259,6 +283,9 @@ export type ToolExecutionContext = {
    * subagent analyses.
    */
   emitSubagentProgress?: (event: SubagentProgressEvent) => Promise<void>;
+  createTask?: (title: string, description?: string) => Promise<AgentTask>;
+  updateTask?: (taskId: string, status: AgentTaskStatus, note?: string) => Promise<AgentTask | null>;
+  listTasks?: () => AgentTask[];
 };
 
 export type AgentTool = {

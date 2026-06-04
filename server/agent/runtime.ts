@@ -2,10 +2,14 @@ import { randomUUID } from "node:crypto";
 import { PermissionPolicy, deriveScopeInfo } from "./policy.ts";
 import { parseAtMentions, resolveAtMentions, buildContextBlock } from "./context.ts";
 import { buildRagContext } from "./rag.ts";
+import { compactMessages, needsCompaction, TIER_MAX_TOKENS } from "./compact.ts";
+import { extractMemories, formatMemories, loadMemories, storeMemories } from "./memory.ts";
 import { RobloxStudioMcpGateway } from "./tools.ts";
 import { executeBatches } from "./scheduler.ts";
 import type {
   AgentAnswer,
+  AgentTask,
+  AgentTaskStatus,
   AgentEvent,
   AgentEventData,
   AgentQuestion,
@@ -39,7 +43,9 @@ type ActiveRun = {
   controller: AbortController;
   interactions: Map<string, Pending<AgentAnswer[]>>;
   approvals: Map<string, Pending<ApprovalDecision> & { risk: ToolRisk; allowStripScripts: boolean }>;
+  tasks: Map<string, AgentTask>;
   proposedPlan?: ProposedPlan;
+  undoWaypointName?: string;
 };
 
 type Listener = (event: AgentEvent) => void;
@@ -115,6 +121,7 @@ export class AgentRuntime {
       controller: new AbortController(),
       interactions: new Map(),
       approvals: new Map(),
+      tasks: new Map(),
     };
     this.active.set(run.id, active);
     await this.emit(conversation, run.id, {
@@ -249,6 +256,26 @@ export class AgentRuntime {
     return true;
   }
 
+  async restoreRun(conversationId: string, runId: string) {
+    const conversation = await this.requiredConversation(conversationId);
+    const run = conversation.runs.find((item) => item.id === runId);
+    if (!run || !["completed", "cancelled"].includes(run.status)) return false;
+    const tool = this.tools.get("mcp__roblox_studio__execute_luau");
+    if (!tool) throw new Error("Studio execute_luau tool is unavailable");
+    const controller = new AbortController();
+    await tool.execute({
+      code: `game:GetService("ChangeHistoryService"):Undo()`,
+    }, {
+      conversationId,
+      runId,
+      operationId: `${runId}:restore`,
+      studioSessionId: conversation.studioSessionId,
+      signal: controller.signal,
+      requestInteraction: async () => [],
+    });
+    return true;
+  }
+
   async subscribe(conversationId: string, after: number, listener: Listener) {
     const conversation = await this.requiredConversation(conversationId);
     for (const event of conversation.events.filter((item) => item.sequence > after)) listener(event);
@@ -277,8 +304,18 @@ export class AgentRuntime {
         run.iterations = iteration;
         await this.store.save(conversation);
 
+        if (iteration > 1 && needsCompaction(conversation.messages, TIER_MAX_TOKENS[input.tier])) {
+          const before = conversation.messages.length;
+          conversation.messages = await compactMessages(conversation.messages, active.controller.signal);
+          const after = conversation.messages.length;
+          await this.store.save(conversation);
+          console.log(`[agent] compacted ${before} -> ${after} messages`);
+          await this.emit(conversation, runId, { type: "context_compacted", before, after, iteration });
+        }
+
         // On first iteration: build context from @mentions + RAG retrieval
         if (iteration === 1) {
+          await this.createRunWaypoint(conversationId, runId, active);
           const relay = this.tools instanceof RobloxStudioMcpGateway ? this.tools.getRelay() : undefined;
           const lastUser = [...conversation.messages].reverse().find((m) => m.role === "user");
           const userText = lastUser?.role === "user" ? lastUser.content : "";
@@ -300,8 +337,11 @@ export class AgentRuntime {
             }
           }
 
-          const ragBlock = await buildRagContext(userText, conversation.studioSessionId, {}, active.controller.signal);
-          const parts = [mentionBlock, ragBlock].filter(Boolean);
+          const [ragBlock, memories] = await Promise.all([
+            buildRagContext(userText, conversation.studioSessionId, {}, active.controller.signal),
+            loadMemories(conversation.id).catch(() => []),
+          ]);
+          const parts = [formatMemories(memories), mentionBlock, ragBlock].filter(Boolean);
           if (parts.length) contextBlock = parts.join("\n\n");
         }
 
@@ -371,6 +411,7 @@ export class AgentRuntime {
             }
           }
           await this.emit(next, runId, { type: "run_completed", text: fullText, iterations: iteration });
+          this.extractRunMemoriesInBackground(conversationId, runId, fullText);
           return;
         }
 
@@ -637,7 +678,91 @@ export class AgentRuntime {
           iteration: progress.iteration,
         });
       },
+      createTask: async (title, description) => {
+        const timestamp = now();
+        const task: AgentTask = {
+          id: randomUUID(),
+          title,
+          description,
+          status: "pending",
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        };
+        active.tasks.set(task.id, task);
+        await this.emitById(conversation.id, runId, {
+          type: "task_update",
+          taskId: task.id,
+          title: task.title,
+          status: task.status,
+          note: task.note,
+          runId,
+        });
+        return task;
+      },
+      updateTask: async (taskId, status: AgentTaskStatus, note) => {
+        const existing = active.tasks.get(taskId);
+        if (!existing) return null;
+        const task: AgentTask = {
+          ...existing,
+          status,
+          note,
+          updatedAt: now(),
+        };
+        active.tasks.set(taskId, task);
+        await this.emitById(conversation.id, runId, {
+          type: "task_update",
+          taskId: task.id,
+          title: task.title,
+          status: task.status,
+          note: task.note,
+          runId,
+        });
+        return task;
+      },
+      listTasks: () => [...active.tasks.values()],
     };
+  }
+
+  private async createRunWaypoint(conversationId: string, runId: string, active: ActiveRun) {
+    if (active.undoWaypointName) return;
+    const conversation = await this.requiredConversation(conversationId);
+    const tool = this.tools.get("mcp__roblox_studio__execute_luau");
+    if (!tool) return;
+    const waypointName = `Stud:run-start:${runId.slice(0, 8)}`;
+    try {
+      await tool.execute({
+        code: `game:GetService("ChangeHistoryService"):SetWaypoint(${JSON.stringify(waypointName)})`,
+      }, {
+        conversationId,
+        runId,
+        operationId: `${runId}:waypoint`,
+        studioSessionId: conversation.studioSessionId,
+        signal: active.controller.signal,
+        requestInteraction: async () => [],
+      });
+      active.undoWaypointName = waypointName;
+    } catch (error) {
+      console.warn(`[agent ${runId.slice(0, 8)}] could not create run waypoint: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private extractRunMemoriesInBackground(conversationId: string, runId: string, runText: string) {
+    void (async () => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30_000);
+      try {
+        const conversation = await this.requiredConversation(conversationId);
+        const facts = await extractMemories(conversation.messages, runText, controller.signal);
+        await storeMemories(conversationId, facts);
+        if (facts.length) console.log(`[agent ${runId.slice(0, 8)}] stored ${facts.length} session memor${facts.length === 1 ? "y" : "ies"}`);
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.warn(`[agent ${runId.slice(0, 8)}] memory extraction skipped: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      } finally {
+        clearTimeout(timeout);
+      }
+    })();
   }
 
   private async requestInteraction(conversationId: string, runId: string, questions: AgentQuestion[]) {

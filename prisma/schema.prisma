@@ -95,12 +95,28 @@ model AgentConversation {
   createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz
   updatedAt           DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   events              AgentEventLog[]
+  memories            AgentMemory[]
   user                AppUser?        @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([studioSessionId])
   @@index([updatedAt])
   @@map("agent_conversations")
+}
+
+model AgentMemory {
+  id             String            @id @default(uuid()) @db.Uuid
+  conversationId String            @map("conversation_id") @db.Uuid
+  key            String
+  value          String
+  category       String
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  conversation   AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, key])
+  @@index([conversationId])
+  @@index([category])
+  @@map("agent_memories")
 }
 
 model AuthSession {

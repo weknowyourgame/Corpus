@@ -9,7 +9,7 @@ const CASUAL_RE = /^(hi+|hey+|hello+|howdy|sup|yo|thanks?|thank\s+you|thx|ok+|ok
 const META_RE = /\b(what\s+can\s+you\s+do|what\s+do\s+you\s+do|how\s+do\s+you\s+work|what\s+are\s+you|who\s+are\s+you|are\s+you\s+(claude|gpt|an?\s+ai|a\s+bot)|what('s|\s+is)\s+(your\s+(name|purpose)|stud)|what\s+(model|llm|version)\s+(are|is)\s+you)\b/i;
 
 // Any of these terms signals Roblox/game/scripting intent → corpus is useful.
-const GAME_TERMS_RE = /\b(roblox|rbxl?|luau|studio(?:\.lua)?|serverscriptservice|localscript|modulescript|remoteevent|remotefunction|bindableevent|bindablefunction|startergui|starterpack|replicatedstorage|datastore(?:service)?|humanoid|leaderstats|playeradded|playerremoving|characteradded|gamepass|devproduct|badgeservice|tweenservice|runservice|collectionservice|httpservice|marketplaceservice|groupservice|tycoon|obby|simulator|combat(\s+system)?|inventory(\s+system)?|round(\s+system)?|npc|tower\s+defense|battle\s+royale|placement(\s+system)?|monetization|screengui|textlabel|textbutton|imagelabel|viewportframe)\b/i;
+const GAME_TERMS_RE = /\b(roblox|rbxl?|luau|studio(?:\.lua)?|serverscriptservice|localscript|modulescript|remoteevent|remotefunction|bindableevent|bindablefunction|startergui|starterpack|replicatedstorage|datastore(?:service)?|humanoid|leaderstats|playeradded|playerremoving|characteradded|gamepass|devproduct|badgeservice|tweenservice|runservice|collectionservice|httpservice|marketplaceservice|groupservice|tycoon|obby|simulator|combat(\s+system)?|inventory(\s+system)?|round(\s+system)?|npc|tower\s+defense|battle\s+royale|placement(\s+system)?|monetization|screengui|textlabel|textbutton|imagelabel|viewportframe|health|damage|kill|die|respawn|revive|coins?|gems?|cash|currency|money|shop|store|buy|sell|purchase|inventory|item|weapon|gun|sword|tool|ability|skill|power|boost|speed|jump|stamina|sprint|dash|dodge|attack|defend|shield|armor|loot|drop|pickup|script|function|module|bind|connect|event|fire|invoke|signal|loop|timer|wait|delay|debounce|cooldown|trigger|detect|hit|touch|overlap|raycast|region3|cframe|vector3|tween|lerp|animate|track|weld|constraint|joint|gui|button|label|frame|screen|menu|hud|popup|dialog|prompt|notification|billboard|surface|part|model|mesh|union|texture|decal|particle|effect|sound|music|ambient|light|shadow|fog|sky|terrain|water|baseplate|workspace|folder|value|attribute|leaderboard|stats|points|score|rank|level|xp|exp|badge|pass|product|vip|team|group|spectator|spawn|death)\b/i;
 
 /**
  * Returns true only when the query clearly calls for Roblox game/code examples.
@@ -86,6 +86,7 @@ export async function retrieveCorpusContext(
   }
 
   const prefix = config.cloudflare.nicheIndexPrefix;
+  const ALL_NICHES = Object.keys(NICHE_KEYWORDS);
   const searches: Promise<{ indexName: string; matches: { id: string; score: number; metadata: Record<string, string | number | boolean> }[] }>[] = [];
 
   const searchIndex = async (indexName: string, topK: number) => {
@@ -101,9 +102,10 @@ export async function retrieveCorpusContext(
     return { indexName, matches };
   };
 
-  if (niche) searches.push(searchIndex(`${prefix}-${niche}`, 12));
-  if (!niche || confidence < 2) {
-    searches.push(searchIndex(`${prefix}-general`, 8));
+  if (niche && confidence >= 2) {
+    searches.push(searchIndex(`${prefix}-${niche}`, 12));
+  } else {
+    for (const n of ALL_NICHES) searches.push(searchIndex(`${prefix}-${n}`, 4));
   }
 
   const searched = await Promise.all(searches);
@@ -123,7 +125,7 @@ export async function retrieveCorpusContext(
 
   const bestScore = deduped[0]?.score ?? 0;
   if (bestScore < config.minScore) {
-    log(config, `skipped by low score; best=${bestScore.toFixed(4)} threshold=${config.minScore.toFixed(4)}`);
+    log(config, `score gate filtered: best=${bestScore.toFixed(4)} threshold=${config.minScore.toFixed(4)} top3=[${deduped.slice(0, 3).map((r) => r.score.toFixed(4)).join(", ")}]`);
     return { chunks: [], detectedNiche: niche, totalFound: deduped.length };
   }
 

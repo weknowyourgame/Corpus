@@ -10,9 +10,15 @@ import type {
 } from "./types.ts";
 
 const planStepSchema = z.object({
-  toolName: z.string().min(1).default("unknown"),
+  index: z.number().int().min(0).default(0),
+  title: z.string().min(1).max(120).default("Step"),
+  description: z.string().min(1).max(800).default("No description provided."),
+  toolNames: z.array(z.string().min(1)).min(1).default(["unknown"]),
+  risk: z.enum(["read", "low_mutation", "destructive"]).default("read"),
   scope: z.string().min(1).default("unknown"),
-  summary: z.string().min(1).max(280).default("Step"),
+  estimatedChanges: z.number().int().min(0).max(10_000).default(0),
+  summary: z.string().min(1).max(280).optional(),
+  toolName: z.string().min(1).optional(),
 });
 
 const tryParseJson = (val: unknown) => {
@@ -22,9 +28,32 @@ const tryParseJson = (val: unknown) => {
 
 // Normalize a raw step entry — handles plain strings and objects missing fields.
 const coerceStep = (raw: unknown): Record<string, unknown> => {
-  if (typeof raw === "string") return { toolName: "unknown", scope: "unknown", summary: raw.slice(0, 280) };
-  if (typeof raw === "object" && raw !== null) return raw as Record<string, unknown>;
-  return { toolName: "unknown", scope: "unknown", summary: String(raw).slice(0, 280) };
+  if (typeof raw === "string") {
+    return {
+      index: 0,
+      title: raw.slice(0, 80) || "Step",
+      description: raw.slice(0, 800) || "No description provided.",
+      toolNames: ["unknown"],
+      scope: "unknown",
+      risk: "read",
+      estimatedChanges: 0,
+      summary: raw.slice(0, 280),
+    };
+  }
+  if (typeof raw === "object" && raw !== null) {
+    const step = { ...(raw as Record<string, unknown>) };
+    if (!Array.isArray(step.toolNames)) {
+      step.toolNames = typeof step.toolName === "string" ? [step.toolName] : ["unknown"];
+    }
+    const summary = typeof step.summary === "string" ? step.summary : undefined;
+    const toolNames = Array.isArray(step.toolNames) ? step.toolNames : ["unknown"];
+    if (!step.title || typeof step.title !== "string") step.title = summary ?? String(toolNames[0] ?? "Step");
+    if (!step.description || typeof step.description !== "string") step.description = summary ?? String(step.title);
+    if (!step.risk || typeof step.risk !== "string") step.risk = "read";
+    if (typeof step.estimatedChanges !== "number") step.estimatedChanges = step.risk === "read" ? 0 : 1;
+    return step;
+  }
+  return coerceStep(String(raw));
 };
 
 export const submitPlanSchema = z.preprocess(
@@ -48,7 +77,7 @@ export const submitPlanSchema = z.preprocess(
     if (!obj.summary || typeof obj.summary !== "string") {
       const steps = Array.isArray(obj.steps) ? obj.steps as Array<Record<string, unknown>> : [];
       obj.summary = steps.length > 0
-        ? `Plan: ${steps.map((s) => String(s.summary ?? s.toolName ?? "step")).join("; ").slice(0, 200)}`
+        ? `Plan: ${steps.map((s) => String(s.summary ?? s.title ?? s.toolName ?? "step")).join("; ").slice(0, 200)}`
         : "Proposed plan";
     }
 
@@ -85,7 +114,12 @@ export function createSubmitPlanTool(): AgentTool {
       const parsed = submitPlanSchema.parse(input);
       const plan: ProposedPlan = {
         planId: randomUUID(),
-        steps: parsed.steps as PlanStep[],
+        steps: parsed.steps.map((step, index) => ({
+          ...step,
+          index: step.index || index + 1,
+          summary: step.summary ?? step.title,
+          toolName: step.toolName ?? step.toolNames[0],
+        })) as PlanStep[],
         summary: parsed.summary,
         submittedAt: new Date().toISOString(),
       };
@@ -118,7 +152,8 @@ export function findMatchingPlanStep(plan: ApprovedPlan | undefined, toolName: s
   for (let i = 0; i < plan.steps.length; i += 1) {
     if (plan.consumedStepIndices.includes(i)) continue;
     const step = plan.steps[i];
-    if (step.toolName === toolName && step.scope === scope) return i;
+    const names = step.toolNames?.length ? step.toolNames : step.toolName ? [step.toolName] : [];
+    if (names.includes(toolName) && step.scope === scope) return i;
   }
   return undefined;
 }

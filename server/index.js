@@ -16,14 +16,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const TOKENS_FILE = join(__dirname, "studio-tokens.json");
 import { DevelopmentConversationStore, MemoryConversationStore, PostgresConversationStore } from "./agent/store.ts";
 import { AgentRuntime } from "./agent/runtime.ts";
-import { RobloxStudioMcpGateway } from "./agent/tools.ts";
+import { createTaskTools, RobloxStudioMcpGateway } from "./agent/tools.ts";
 import { OpenCloudClient } from "./agent/open-cloud.ts";
 import { createDataStoreTools } from "./agent/datastore-tools.ts";
 import { createSubagentTool } from "./agent/subagent.ts";
 import { createPlaytestTools } from "./agent/playtest-tools.ts";
 import { createModelDriverFactory } from "./agent/drivers.ts";
 import { createAgentRouter } from "./agent/routes.ts";
-import { createMcpRequestHandler, buildMcpToolsList } from "./agent/mcp-server.ts";
+import { createMcpRequestHandler, buildMcpToolsList, ExternalMcpRegistry } from "./agent/mcp-server.ts";
 import { PluginRelayTransport } from "./agent/studio-transport.ts";
 import { runIngestion } from "./agent/corpus/ingest.ts";
 import { corpusConfig } from "./agent/corpus/config.ts";
@@ -286,6 +286,10 @@ if (!openCloudClient.configured) {
   );
 }
 const datastoreTools = createDataStoreTools(openCloudClient);
+const externalMcpRegistry = await ExternalMcpRegistry.fromEnv();
+if (externalMcpRegistry.list().length) {
+  console.log(`[agent] loaded ${externalMcpRegistry.list().length} external MCP tool(s)`);
+}
 
 /**
  * Composite registry that combines studio gateway tools with DataStore tools.
@@ -306,7 +310,13 @@ class CompositeToolRegistry {
 }
 
 const playtestTools = createPlaytestTools(composedRelay);
-const combinedTools = new CompositeToolRegistry(agentTools, [...datastoreTools, ...playtestTools]);
+const taskTools = createTaskTools();
+const combinedTools = new CompositeToolRegistry(agentTools, [
+  ...datastoreTools,
+  ...playtestTools,
+  ...taskTools,
+  ...externalMcpRegistry.list(),
+]);
 
 // Subagent tool references combinedTools for read-only wrapping
 const subagentTool = createSubagentTool(combinedTools);
@@ -362,7 +372,7 @@ app.get("/auth/me", asyncRoute(async (req, res) => {
   res.json({ user: publicUser(user) });
 }));
 
-app.use("/agent", createAgentRouter(agentRuntime, { requireUser: authMiddleware }));
+app.use("/agent", createAgentRouter(agentRuntime, { requireUser: authMiddleware }, () => externalMcpRegistry.status()));
 
 // --- Cloud Studio routes (web + plugin) ---
 

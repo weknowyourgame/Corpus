@@ -21,6 +21,8 @@ import { InstancePicker } from "@/components/chat/InstancePicker";
 import { ConnectionBadges } from "@/components/chat/ConnectionBadges";
 import { RecoveryBanner } from "@/components/chat/RecoveryBanner";
 import { RunContextNotice } from "@/components/chat/RunContextNotice";
+import { PlanStepList } from "@/components/chat/PlanStepList";
+import { TaskProgress } from "@/components/chat/TaskProgress";
 import { buildChatSubmission, classifyToolOutput } from "@/components/chat/intents";
 import { ChatActions } from "@/components/QuickActions";
 import { CommandPalette } from "@/components/CommandPalette";
@@ -33,17 +35,23 @@ import { useAuthStore } from "@/stores/auth";
 import {
   cancelServerRun,
   clearServerConversation,
+  approveServerPlan,
+  fetchSuggestions,
   getServerProviderConfig,
   loadServerMessages,
+  rejectServerPlan,
   resumeServerRun,
+  restoreServerRun,
   sendServerMessage,
   type ApprovalDecision,
   type ApprovalRequest,
+  type PlanStep,
+  type TaskUpdate,
 } from "@/lib/ai/server-agent";
 import { useAppShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { cn } from "@/lib/utils";
 import { StudioToken } from "@/components/StudioToken";
-import { ArrowUp, Square, CheckCircle2, Download, FolderOpen, RefreshCw, Box, FileText, Play, ListTodo, Terminal, Zap } from "lucide-react";
+import { ArrowUp, Square, CheckCircle2, Download, FolderOpen, RefreshCw, Box, FileText, Play, ListTodo, Terminal, Zap, Undo2 } from "lucide-react";
 
 const SUGGESTIONS = [
   // Gameplay systems
@@ -353,6 +361,12 @@ function LoginScreen() {
     await verifyEmailLogin(email.trim(), token.trim());
   };
 
+  const reset = () => {
+    setSent(false);
+    setToken("");
+    useAuthStore.setState({ error: null, devLoginToken: null });
+  };
+
   return (
     <div className="stud-app-shell stud-workbench">
       <div className="stud-atmosphere" aria-hidden="true" />
@@ -376,6 +390,7 @@ function LoginScreen() {
               placeholder="you@example.com"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
+              disabled={sent}
             />
             {sent && (
               <input
@@ -383,6 +398,7 @@ function LoginScreen() {
                 placeholder="Login token"
                 value={token}
                 onChange={(event) => setToken(event.target.value)}
+                autoFocus
               />
             )}
             {devLoginToken && (
@@ -398,7 +414,16 @@ function LoginScreen() {
             >
               {sent ? "Verify email token" : "Email me a login token"}
             </Button>
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && (
+              <div className="space-y-2">
+                <p className="text-sm text-destructive">{error}</p>
+                {sent && (
+                  <Button type="button" variant="ghost" className="w-full text-xs" onClick={reset}>
+                    Try a different email
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -415,7 +440,12 @@ export function Home() {
   const [fullAccessAllowed, setFullAccessAllowed] = useState(false);
   const [pendingApproval, setPendingApproval] = useState<ApprovalRequest | null>(null);
   const [runNotice, setRunNotice] = useState<string | null>(null);
+  const [pendingPlan, setPendingPlan] = useState<{ planId: string; summary: string; steps: PlanStep[] } | null>(null);
+  const [tasks, setTasks] = useState<TaskUpdate[]>([]);
+  const [lastCompletedRunId, setLastCompletedRunId] = useState<string | null>(null);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const approvalResolver = useRef<((decision: ApprovalDecision) => void) | null>(null);
+  const activeRunId = useRef<string | null>(null);
   const {
     messages,
     isStreaming,
@@ -452,6 +482,9 @@ export function Home() {
     if (pendingQuestion) answerQuestion([]);
     setPendingApproval(null);
     setPendingQuestion(null);
+    setPendingPlan(null);
+    setTasks([]);
+    setLastCompletedRunId(null);
     setRunNotice(null);
     setError(null);
     clearMessages();
@@ -491,6 +524,24 @@ export function Home() {
     const shuffled = [...SUGGESTIONS].sort(() => Math.random() - 0.5);
     setDisplayedSuggestions(shuffled.slice(0, 4));
   }, [messages.length === 0]);
+
+  const refreshSuggestions = useCallback((lastText: string, toolNames: string[]) => {
+    if (!lastText.trim()) return;
+    setSuggestionsLoading(true);
+    void fetchSuggestions(lastText, toolNames)
+      .then((suggestions) => {
+        if (suggestions.length) setDisplayedSuggestions(suggestions);
+        else setDisplayedSuggestions([...SUGGESTIONS].sort(() => Math.random() - 0.5).slice(0, 4));
+      })
+      .finally(() => setSuggestionsLoading(false));
+  }, []);
+
+  const mergeTaskUpdate = useCallback((task: TaskUpdate) => {
+    setTasks((current) => {
+      const next = current.filter((item) => item.taskId !== task.taskId);
+      return [...next, task];
+    });
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -548,9 +599,14 @@ export function Home() {
         onMutationResult: (result) => {
           if (result.toolCallId) updateToolCall(target(), result.toolCallId, { result });
         },
+        onPlanSteps: (plan) => setPendingPlan(plan),
+        onTaskUpdate: mergeTaskUpdate,
+        onContextCompacted: (notice) => setRunNotice(`Context compacted (${notice.before}->${notice.after} msgs).`),
+        onRunId: (runId) => { activeRunId.current = runId; },
         onFinish: () => {
           setPendingApproval(null);
           setStreaming(false);
+          setLastCompletedRunId(activeRunId.current);
         },
         onError: (failure) => {
           setError(failure.message);
@@ -570,6 +626,7 @@ export function Home() {
     setPendingQuestion,
     setQuestionResolver,
     requestApproval,
+    mergeTaskUpdate,
     setStreaming,
     setError,
     user,
@@ -598,6 +655,9 @@ export function Home() {
 
     setInput("");
     setActiveChips([]); // Clear chips after submit
+    setPendingPlan(null);
+    setTasks([]);
+    setLastCompletedRunId(null);
 
     // Add user message (show without context prefix for cleaner UI, but store chips)
     addMessage({ role: "user", content: userMessage, contextChips: activeChips.length > 0 ? [...activeChips] : undefined });
@@ -611,13 +671,16 @@ export function Home() {
 
     try {
       let fullText = "";
+      const toolNames = new Set<string>();
 
       await sendServerMessage(submission.message, selectedTier, submission.mode, {
+        onRunId: (runId) => { activeRunId.current = runId; },
         onToken: (token) => {
           fullText += token;
           updateMessage(assistantId, fullText);
         },
         onToolCall: (toolCall) => {
+          toolNames.add(toolCall.name);
           addToolCall(assistantId, {
             id: toolCall.id,
             name: toolCall.name,
@@ -648,9 +711,14 @@ export function Home() {
         onMutationResult: (result) => {
           if (result.toolCallId) updateToolCall(assistantId, result.toolCallId, { result });
         },
+        onPlanSteps: (plan) => setPendingPlan(plan),
+        onTaskUpdate: mergeTaskUpdate,
+        onContextCompacted: (notice) => setRunNotice(`Context compacted (${notice.before}->${notice.after} msgs).`),
         onFinish: () => {
           setPendingApproval(null);
           setStreaming(false);
+          setLastCompletedRunId(activeRunId.current);
+          refreshSuggestions(fullText, [...toolNames]);
         },
         onError: (error) => {
           console.error("[Home] Stream error:", error);
@@ -664,7 +732,7 @@ export function Home() {
       setError(errorMessage);
       setStreaming(false);
     }
-  }, [input, isStreaming, activeChips, addMessage, updateMessage, addToolCall, updateToolCall, setStreaming, setError, selectedTier, devModeAllowed, devMode, devModel, fullAccessAllowed, fullAccess, setPendingQuestion, setQuestionResolver, requestApproval]);
+  }, [input, isStreaming, activeChips, addMessage, updateMessage, addToolCall, updateToolCall, setStreaming, setError, selectedTier, devModeAllowed, devMode, devModel, fullAccessAllowed, fullAccess, setPendingQuestion, setQuestionResolver, requestApproval, mergeTaskUpdate, refreshSuggestions]);
 
   const handleSuggestionClick = (suggestion: string) => {
     setInput(suggestion);
@@ -694,6 +762,31 @@ export function Home() {
     setRunNotice("Run cancelled by user.");
   };
 
+  const handleApprovePlan = async () => {
+    if (!pendingPlan) return;
+    await approveServerPlan(pendingPlan.planId);
+    setRunNotice("Plan approved. Run the next message in execute mode to apply it.");
+    setPendingPlan(null);
+  };
+
+  const handleRejectPlan = async () => {
+    if (!pendingPlan) return;
+    await rejectServerPlan(pendingPlan.planId);
+    setRunNotice("Plan rejected.");
+    setPendingPlan(null);
+  };
+
+  const handleRestoreRun = async () => {
+    if (!lastCompletedRunId) return;
+    try {
+      await restoreServerRun(lastCompletedRunId);
+      setRunNotice("Last run restored with Studio undo.");
+      setLastCompletedRunId(null);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure));
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="stud-app-shell stud-workbench">
@@ -721,6 +814,7 @@ export function Home() {
       </div>
       <div className="flex items-center gap-2">
         <ModelSelector disabled={!hasAnyServerProvider} allowDevMode={devModeAllowed} />
+        {fullAccessAllowed && <FullAccessToggle active={fullAccess} onToggle={toggleFullAccess} />}
         <button
           type="button"
           className={cn("stud-icon-btn", input.trim() && !isStreaming && hasConfiguredProvider && "is-primary")}
@@ -785,6 +879,9 @@ export function Home() {
               </StudComposer>
             </section>
             <div className="stud-suggestions">
+              {suggestionsLoading && (
+                <span className="stud-suggestion-chip">Loading suggestions...</span>
+              )}
               {displayedSuggestions.map((suggestion) => (
                 <button
                   key={suggestion}
@@ -853,6 +950,11 @@ export function Home() {
 
       <ChatContainerRoot className="stud-transcript">
         <ChatContainerContent className="stud-chat-scroll space-y-2">
+          {fullAccessAllowed && fullAccess && (
+            <div className="stud-panel-soft border-amber-300/60 p-3 text-sm text-amber-900">
+              Full access mode is on. The agent will not ask for approval before making changes.
+            </div>
+          )}
           {/* Empty state when no messages */}
           {messages.length === 0 && !isStreaming && (
             <EmptyState className="py-8" />
@@ -920,6 +1022,20 @@ export function Home() {
             <RecoveryBanner error={runNotice} onDismiss={() => setRunNotice(null)} />
           )}
 
+          {pendingPlan && (
+            <div className="stud-interaction-card space-y-3">
+              <PlanStepList summary={pendingPlan.summary} steps={pendingPlan.steps} />
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => void handleRejectPlan()}>
+                  Reject plan
+                </Button>
+                <Button type="button" onClick={() => void handleApprovePlan()}>
+                  Approve plan
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Pending question from AI */}
           {pendingQuestion && (
             <div className="stud-interaction-card">
@@ -937,14 +1053,26 @@ export function Home() {
             </div>
           )}
 
+          {lastCompletedRunId && !isStreaming && (
+            <div className="flex justify-center py-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => void handleRestoreRun()}>
+                <Undo2 className="mr-2 h-4 w-4" />
+                Undo run
+              </Button>
+            </div>
+          )}
+
           {/* Streaming indicator */}
           {isStreaming && !pendingQuestion && !pendingApproval && (
-            <div className="flex items-center gap-3 py-3 max-w-fit mx-auto">
-              <Loader variant="wave" size="sm" />
-              <span className="text-sm" style={{ color: "var(--stud-muted)" }}>
-                AI is working...
-              </span>
-            </div>
+            <>
+              <TaskProgress tasks={tasks} />
+              <div className="flex items-center gap-3 py-3 max-w-fit mx-auto">
+                <Loader variant="wave" size="sm" />
+                <span className="text-sm" style={{ color: "var(--stud-muted)" }}>
+                  AI is working...
+                </span>
+              </div>
+            </>
           )}
         </ChatContainerContent>
         <ChatContainerFollow submissionCount={messages.filter((message) => message.role === "user").length} />
@@ -965,6 +1093,21 @@ export function Home() {
         >
           {composerActions}
         </StudComposer>
+        {!isStreaming && displayedSuggestions.length > 0 && (
+          <div className="stud-suggestions mt-3">
+            {suggestionsLoading && <span className="stud-suggestion-chip">Loading suggestions...</span>}
+            {displayedSuggestions.slice(0, 3).map((suggestion) => (
+              <button
+                key={suggestion}
+                type="button"
+                className="stud-suggestion-chip"
+                onClick={() => handleSuggestionClick(suggestion)}
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
         </div>
       </main>

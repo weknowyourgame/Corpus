@@ -10,7 +10,7 @@ import type {
   ToolExecutionContext,
 } from "./types.ts";
 
-export type SubagentType = "debugger" | "ui_specialist" | "combat_specialist" | "network_specialist";
+export type SubagentType = "explore" | "plan" | "debugger" | "ui_specialist" | "network_specialist" | "combat_specialist";
 
 export type SubagentPlanProposal = {
   toolName: string;
@@ -22,43 +22,89 @@ export type SubagentResult = {
   type: SubagentType;
   summary: string;
   findings: string[];
+  mutations: Array<{ toolName: string; input: Record<string, unknown>; output: JsonValue }>;
   planProposals: SubagentPlanProposal[];
   iterations: number;
   aborted: boolean;
-  /** Set when the subagent stopped because the wall-clock budget elapsed. */
   timedOut?: boolean;
 };
 
-/** Default wall-clock budget per subagent run (ms). */
+export type SubagentSpec = {
+  type: SubagentType;
+  systemPrompt: string;
+  allowedTools: string[];
+  maxIterations: number;
+};
+
 export const DEFAULT_SUBAGENT_BUDGET_MS = 60_000;
 
-const SPECIALIST_PROMPTS: Record<SubagentType, string> = {
-  debugger: `You are a Roblox debugging specialist with read-only Studio access.
-Analyze scripts, read error logs, identify errors, and trace root causes.
-Use mcp__roblox_studio__ read tools to inspect relevant scripts and instances.
-Report: root cause, affected scripts with paths, and recommended fixes.
-You cannot modify the place — mutations will be rejected. Instead, describe fixes clearly so the parent agent can implement them.`,
+const READ_TOOLS = [
+  "mcp__roblox_studio__read_script",
+  "mcp__roblox_studio__list_children",
+  "mcp__roblox_studio__get_properties",
+  "mcp__roblox_studio__search_instances",
+  "mcp__roblox_studio__get_selection",
+  "mcp__roblox_studio__get_live_context",
+  "roblox_toolbox_search",
+];
 
-  ui_specialist: `You are a Roblox UI specialist with read-only Studio access.
-Analyze StarterGui, ScreenGui trees, and UI scripts in StarterPlayer.
-List children, read UI scripts, and inspect Frame/TextLabel/Button hierarchies.
-Report: UI structure, missing elements, scripting issues, and improvement suggestions.
-You cannot modify the place — describe changes for the parent agent to execute.`,
-
-  combat_specialist: `You are a Roblox combat systems specialist with read-only Studio access.
-Search for and read combat-related scripts in ServerScriptService and ReplicatedStorage.
-Focus on: damage modules, weapon scripts, RemoteEvents for damage/combat, hitbox logic.
-Report: combat architecture, server/client split, damage validation, balance issues, security gaps.
-You cannot modify the place — describe changes for the parent agent to execute.`,
-
-  network_specialist: `You are a Roblox networking and security specialist with read-only Studio access.
-Search for and inspect RemoteEvents, RemoteFunctions, and server-side validation code.
-Focus on: unsanitized client inputs, missing server-side validation, exploitable remotes.
-Report: security vulnerabilities, trust boundary violations, and remediation steps.
-You cannot modify the place — describe changes for the parent agent to execute.`,
+const SPECS: Record<SubagentType, SubagentSpec> = {
+  explore: {
+    type: "explore",
+    maxIterations: 8,
+    allowedTools: READ_TOOLS,
+    systemPrompt: `You are a Roblox project exploration specialist. Read hierarchy, scripts, selections, and properties. Do not mutate anything. Return concise findings with important paths and uncertainties.`,
+  },
+  plan: {
+    type: "plan",
+    maxIterations: 6,
+    allowedTools: READ_TOOLS,
+    systemPrompt: `You are a Roblox planning specialist. Read only what is needed, then output structured implementation steps with likely tools, risks, and scopes. Do not mutate anything.`,
+  },
+  debugger: {
+    type: "debugger",
+    maxIterations: 10,
+    allowedTools: [...READ_TOOLS, "mcp__roblox_studio__execute_luau"],
+    systemPrompt: `You are a Roblox debugging specialist. Read scripts, inspect hierarchy, and run diagnostic Luau only when needed. Do not write scripts or mutate instances. Return root cause, affected paths, and exact recommended fixes.`,
+  },
+  ui_specialist: {
+    type: "ui_specialist",
+    maxIterations: 10,
+    allowedTools: [
+      ...READ_TOOLS,
+      "mcp__roblox_studio__create_instance",
+      "mcp__roblox_studio__write_script",
+      "mcp__roblox_studio__edit_script",
+      "mcp__roblox_studio__set_property",
+    ],
+    systemPrompt: `You are a Roblox UI specialist. You may read broadly, and may mutate only UI-related instances: ScreenGui, Frame, TextLabel, TextButton, ImageLabel, ImageButton, UIListLayout, UIPadding, UICorner, and LocalScript under StarterGui/PlayerGui. Return mutations performed and any follow-up needed.`,
+  },
+  network_specialist: {
+    type: "network_specialist",
+    maxIterations: 10,
+    allowedTools: [
+      ...READ_TOOLS,
+      "mcp__roblox_studio__create_instance",
+      "mcp__roblox_studio__write_script",
+      "mcp__roblox_studio__edit_script",
+      "mcp__roblox_studio__set_property",
+    ],
+    systemPrompt: `You are a Roblox networking specialist. You may read broadly, and may mutate only RemoteEvent, RemoteFunction, server Scripts, and ModuleScripts in ReplicatedStorage or ServerScriptService. Focus on server validation and trust boundaries.`,
+  },
+  combat_specialist: {
+    type: "combat_specialist",
+    maxIterations: 8,
+    allowedTools: READ_TOOLS,
+    systemPrompt: `You are a legacy Roblox combat analysis specialist. Read combat scripts, damage modules, weapons, and RemoteEvents. Do not mutate anything. Prefer debugger or network_specialist for new work.`,
+  },
 };
 
 const BLOCKED_RISKS = new Set(["low_mutation", "destructive", "runtime_code", "external_asset", "secret"]);
+const UI_CLASSES = new Set(["ScreenGui", "Frame", "TextLabel", "TextButton", "ImageLabel", "ImageButton", "UIListLayout", "UIPadding", "UICorner", "LocalScript"]);
+const NETWORK_CLASSES = new Set(["RemoteEvent", "RemoteFunction", "Script", "ModuleScript"]);
+
+const inputPath = (input: Record<string, unknown>) =>
+  String(input.path ?? input.parent ?? input.newParent ?? "");
 
 export class ReadOnlyToolRegistry implements AgentToolRegistry {
   private readonly readTools: AgentTool[];
@@ -66,10 +112,9 @@ export class ReadOnlyToolRegistry implements AgentToolRegistry {
 
   constructor(parent: AgentToolRegistry) {
     this.readTools = parent.list()
-      .filter((t) => t.name !== "roblox_spawn_subagent")  // prevent recursion
+      .filter((tool) => tool.name !== "roblox_spawn_subagent")
       .map((tool) => {
         if (!BLOCKED_RISKS.has(tool.risk)) return tool;
-        // Wrap mutation tools to record proposal and return denial
         return {
           ...tool,
           execute: async (input: Record<string, unknown>): Promise<JsonValue> => {
@@ -85,14 +130,59 @@ export class ReadOnlyToolRegistry implements AgentToolRegistry {
   }
 
   list(): AgentTool[] { return this.readTools; }
-  get(name: string): AgentTool | undefined { return this.readTools.find((t) => t.name === name); }
+  get(name: string): AgentTool | undefined { return this.readTools.find((tool) => tool.name === name); }
+}
+
+function allowedByScope(type: SubagentType, toolName: string, input: Record<string, unknown>): boolean {
+  if (type === "explore" || type === "plan") return false;
+  if (type === "debugger") return toolName === "mcp__roblox_studio__execute_luau";
+  const path = inputPath(input);
+  const className = typeof input.className === "string" ? input.className : undefined;
+  if (type === "ui_specialist") {
+    if (className && !UI_CLASSES.has(className)) return false;
+    return path.includes("StarterGui") || path.includes("PlayerGui") || path.includes("ScreenGui");
+  }
+  if (type === "network_specialist") {
+    if (className && !NETWORK_CLASSES.has(className)) return false;
+    return path.includes("ReplicatedStorage") || path.includes("ServerScriptService");
+  }
+  return false;
+}
+
+export class ScopedSubagentToolRegistry implements AgentToolRegistry {
+  readonly proposals: SubagentPlanProposal[] = [];
+  readonly mutations: Array<{ toolName: string; input: Record<string, unknown>; output: JsonValue }> = [];
+  private readonly scopedTools: AgentTool[];
+
+  constructor(parent: AgentToolRegistry, private readonly spec: SubagentSpec) {
+    const allowed = new Set(spec.allowedTools);
+    this.scopedTools = parent.list()
+      .filter((tool) => tool.name !== "roblox_spawn_subagent")
+      .filter((tool) => allowed.has(tool.name))
+      .map((tool) => {
+        if (!BLOCKED_RISKS.has(tool.risk)) return tool;
+        return {
+          ...tool,
+          execute: async (input: Record<string, unknown>, context: ToolExecutionContext): Promise<JsonValue> => {
+            if (!allowedByScope(spec.type, tool.name, input)) {
+              this.proposals.push({ toolName: tool.name, input, reason: `Outside ${spec.type} scope.` });
+              return { denied: true, planProposal: true, reason: `Subagent ${spec.type} cannot execute this mutation scope.` };
+            }
+            const output = await tool.execute(input, context);
+            this.mutations.push({ toolName: tool.name, input, output });
+            return output;
+          },
+        };
+      });
+  }
+
+  list(): AgentTool[] { return this.scopedTools; }
+  get(name: string): AgentTool | undefined { return this.scopedTools.find((tool) => tool.name === name); }
 }
 
 export type SubagentRunOptions = {
   maxIterations?: number;
-  /** Wall-clock budget in milliseconds. Defaults to DEFAULT_SUBAGENT_BUDGET_MS. */
   budgetMs?: number;
-  /** Optional progress sink; runtime supplies this so events stream to the parent UI. */
   onProgress?: (event: SubagentProgressEvent) => Promise<void> | void;
 };
 
@@ -110,11 +200,11 @@ export class SubagentRuntime {
     signal: AbortSignal,
     options: SubagentRunOptions = {},
   ): Promise<SubagentResult> {
-    const budget = options.maxIterations ?? this.defaultMaxIterations;
+    const spec = SPECS[type];
+    const budget = options.maxIterations ?? spec.maxIterations ?? this.defaultMaxIterations;
     const budgetMs = options.budgetMs ?? DEFAULT_SUBAGENT_BUDGET_MS;
-    const readOnlyRegistry = new ReadOnlyToolRegistry(this.parentTools);
-    const driverFactory = createModelDriverFactory(readOnlyRegistry);
-    const driver = driverFactory({ tier });
+    const scopedRegistry = new ScopedSubagentToolRegistry(this.parentTools, spec);
+    const driver = createModelDriverFactory(scopedRegistry)({ tier });
     const messages: AgentMessage[] = [{ role: "user", content: task }];
     const findings: string[] = [];
     let iterations = 0;
@@ -137,40 +227,39 @@ export class SubagentRuntime {
       try {
         await options.onProgress({ subagentId, subagentType: type, kind, message, iteration });
       } catch {
-        // Progress is best-effort; failing to emit must not abort the subagent.
+        // Progress is best-effort.
       }
     };
 
     try {
       await progress("started", `Subagent ${type} started.`);
-      for (let i = 1; i <= budget; i++) {
+      for (let i = 1; i <= budget; i += 1) {
         if (effectiveSignal.aborted) break;
         iterations = i;
         let turnText = "";
         await progress("iteration", `Iteration ${i}`, i);
-
         const turn = await driver.generate({
           messages,
           signal: effectiveSignal,
-          systemContext: SPECIALIST_PROMPTS[type],
-          onTextDelta: async (t) => { turnText += t; },
-        }).catch((err: Error) => {
+          systemContext: spec.systemPrompt,
+          onTextDelta: async (text) => { turnText += text; },
+        }).catch((error: Error) => {
           if (effectiveSignal.aborted) return null;
-          throw new Error(`Subagent ${type} iteration ${i} failed: ${err.message}`);
+          throw new Error(`Subagent ${type} iteration ${i} failed: ${error.message}`);
         });
         if (!turn) break;
 
         messages.push({ role: "assistant", content: turn.text || turnText, toolCalls: turn.toolCalls });
         if (turn.text) {
           findings.push(turn.text);
-          await progress("finding", turn.text.length > 200 ? `${turn.text.slice(0, 200)}…` : turn.text, i);
+          await progress("finding", turn.text.length > 200 ? `${turn.text.slice(0, 200)}...` : turn.text, i);
         }
         if (!turn.toolCalls.length) break;
 
         for (const call of turn.toolCalls) {
           if (effectiveSignal.aborted) break;
-          const tool = readOnlyRegistry.get(call.name);
-          const fakeCtx: ToolExecutionContext = {
+          const tool = scopedRegistry.get(call.name);
+          const ctx: ToolExecutionContext = {
             conversationId: `subagent-${type}`,
             runId: `sa-${i}`,
             operationId: `sa-${type}:${i}:${call.id}`,
@@ -179,8 +268,8 @@ export class SubagentRuntime {
             requestInteraction: async () => [],
           };
           const output = tool
-            ? await tool.execute(call.input, fakeCtx).catch((err: Error) => ({ error: err.message }))
-            : ({ denied: true, reason: `Unknown tool: ${call.name}` } as JsonValue);
+            ? await tool.execute(call.input, ctx).catch((error: Error) => ({ error: error.message }))
+            : ({ denied: true, reason: `Unknown or disallowed tool: ${call.name}` } as JsonValue);
           messages.push({ role: "tool", toolCallId: call.id, toolName: call.name, output });
         }
       }
@@ -193,14 +282,15 @@ export class SubagentRuntime {
     const lastText = findings.at(-1) ?? "";
     const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
     const baseSummary = lastText || `${type} analysis complete (${iterations} iterations, ${elapsed}s)`;
-    const summary = baseSummary.length > 800 ? `${baseSummary.slice(0, 800)}…` : baseSummary;
+    const summary = baseSummary.length > 800 ? `${baseSummary.slice(0, 800)}...` : baseSummary;
     await progress(timedOut || aborted ? "cancelled" : "completed", summary, iterations);
 
     return {
       type,
       summary,
       findings: findings.slice(-5),
-      planProposals: readOnlyRegistry.proposals,
+      mutations: scopedRegistry.mutations,
+      planProposals: scopedRegistry.proposals,
       iterations,
       aborted,
       timedOut,
@@ -209,17 +299,17 @@ export class SubagentRuntime {
 }
 
 export const subagentInputSchema = z.object({
-  type: z.enum(["debugger", "ui_specialist", "combat_specialist", "network_specialist"]),
+  type: z.enum(["explore", "plan", "debugger", "ui_specialist", "network_specialist", "combat_specialist"]),
   task: z.string().min(1),
   tier: z.enum(["free", "pro", "hyper", "super"]).default("pro"),
-  maxIterations: z.number().int().min(1).max(15).default(8),
+  maxIterations: z.number().int().min(1).max(15).optional(),
 });
 
 export function createSubagentTool(parentTools: AgentToolRegistry): AgentTool {
   const runtime = new SubagentRuntime(parentTools);
   return {
     name: "roblox_spawn_subagent",
-    description: "Spawn a read-only specialist subagent to analyze a specific aspect of the Studio project. Specialists: debugger (errors/root cause), ui_specialist (StarterGui/UI), combat_specialist (damage/weapons), network_specialist (remotes/security). Mutation requests from subagents are converted into proposals returned to you.",
+    description: "Spawn a focused Roblox specialist subagent. Specialists: explore, plan, debugger, ui_specialist, network_specialist. Explore/plan/debugger are read-only; UI/network specialists can perform tightly scoped mutations.",
     transport: "server",
     risk: "read",
     concurrency: "parallel_read",

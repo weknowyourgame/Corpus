@@ -16,7 +16,7 @@ export type CorpusConfig = {
   missing: string[];
 };
 
-const DEFAULT_MIN_SCORE = 0.70;
+const DEFAULT_MIN_SCORE = 0.50;
 const DEFAULT_MAX_CHUNKS = 4;
 const DEFAULT_CONTEXT_MAX_CHARS = 6_000;
 const DEFAULT_R2_BUCKET = "roblox-games";

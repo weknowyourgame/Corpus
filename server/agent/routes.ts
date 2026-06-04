@@ -6,6 +6,7 @@ import { RateLimiter } from "./rate-limit.ts";
 import type { Conversation } from "./types.ts";
 import type { CurrentUser } from "../auth.ts";
 import { getPrismaClient } from "./prisma.ts";
+import { generateSuggestions } from "./suggestions.ts";
 
 const rateLimiter = new RateLimiter();
 
@@ -36,6 +37,10 @@ const startSchema = z.object({
 });
 const answerSchema = z.object({ answers: z.array(z.union([z.string(), z.array(z.string())])) });
 const approvalSchema = z.object({ decision: z.enum(["allow_once", "allow_scope", "insert_without_scripts", "deny"]) });
+const suggestionsSchema = z.object({
+  lastText: z.string().default(""),
+  toolNames: z.array(z.string()).default([]),
+});
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 const devModeAllowed = (req: Request) => {
   if (process.env.STUD_DEV_MODE_ENABLED !== "true") return false;
@@ -64,6 +69,7 @@ export function createAgentRouter(
   auth: {
     requireUser: (req: AuthRequest, res: Response, next: NextFunction) => void;
   },
+  mcpStatus?: () => unknown,
 ) {
   const router = Router();
   router.use(auth.requireUser);
@@ -308,6 +314,19 @@ export function createAgentRouter(
     res.status(cancelled ? 202 : 404).json({ cancelled });
   });
 
+  router.post("/conversations/:conversationId/runs/:runId/restore", async (req, res) => {
+    if (!await authorize(req, req.params.conversationId)) {
+      res.status(404).json({ error: "Conversation not found or unauthorized" });
+      return;
+    }
+    try {
+      const restored = await runtime.restoreRun(req.params.conversationId, req.params.runId);
+      res.status(restored ? 202 : 404).json({ restored });
+    } catch (error) {
+      res.status(409).json({ error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
   router.post("/conversations/:conversationId/runs/:runId/interactions/:interactionId", async (req, res) => {
     if (!await authorize(req, req.params.conversationId)) {
       res.status(404).json({ error: "Conversation not found or unauthorized" });
@@ -382,6 +401,30 @@ export function createAgentRouter(
       clearInterval(keepAlive);
       unsubscribe();
     });
+  });
+
+  router.post("/conversations/:conversationId/suggestions", async (req, res) => {
+    if (!await authorize(req, req.params.conversationId)) {
+      res.status(404).json({ error: "Conversation not found or unauthorized" });
+      return;
+    }
+    const parsed = suggestionsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+    try {
+      const suggestions = await generateSuggestions(parsed.data.lastText, parsed.data.toolNames, controller.signal);
+      res.json({ suggestions });
+    } finally {
+      clearTimeout(timeout);
+    }
+  });
+
+  router.get("/mcp/status", (_req, res) => {
+    res.json(mcpStatus ? mcpStatus() : { servers: [] });
   });
 
   router.post("/improve-prompt", async (req, res) => {

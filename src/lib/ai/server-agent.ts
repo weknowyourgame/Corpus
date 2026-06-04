@@ -32,6 +32,16 @@ type AgentEvent = {
   interactionId?: string;
   questions?: Question[];
   decision?: ApprovalDecision;
+  planId?: string;
+  steps?: PlanStep[];
+  summary?: string;
+  taskId?: string;
+  title?: string;
+  status?: string;
+  note?: string;
+  before?: number;
+  after?: number;
+  iteration?: number;
 } & Partial<ApprovalRequest>;
 type ServerMessage =
   | { role: "user"; content: string }
@@ -40,6 +50,32 @@ type ServerMessage =
 type Run = { id: string; status: string };
 type Conversation = { id: string; studioSessionId: string; messages: ServerMessage[]; runs: Run[]; events?: AgentEvent[] };
 type ConversationAccess = { id: string; accessToken: string };
+
+export type PlanStep = {
+  index: number;
+  title: string;
+  description: string;
+  toolNames: string[];
+  risk: "read" | "low_mutation" | "destructive";
+  scope: string;
+  estimatedChanges: number;
+  summary?: string;
+  toolName?: string;
+};
+
+export type TaskUpdate = {
+  taskId: string;
+  title: string;
+  status: "pending" | "in_progress" | "completed" | "blocked";
+  note?: string;
+  runId: string;
+};
+
+export type ContextCompacted = {
+  before: number;
+  after: number;
+  iteration: number;
+};
 
 const conversationKey = (sessionId: string) => `stud_agent_conversation_${sessionId}`;
 const bootstrapKey = import.meta.env.VITE_STUD_AGENT_API_KEY as string | undefined;
@@ -156,6 +192,10 @@ export interface ServerChatCallbacks {
   onInteraction: (interactionId: string, questions: Question[]) => Promise<Answer[]>;
   onApproval: (approval: ApprovalRequest) => Promise<ApprovalDecision>;
   onMutationResult?: (result: MutationResult) => void;
+  onPlanSteps?: (plan: { planId: string; summary: string; steps: PlanStep[] }) => void;
+  onTaskUpdate?: (task: TaskUpdate) => void;
+  onContextCompacted?: (notice: ContextCompacted) => void;
+  onRunId?: (runId: string) => void;
   onFinish: () => void;
   onError: (error: Error) => void;
 }
@@ -227,6 +267,29 @@ async function handleEvent(
       deleted: (event as unknown as { deleted?: boolean }).deleted,
     });
   }
+  if (event.type === "plan_steps_proposed" && callbacks.onPlanSteps) {
+    callbacks.onPlanSteps({
+      planId: event.planId ?? "",
+      summary: event.summary ?? "",
+      steps: event.steps ?? [],
+    });
+  }
+  if (event.type === "task_update" && callbacks.onTaskUpdate) {
+    callbacks.onTaskUpdate({
+      taskId: event.taskId ?? "",
+      title: event.title ?? "Task",
+      status: (event.status as TaskUpdate["status"]) ?? "pending",
+      note: event.note,
+      runId,
+    });
+  }
+  if (event.type === "context_compacted" && callbacks.onContextCompacted) {
+    callbacks.onContextCompacted({
+      before: event.before ?? 0,
+      after: event.after ?? 0,
+      iteration: event.iteration ?? 0,
+    });
+  }
   if (event.type === "interaction_resolved") resolvedInteractions.add(event.interactionId ?? "");
   if (event.type === "approval_resolved") resolvedApprovals.add(event.approvalId ?? "");
   if (event.type === "run_completed" || event.type === "run_cancelled") {
@@ -296,6 +359,7 @@ export async function sendServerMessage(
   }, access.accessToken);
   const result = await response.json() as { id?: string; error?: string };
   if (!response.ok || !result.id) throw new Error(result.error ?? "Unable to start run");
+  callbacks.onRunId?.(result.id);
   return followRun(access, result.id, callbacks);
 }
 
@@ -313,4 +377,42 @@ export async function cancelServerRun() {
     method: "POST",
     body: "{}",
   }, active.accessToken);
+}
+
+export async function approveServerPlan(planId: string) {
+  const { access } = await getConversation();
+  const response = await request(`/agent/conversations/${access.id}/plans/${planId}/approve`, {
+    method: "POST",
+    body: "{}",
+  }, access.accessToken);
+  if (!response.ok) throw new Error(`Could not approve plan: ${response.status}`);
+}
+
+export async function rejectServerPlan(planId: string) {
+  const { access } = await getConversation();
+  const response = await request(`/agent/conversations/${access.id}/plans/${planId}/reject`, {
+    method: "POST",
+    body: "{}",
+  }, access.accessToken);
+  if (!response.ok) throw new Error(`Could not reject plan: ${response.status}`);
+}
+
+export async function restoreServerRun(runId: string) {
+  const { access } = await getConversation();
+  const response = await request(`/agent/conversations/${access.id}/runs/${runId}/restore`, {
+    method: "POST",
+    body: "{}",
+  }, access.accessToken);
+  if (!response.ok) throw new Error(`Could not restore run: ${response.status}`);
+}
+
+export async function fetchSuggestions(lastText: string, toolNames: string[]) {
+  const { access } = await getConversation();
+  const response = await request(`/agent/conversations/${access.id}/suggestions`, {
+    method: "POST",
+    body: JSON.stringify({ lastText, toolNames }),
+  }, access.accessToken);
+  if (!response.ok) return [];
+  const body = await response.json() as { suggestions?: string[] };
+  return body.suggestions ?? [];
 }

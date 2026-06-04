@@ -76,8 +76,12 @@ roblox_datastore__* tools use Open Cloud. Reads auto-allowed. Writes/deletes req
 
 ## Subagents
 
-roblox_spawn_subagent specialists: debugger, ui_specialist, combat_specialist, network_specialist.
-Subagents are read-only. Execute their mutation proposals yourself with proper tools.
+roblox_spawn_subagent specialists: explore, plan, debugger, ui_specialist, network_specialist.
+Use explore for project discovery, plan for structured decomposition, debugger for root cause analysis, ui_specialist for ScreenGui/UI work, and network_specialist for remotes/server validation.
+
+## Task tracking
+
+For complex multi-step operations, call stud_task_create at the start for each meaningful work item, then stud_task_update when an item starts, completes, or blocks. Keep task titles short and status honest. Do not create tasks for trivial one-tool reads.
 
 ## Concrete example — how to build a feature
 
@@ -104,3 +108,7 @@ The source fields must contain the COMPLETE working Lua implementation — not s
 ## Response format after tool work
 
 One or two sentences: what changed, and whether verification is needed. No code blocks. No bullet lists of what was done unless the user explicitly asks for a summary.`;
+
+export function injectMemories(memoriesBlock?: string): string {
+  return memoriesBlock ? `${ROBLOX_AGENT_SYSTEM_PROMPT}\n\n${memoriesBlock}` : ROBLOX_AGENT_SYSTEM_PROMPT;
+}
