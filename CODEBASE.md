@@ -597,6 +597,7 @@ bun run scripts/migrate-slugs.ts --dry-run  # preview old→new mappings
 bun run scripts/migrate-slugs.ts --apply    # run inside a transaction
 
 # 5. Create embeddings + push to Vectorize
+bun run scripts/embed-pending-batches.ts --limit=25  # resume helper: one game at a time, continues past failures
 bun run scripts/embed-games.ts --games=10         # next 10 un-ingested
 bun run scripts/embed-games.ts --games=all        # everything
 bun run scripts/embed-games.ts --slug=flood-escape # one specific game
@@ -620,6 +621,7 @@ curl http://localhost:3001/corpus/status
 | `upload-all.ts` | Bulk R2 upload with concurrency + retry. Use `sync-corpus.ts` instead for new work. |
 | `upload-game.ts` | Single-game R2 upload + Postgres register. |
 | `embed-games.ts` | Reads R2 → builds chunks → embeds via Workers AI → upserts Vectorize → writes Postgres. Deterministic IDs, duplicate-safe; `--backfill-metadata` updates existing Postgres metadata without re-embedding or deleting Vectorize vectors. |
+| `embed-pending-batches.ts` | Resume helper: queries Postgres for `ingested=false` games, runs `embed-games.ts --slug=<slug>` one at a time. Flags: `--limit=N` (default 25), `--start-after=<slug>`, `--dry-run`. Prints per-game duration, continues past failures, prints failed-slug retry commands at the end. |
 | `test-vectorize.ts` | Diagnostic for Workers AI + Vectorize auth/index/upsert/query/delete using Vectorize V2 endpoints. Cleans diagnostic vectors after the run. |
 | `migrate-slugs.ts` | Converts raw game names to URL-safe slugs in Postgres. Never touches R2. Dry-run + transaction. |
 | `generate-manifests.ts` | Generates `manifest.json` for already-converted game folders + prints SQL inserts. |
@@ -684,6 +686,16 @@ Next.js 16.2.6 (App Router) marketing landing page for Stud. Deployed to Cloudfl
 - Claude Code Part 3 integration: each run creates a Studio ChangeHistoryService waypoint and exposes `/agent/conversations/:id/runs/:runId/restore` for UI "Undo run".
 - Claude Code Part 3 integration: external MCP servers from `STUD_MCP_SERVERS=name:url` load as first-class agent tools and `/agent/mcp/status` powers the MCP connection badge.
 - Claude Code Part 3 integration: `roblox_spawn_subagent` now supports explore, plan, debugger, ui_specialist, and network_specialist specialists with scoped tools/progress events.
+- Auth polish: header shows signed-in user/avatar with sign-out; logout now clears the client session back to the login screen, and email-token login has retry/reset recovery.
+- Production hardening: bridge startup rejects unsafe production config (`STUD_ALLOW_ANONYMOUS=true`, dev mode enabled, insecure cookies, or missing database); `.env.example` documents production-safe flags and MCP server config.
+- Corpus debug: `GET /corpus/debug` runs a fixed "tycoon dropper income system" retrieval and returns corpus readiness/config plus the retrieval result.
+- Corpus ops run: `sync-corpus.ts` synced 439 R2-only games into Postgres with 18 already done; `embed-games.ts --games=all` was started and stopped after slow progress, leaving Postgres at 896 games / 76 ingested / 820 pending / 1,756 chunks.
+- MCP management UI: `ConnectionBadges` MCP pill opens a dialog with: summary counts (configured/connected/tools + last-loaded time), tool search/filter input, per-server connection state + full tool chip list, copyable `STUD_MCP_SERVERS=…` env snippet, and a refresh button that re-fetches `GET /agent/mcp/status` without restarting.
+- MCP status endpoint `GET /agent/mcp/status` now returns `{ configuredCount, connectedCount, totalToolCount, lastLoadedAt, servers[] }` — richer than the previous `{ servers[] }` shape. `ExternalMcpRegistry.status()` computes all counts and records `loadedAt` after `loadFromEnv()` completes.
+- Follow-up task file: `REMAINING_AGENT_TASKS.md` lists only non-production remaining work with copy-paste prompts for corpus embedding/resume/verification, MCP management polish, and tests.
+- Corpus retrieval verified (Task 3): `/corpus/status` → `enabled: true, ready: true, pendingGames: 820`; pipeline is end-to-end functional (embed → Vectorize → Postgres → R2 → chunk injection). Ingested niche distribution: general(53), social(8), fps(3), simulator(3), rpg(2), horror(2), battle-royale(2), racing(1), tower-defense(1), obby(1), tycoon(1).
+- Corpus retrieval calibration: added `"general": []` to `NICHE_KEYWORDS` in `server/agent/corpus/retrieve.ts` so `roblox-general` (53 games) participates in all-index fallback searches; also added `roblox-general` as a parallel secondary search alongside any niche-specific index query (`niche !== "general"` guard prevents double-search). This surfaces the 53 general-niche games that were previously never reachable.
+- Corpus retrieval test results: "help me build a tycoon dropper income system" → 4 chunks from Mansion Tycoon (tycoon, scores 0.73–0.66); "make a shop GUI with coins" → 1 chunk from Project Pokemon (general, score 0.68); "create a gun damage system with server validation" → 4 chunks from Lasertag! + Martian Invasion (fps+general, scores 0.74–0.72). `CORPUS_LOG_RETRIEVAL=true` and `CORPUS_MIN_SCORE=0.50` remain in `.env`.
 
 ---
 

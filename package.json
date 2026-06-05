@@ -16,6 +16,7 @@
     "corpus:migrate": "bun run db:migrate",
     "corpus:cloudflare:setup": "bun server/agent/corpus/resources.ts",
     "corpus:cloudflare:setup:execute": "bun server/agent/corpus/resources.ts --execute",
+    "corpus:embed-pending": "bun run scripts/embed-pending-batches.ts",
     "preview": "vite preview",
     "start:bridge": "bun server/index.js",
     "test": "vitest",

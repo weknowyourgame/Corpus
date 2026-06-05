@@ -187,6 +187,8 @@ function genericInputSchema(schema: unknown) {
 export class ExternalMcpRegistry implements AgentToolRegistry {
   private readonly tools: AgentTool[] = [];
   private readonly statuses: ExternalMcpStatus[] = [];
+  private configuredCount = 0;
+  private loadedAt: Date | null = null;
 
   static async fromEnv(): Promise<ExternalMcpRegistry> {
     const registry = new ExternalMcpRegistry();
@@ -203,7 +205,13 @@ export class ExternalMcpRegistry implements AgentToolRegistry {
   }
 
   status() {
-    return { servers: this.statuses };
+    return {
+      configuredCount: this.configuredCount,
+      connectedCount: this.statuses.filter((s) => s.connected).length,
+      totalToolCount: this.tools.length,
+      lastLoadedAt: this.loadedAt?.toISOString() ?? null,
+      servers: this.statuses,
+    };
   }
 
   private async loadFromEnv() {
@@ -217,6 +225,8 @@ export class ExternalMcpRegistry implements AgentToolRegistry {
         return { name: safeName(entry.slice(0, idx)), url: entry.slice(idx + 1) };
       })
       .filter((entry): entry is { name: string; url: string } => Boolean(entry?.name && entry.url));
+
+    this.configuredCount = entries.length;
 
     for (const entry of entries) {
       const status: ExternalMcpStatus = { ...entry, connected: false, tools: [] };
@@ -261,5 +271,6 @@ export class ExternalMcpRegistry implements AgentToolRegistry {
         status.lastError = error instanceof Error ? error.message : String(error);
       }
     }
+    this.loadedAt = new Date();
   }
 }

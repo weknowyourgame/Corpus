@@ -34,6 +34,7 @@ const NICHE_KEYWORDS: Record<string, string[]> = {
   "horror": ["horror", "scary", "monster", "flee", "escape room", "jumpscare", "darkness", "flashlight"],
   "racing": ["racing", "car", "vehicle", "drift", "speed", "track", "lap", "finish line", "nitro"],
   "social": ["social", "hangout", "roleplay", "rp", "emote", "dance", "house", "chat", "avatar"],
+  "general": [],
 };
 
 function detectNiche(query: string): { niche: string | null; confidence: number } {
@@ -104,6 +105,7 @@ export async function retrieveCorpusContext(
 
   if (niche && confidence >= 2) {
     searches.push(searchIndex(`${prefix}-${niche}`, 12));
+    if (niche !== "general") searches.push(searchIndex(`${prefix}-general`, 4));
   } else {
     for (const n of ALL_NICHES) searches.push(searchIndex(`${prefix}-${n}`, 4));
   }

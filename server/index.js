@@ -27,6 +27,7 @@ import { createMcpRequestHandler, buildMcpToolsList, ExternalMcpRegistry } from 
 import { PluginRelayTransport } from "./agent/studio-transport.ts";
 import { runIngestion } from "./agent/corpus/ingest.ts";
 import { corpusConfig } from "./agent/corpus/config.ts";
+import { retrieveCorpusContext } from "./agent/corpus/retrieve.ts";
 import { getPendingGames } from "./agent/corpus/postgres.ts";
 import { getPrismaClient } from "./agent/prisma.ts";
 import {
@@ -43,6 +44,20 @@ try {
 } catch (error) {
   if (error.code !== "ENOENT") throw error;
 }
+
+const assertProductionConfig = () => {
+  if (process.env.NODE_ENV !== "production") return;
+  const failures = [];
+  if (process.env.STUD_ALLOW_ANONYMOUS === "true") failures.push("STUD_ALLOW_ANONYMOUS must be false in production");
+  if (process.env.STUD_DEV_MODE_ENABLED === "true") failures.push("STUD_DEV_MODE_ENABLED must be false in production");
+  if (process.env.STUD_COOKIE_SECURE !== "true") failures.push("STUD_COOKIE_SECURE must be true in production");
+  if (!process.env.DATABASE_URL) failures.push("DATABASE_URL is required in production");
+  if (failures.length) {
+    throw new Error(`Unsafe production config:\n- ${failures.join("\n- ")}`);
+  }
+};
+
+assertProductionConfig();
 
 const PORT = Number(process.env.PORT) || 3001;
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -634,6 +649,31 @@ app.get("/corpus/status", async (_req, res) => {
     res.json({ enabled: true, ready: true, pendingGames: pending.length, pending: pending.map((g) => g.slug) });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/corpus/debug", async (_req, res) => {
+  if (!corpusConfig.enabled) return res.json({ enabled: false });
+  const query = "tycoon dropper income system";
+  try {
+    const result = corpusConfig.ready
+      ? await retrieveCorpusContext({ query, maxChunks: corpusConfig.maxChunks }, corpusConfig)
+      : { chunks: [], detectedNiche: null, totalFound: 0 };
+    res.json({
+      query,
+      config: {
+        enabled: corpusConfig.enabled,
+        ready: corpusConfig.ready,
+        missing: corpusConfig.missing,
+        minScore: corpusConfig.minScore,
+        maxChunks: corpusConfig.maxChunks,
+        contextMaxChars: corpusConfig.contextMaxChars,
+        indexPrefix: corpusConfig.cloudflare.nicheIndexPrefix,
+      },
+      result,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 

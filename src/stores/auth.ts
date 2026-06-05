@@ -32,7 +32,7 @@ const authFetch = (path: string, init?: RequestInit) =>
     },
   });
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   loading: true,
   error: null,
@@ -115,7 +115,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: async () => {
     await authFetch("/auth/logout", { method: "POST", body: "{}" }).catch(() => undefined);
-    set({ user: null, loading: false, devLoginToken: null });
-    await get().loadMe();
+    set({ user: null, loading: false, error: null, devLoginToken: null });
   },
 }));
