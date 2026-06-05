@@ -111,7 +111,7 @@ All global state lives in `src/stores/`. Stores use `zustand` with `immer`-style
 | Roblox | `roblox.ts` | Studio connection status, session pairing |
 | Plugin | `plugin.ts` | Plugin health + last poll timestamp |
 | Models | `models.ts` | Available model list (fetched + cached) |
-| Prerequisites | `prereq.ts` | Onboarding checks (plugin installed, studio connected) |
+| Prerequisites | `prereq.ts` | End-user onboarding checks only: Roblox Studio, Stud plugin, bridge server, and Studio connection. Server-side model access is not shown as a prerequisite. |
 | Studio Token | `studio-token.ts` | Studio access token for Open Cloud |
 
 ### AI Client Layer (`src/lib/ai/`)
@@ -435,13 +435,14 @@ Every `agent_conversations` row carries a `user_id` (FK → `users.id`). Ownersh
 
 Auth routes and env:
 
-- `POST /auth/login/start` — starts email token login or Google OAuth (`provider: "email" | "google"`); stores only hashed login/state tokens.
+- `POST /auth/login/start` — starts email token login or Google OAuth (`provider: "email" | "google"`); stores only hashed login/state tokens. Email-token login requires either local/dev echo (`STUD_LOGIN_TOKEN_ECHO=true` or anonymous local dev) or real Resend delivery via `RESEND_API_KEY` + `STUD_AUTH_EMAIL_FROM`; otherwise it returns 503 instead of pretending an email was sent.
 - `POST /auth/login/verify` — verifies email token, Google OAuth code, or Google ID credential; creates an HTTP-only `stud_session` cookie backed by `auth_sessions`.
 - `POST /auth/logout` — revokes the current session hash and clears the cookie. Setting `user: null` in auth store causes `Home.tsx` to render `LoginScreen` immediately.
 - `GET /auth/me` — returns current user, 401 when logged out and anonymous dev bypass is not enabled.
-- **Login UX** — `LoginScreen` in `Home.tsx`: email field is disabled once a token is sent; when token verify fails the error is shown plus a "Try a different email" button that resets to the initial email-entry state.
+- **Login UX** — `LoginScreen` in `Home.tsx`: email field is disabled only after email-token start succeeds; when start/verify fails the error is shown and the user stays on the correct step. The main product UI requires a real non-anonymous user; anonymous local-dev auth does not bypass the visible login screen.
+- **Google OAuth** — `/auth/login/start` prefers server-side `GOOGLE_REDIRECT_URI` and returns that URI to the browser so login verification uses the same exact callback. `GOOGLE_REDIRECT_URI` must exactly match an Authorized redirect URI in Google Cloud Console.
 - **User badge** — `UserBadge` in `StudAppHeader.tsx` shows avatar (or initial) + truncated display name / email for non-anonymous users. Clicking signs out via `useAuthStore().logout()`.
-- Env: `DATABASE_URL`, `STUD_ALLOW_ANONYMOUS`, `STUD_LOGIN_TOKEN_ECHO`, `STUD_COOKIE_SECURE`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`.
+- Env: `DATABASE_URL`, `STUD_ALLOW_ANONYMOUS`, `STUD_LOGIN_TOKEN_ECHO`, `RESEND_API_KEY`, `STUD_AUTH_EMAIL_FROM`, `STUD_COOKIE_SECURE`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`.
 
 Corpus knowledge base:
 
@@ -674,7 +675,7 @@ Next.js 16.2.6 (App Router) marketing landing page for Stud. Deployed to Cloudfl
 - **`MVP_NEXT_STEPS.md`** — Product-ready MVP checklist for Stud, including architecture decision, must-have build phases, database/storage notes, smoke tests, deferred features, and copy-paste prompts for future implementation runs.
 - Auth/dev-mode/provider-key follow-up prompts were drafted in chat; provider credentials MVP direction is Stud-owned server credentials only, with user-facing provider key entry removed/hidden.
 - Prompt status audit: corpus gating, auth sessions/login routes, user-owned conversations, settings persistence, provider-key UI removal, and metadata backfill are present; MCP transport wording still has legacy `plugin_fallback`/`official_mcp` labels in UI/status code.
-- Local anonymous auth debug: frontend shows login whenever `/auth/me` returns 401; with `STUD_ALLOW_ANONYMOUS=true`, verify the running bridge actually loaded `.env` and is not running with `NODE_ENV=production`.
+- Local anonymous auth debug: `/auth/me` can still return anonymous local-dev sessions when `STUD_ALLOW_ANONYMOUS=true`, but `Home.tsx` keeps showing `LoginScreen` until a non-anonymous user session exists.
 - Dev mode debug: when `STUD_DEV_MODE_TOKEN` is set, browser must set `localStorage.stud_dev_mode_token` to the same value; `/agent/config` returns `devModeAllowed=false` without the `X-Stud-Dev-Token` header.
 - Bug prompt audit: cancellation currently aborts the agent run but should also cancel queued/in-flight Studio relay work; approve-scope is exact tool+scope matching and needs broader/persistent scope matching plus an explicit full-access mode.
 - Diff prompt audit: Claude Code reference has structured/color diff code under `claude-code/native-ts/color-diff/`; Stud should render script mutations as first-class before/after hunks with line numbers and word highlights, not raw tool JSON.

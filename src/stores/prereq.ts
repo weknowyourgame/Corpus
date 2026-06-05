@@ -4,7 +4,6 @@
 
 import { create } from "zustand";
 import { isBridgeRunning, isStudioConnected } from "@/lib/roblox/client";
-import { getServerProviderConfig } from "@/lib/ai/server-agent";
 
 export interface PrereqCheck {
   id: string;
@@ -41,12 +40,6 @@ const initialChecks: PrereqCheck[] = [
     id: "stud-plugin",
     name: "Stud Plugin",
     description: "The stud-bridge plugin must be installed in Studio",
-    status: "pending",
-  },
-  {
-    id: "api-provider",
-    name: "Model Access",
-    description: "Stud-managed model access must be available on the server",
     status: "pending",
   },
   {
@@ -94,23 +87,6 @@ export const usePrereqStore = create<PrereqStore>((set, get) => ({
       message: "Download and install the plugin from the connection screen",
       action: { label: "Download Plugin", handler: "install-plugin" },
     });
-    set({ checks: [...checks] });
-
-    updateCheck("api-provider", { status: "checking" });
-    set({ checks: [...checks] });
-
-    const config = await getServerProviderConfig();
-    if (config.ready) {
-      updateCheck("api-provider", {
-        status: "passed",
-        message: "Stud model access is available",
-      });
-    } else {
-      updateCheck("api-provider", {
-        status: "failed",
-        message: "Stud-managed model access is unavailable on this server.",
-      });
-    }
     set({ checks: [...checks] });
 
     updateCheck("bridge-server", { status: "checking" });

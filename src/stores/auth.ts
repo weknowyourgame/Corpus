@@ -65,7 +65,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (!res.ok) throw new Error(data.error ?? "Could not start login");
       set({ devLoginToken: data.loginToken ?? null });
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : String(error) });
+      const message = error instanceof Error ? error.message : String(error);
+      set({ error: message });
+      throw new Error(message);
     }
   },
 
@@ -80,20 +82,22 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (!res.ok || !data.user) throw new Error(data.error ?? "Could not verify login");
       set({ user: data.user, loading: false, devLoginToken: null });
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : String(error) });
+      const message = error instanceof Error ? error.message : String(error);
+      set({ error: message });
+      throw new Error(message);
     }
   },
 
   startGoogleLogin: async () => {
     set({ error: null });
     try {
-      const redirectUri = window.location.origin + window.location.pathname;
       const res = await authFetch("/auth/login/start", {
         method: "POST",
-        body: JSON.stringify({ provider: "google", redirectUri }),
+        body: JSON.stringify({ provider: "google" }),
       });
-      const data = await res.json() as { authUrl?: string | null; error?: string };
+      const data = await res.json() as { authUrl?: string | null; redirectUri?: string; error?: string };
       if (!res.ok || !data.authUrl) throw new Error(data.error ?? "Google OAuth is not configured");
+      if (data.redirectUri) window.sessionStorage.setItem("stud_google_redirect_uri", data.redirectUri);
       window.location.assign(data.authUrl);
     } catch (error) {
       set({ error: error instanceof Error ? error.message : String(error) });
@@ -102,15 +106,26 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   finishGoogleLogin: async (code, state) => {
     set({ loading: true, error: null });
-    const redirectUri = window.location.origin + window.location.pathname;
-    const res = await authFetch("/auth/login/verify", {
-      method: "POST",
-      body: JSON.stringify({ provider: "google", code, state, redirectUri }),
-    });
-    const data = await res.json() as { user?: AuthUser; error?: string };
-    if (!res.ok || !data.user) throw new Error(data.error ?? "Could not finish Google login");
-    window.history.replaceState({}, document.title, window.location.pathname);
-    set({ user: data.user, loading: false });
+    try {
+      const redirectUri = window.sessionStorage.getItem("stud_google_redirect_uri") ?? window.location.origin + window.location.pathname;
+      const res = await authFetch("/auth/login/verify", {
+        method: "POST",
+        body: JSON.stringify({ provider: "google", code, state, redirectUri }),
+      });
+      const data = await res.json() as { user?: AuthUser; error?: string };
+      if (!res.ok || !data.user) throw new Error(data.error ?? "Could not finish Google login");
+      window.sessionStorage.removeItem("stud_google_redirect_uri");
+      window.history.replaceState({}, document.title, window.location.pathname);
+      set({ user: data.user, loading: false });
+    } catch (error) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      set({
+        user: null,
+        loading: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   },
 
   logout: async () => {

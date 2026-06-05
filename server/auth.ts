@@ -202,6 +202,31 @@ async function exchangeGoogleCode(code: string, redirectUri: string) {
   return verifyGoogleIdToken(data.id_token);
 }
 
+async function sendLoginEmail(email: string, token: string) {
+  const resendKey = process.env.RESEND_API_KEY;
+  const from = process.env.STUD_AUTH_EMAIL_FROM;
+  if (!resendKey || !from) return false;
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${resendKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [email],
+      subject: "Your Stud login token",
+      text: `Use this Stud login token within 15 minutes:\n\n${token}\n`,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Email provider failed: ${response.status} ${await response.text()}`);
+  }
+  return true;
+}
+
 export async function startLogin(req: Request, res: Response) {
   if (!hasDatabase()) {
     res.status(503).json({ error: "DATABASE_URL is required for login" });
@@ -217,7 +242,7 @@ export async function startLogin(req: Request, res: Response) {
         expiresAt: new Date(Date.now() + LOGIN_TOKEN_TTL_MS),
       },
     });
-    const redirectUri = String(req.body?.redirectUri ?? process.env.GOOGLE_REDIRECT_URI ?? "");
+    const redirectUri = String(process.env.GOOGLE_REDIRECT_URI ?? req.body?.redirectUri ?? "");
     const params = new URLSearchParams({
       client_id: process.env.GOOGLE_CLIENT_ID ?? "",
       redirect_uri: redirectUri,
@@ -230,6 +255,7 @@ export async function startLogin(req: Request, res: Response) {
       ok: true,
       provider: "google",
       state,
+      redirectUri,
       authUrl: process.env.GOOGLE_CLIENT_ID && redirectUri
         ? `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
         : null,
@@ -243,6 +269,23 @@ export async function startLogin(req: Request, res: Response) {
     return;
   }
   const token = randomToken();
+  const echoToken = allowAnonymousAuth() || process.env.STUD_LOGIN_TOKEN_ECHO === "true";
+  const canSendEmail = Boolean(process.env.RESEND_API_KEY && process.env.STUD_AUTH_EMAIL_FROM);
+
+  if (!echoToken && !canSendEmail) {
+    res.status(503).json({ error: "Email login is not configured. Use Google sign-in or configure RESEND_API_KEY and STUD_AUTH_EMAIL_FROM." });
+    return;
+  }
+
+  if (canSendEmail) {
+    try {
+      await sendLoginEmail(email, token);
+    } catch (error) {
+      res.status(503).json({ error: error instanceof Error ? error.message : "Could not send login email" });
+      return;
+    }
+  }
+
   await getPrismaClient().loginToken.create({
     data: {
       email,
@@ -251,7 +294,6 @@ export async function startLogin(req: Request, res: Response) {
       expiresAt: new Date(Date.now() + LOGIN_TOKEN_TTL_MS),
     },
   });
-  const echoToken = allowAnonymousAuth() || process.env.STUD_LOGIN_TOKEN_ECHO === "true";
   res.json({ ok: true, provider: "email", ...(echoToken ? { loginToken: token } : {}) });
 }
 

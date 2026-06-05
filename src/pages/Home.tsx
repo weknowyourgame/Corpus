@@ -50,7 +50,6 @@ import {
 } from "@/lib/ai/server-agent";
 import { useAppShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { cn } from "@/lib/utils";
-import { StudioToken } from "@/components/StudioToken";
 import { ArrowUp, Square, CheckCircle2, Download, FolderOpen, RefreshCw, Box, FileText, Play, ListTodo, Terminal, Zap, Undo2 } from "lucide-react";
 
 const SUGGESTIONS = [
@@ -176,8 +175,6 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
     return "pending";
   };
 
-  const pluginInstalled = pluginStatus?.installed && pluginStatus?.is_current_version;
-
   return (
     <div className="stud-app-shell stud-workbench">
       <div className="stud-atmosphere" aria-hidden="true" />
@@ -193,14 +190,6 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
             <div className="stud-display-subtitle">
               <Loader variant="terminal" text="Waiting for Roblox Studio" size="sm" />
             </div>
-          </div>
-
-          <StudioToken />
-          <ConnectionBadges status={status} />
-          <div className="stud-agent-tasks stud-agent-tasks-connection" aria-hidden="true">
-            <div className="stud-agent-task is-active"><span />Bridge check <strong>Command queue</strong></div>
-            <div className="stud-agent-task"><span />Task ready <strong>Studio plugin</strong></div>
-            <div className="stud-agent-task"><span />Safety on <strong>Approvals locked</strong></div>
           </div>
 
           <div className="stud-panel p-6 space-y-5">
@@ -241,20 +230,11 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
 
           <div className="stud-panel p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="font-medium">Plugin Status</span>
-                {isChecking ? (
-                  <Loader variant="circular" size="sm" />
-                ) : pluginInstalled ? (
-                  <span className="status-pill">
-                    <span style={{ background: "#2f9c63" }} />
-                    Installed
-                  </span>
-                ) : pluginStatus?.installed ? (
-                  <span className="status-pill">Update available</span>
-                ) : (
-                  <span className="status-pill">Not installed</span>
-                )}
+              <div>
+                <h2 className="font-medium">Install the Studio plugin</h2>
+                <p className="text-sm mt-1" style={{ color: "var(--stud-muted)" }}>
+                  Download the plugin, open Roblox Studio, then connect it from the plugin panel.
+                </p>
               </div>
               <button
                 type="button"
@@ -510,10 +490,20 @@ export function Home() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const oauthError = params.get("error");
     const code = params.get("code");
     const state = params.get("state");
+    if (oauthError) {
+      useAuthStore.setState({
+        user: null,
+        loading: false,
+        error: params.get("error_description") || oauthError,
+      });
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
     if (code && state) {
-      void finishGoogleLogin(code, state).catch(() => loadMe());
+      void finishGoogleLogin(code, state).catch(() => undefined);
       return;
     }
     void loadMe();
@@ -798,7 +788,7 @@ export function Home() {
     );
   }
 
-  if (!user) {
+  if (!user || user.anonymous) {
     return <LoginScreen />;
   }
 

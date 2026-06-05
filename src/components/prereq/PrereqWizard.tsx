@@ -20,7 +20,6 @@ import {
   ExternalLink,
   Download,
   Plug,
-  Sparkles,
   Server,
   Monitor,
 } from "lucide-react";
@@ -28,7 +27,6 @@ import {
 const iconMap: Record<string, React.ElementType> = {
   "roblox-studio": Monitor,
   "stud-plugin": Plug,
-  "api-provider": Sparkles,
   "bridge-server": Server,
   "studio-connection": Plug,
 };
@@ -90,13 +88,6 @@ function CheckItem({
             {check.message}
           </p>
         )}
-        {check.id === "api-provider" && check.status === "failed" && (
-          <div className="stud-provider-help mt-3">
-            <p>Stud-managed model access is unavailable on this server.</p>
-            <p>Users do not enter provider API keys in the app. Ask the workspace admin to check private server configuration.</p>
-          </div>
-        )}
-
         {isIssue && check.action && (
           <div className="mt-3">
             {check.action.handler === "open-settings" ? (
