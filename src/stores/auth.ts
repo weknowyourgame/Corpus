@@ -97,7 +97,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       });
       const data = await res.json() as { authUrl?: string | null; redirectUri?: string; error?: string };
       if (!res.ok || !data.authUrl) throw new Error(data.error ?? "Google OAuth is not configured");
-      if (data.redirectUri) window.sessionStorage.setItem("stud_google_redirect_uri", data.redirectUri);
+      if (data.redirectUri) window.sessionStorage.setItem("corpus_google_redirect_uri", data.redirectUri);
       window.location.assign(data.authUrl);
     } catch (error) {
       set({ error: error instanceof Error ? error.message : String(error) });
@@ -107,14 +107,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   finishGoogleLogin: async (code, state) => {
     set({ loading: true, error: null });
     try {
-      const redirectUri = window.sessionStorage.getItem("stud_google_redirect_uri") ?? window.location.origin + window.location.pathname;
+      const redirectUri = window.sessionStorage.getItem("corpus_google_redirect_uri") ?? window.location.origin + window.location.pathname;
       const res = await authFetch("/auth/login/verify", {
         method: "POST",
         body: JSON.stringify({ provider: "google", code, state, redirectUri }),
       });
       const data = await res.json() as { user?: AuthUser; error?: string };
       if (!res.ok || !data.user) throw new Error(data.error ?? "Could not finish Google login");
-      window.sessionStorage.removeItem("stud_google_redirect_uri");
+      window.sessionStorage.removeItem("corpus_google_redirect_uri");
       window.history.replaceState({}, document.title, window.location.pathname);
       set({ user: data.user, loading: false });
     } catch (error) {

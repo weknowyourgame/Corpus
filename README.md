@@ -1,4 +1,4 @@
-# Stud
+# Corpus
 
 **The AI Agent for Roblox Studio** - Build games with AI that actually *does* things.
 
@@ -6,15 +6,15 @@
 [![Web App](https://img.shields.io/badge/Web-App-61DAFB)](https://vitejs.dev)
 [![React](https://img.shields.io/badge/React-19-61DAFB)](https://react.dev)
 
-Stud connects AI models (GPT-4, Claude, ChatGPT Plus/Pro) directly to Roblox Studio, enabling real-time manipulation of instances, scripts, and properties through natural language. Think **Cursor AI, but for Roblox development**.
+Corpus connects AI models (GPT-4, Claude, ChatGPT Plus/Pro) directly to Roblox Studio, enabling real-time manipulation of instances, scripts, and properties through natural language. Think **Cursor AI, but for Roblox development**.
 
-## Why Stud?
+## Why Corpus?
 
-Most AI coding tools are built for text files. Roblox Studio is different - it's a visual tree of instances, properties, and Luau scripts. Stud bridges this gap by giving AI direct access to your Studio session.
+Most AI coding tools are built for text files. Roblox Studio is different - it's a visual tree of instances, properties, and Luau scripts. Corpus bridges this gap by giving AI direct access to your Studio session.
 
-**Before Stud**: Copy code from ChatGPT → Paste into Studio → Debug → Repeat
+**Before Corpus**: Copy code from ChatGPT → Paste into Studio → Debug → Repeat
 
-**With Stud**: "Create a car that players can drive" → AI creates the model, scripts, and configures everything → Done
+**With Corpus**: "Create a car that players can drive" → AI creates the model, scripts, and configures everything → Done
 
 ## Features
 
@@ -43,7 +43,7 @@ All while you watch it happen in real-time.
 
 ```
 ┌─────────────┐     HTTP      ┌─────────────┐     Polling     ┌─────────────┐
-│  Stud Web   │◄────────────►│ Bridge +    │◄───────────────►│   Studio    │
+│  Corpus Web   │◄────────────►│ Bridge +    │◄───────────────►│   Studio    │
 │   (React)   │  SSE / HTTP  │ Agent (Node)│   100ms         │  (Plugin)   │
 └─────────────┘              └─────────────┘                 └─────────────┘
                                    │
@@ -55,9 +55,9 @@ All while you watch it happen in real-time.
                               └─────────────┘
 ```
 
-1. You open Stud in your browser and copy your **session code**
-2. Paste the code into the Stud plugin in Roblox Studio and click Connect
-3. You type a message in Stud; the server-owned agent streams run events to the UI
+1. You open Corpus in your browser and copy your **session code**
+2. Paste the code into the Corpus plugin in Roblox Studio and click Connect
+3. You type a message in Corpus; the server-owned agent streams run events to the UI
 4. The server policy pauses mutations for approval and routes authorized `mcp__roblox_studio__*` operations through the Studio gateway
 5. The compatible plugin transport polls and executes approved work; results return to the server loop
 
@@ -73,10 +73,10 @@ All while you watch it happen in real-time.
 ### Quick Start
 
 ```bash
-git clone https://github.com/madebyshaurya/stud.git
-cd stud
+git clone https://github.com/madebyshaurya/corpus.git
+cd corpus
 npm install
-export ANTHROPIC_API_KEY="sk-ant-..." # or OPENROUTER_API_KEY / STUD_CODEX_ACCESS_TOKEN
+export ANTHROPIC_API_KEY="sk-ant-..." # or OPENROUTER_API_KEY / CORPUS_CODEX_ACCESS_TOKEN
 npm run dev
 ```
 
@@ -86,10 +86,10 @@ This starts:
 
 ### Connect Roblox Studio
 
-1. Download the plugin from the web app (or copy `studio-plugin/stud-bridge.server.lua` to your Roblox Plugins folder)
+1. Download the plugin from the web app (or copy `studio-plugin/corpus-bridge.server.lua` to your Roblox Plugins folder)
 2. Open Roblox Studio → enable **HTTP requests** in Game Settings → Security
-3. Copy your **session code** from the Stud web app
-4. Open the Stud plugin widget, paste the code, and click **Connect**
+3. Copy your **session code** from the Corpus web app
+4. Open the Corpus plugin widget, paste the code, and click **Connect**
 
 ## Configuration
 
@@ -99,7 +99,7 @@ Phase 1 chat runs on the server. Configure credentials on the bridge process, ne
 
 | Provider | Setup | Models |
 |----------|-------|--------|
-| **Codex** | `STUD_CODEX_ACCESS_TOKEN` and optional `STUD_CODEX_ACCOUNT_ID` | Codex-compatible models |
+| **Codex** | `CORPUS_CODEX_ACCESS_TOKEN` and optional `CORPUS_CODEX_ACCOUNT_ID` | Codex-compatible models |
 | **Claude** | `ANTHROPIC_API_KEY` | Claude models |
 | **OpenRouter** | `OPENROUTER_API_KEY` | OpenRouter tool-capable models |
 
@@ -183,7 +183,7 @@ Implemented phase notes and the safe starter-world demo are in:
 ### Project Structure
 
 ```
-stud/
+corpus/
 ├── src/                      # React frontend
 │   ├── components/           # UI components (shadcn/ui + prompt-kit)
 │   ├── lib/
@@ -193,7 +193,7 @@ stud/
 ├── server/                  # Node.js bridge server
 │   └── index.js
 └── studio-plugin/           # Roblox Studio plugin
-    └── stud-bridge.server.lua
+    └── corpus-bridge.server.lua
 ```
 
 ## Tech Stack
@@ -231,7 +231,7 @@ See [CLAUDE.md](./CLAUDE.md) for code style guidelines and architecture details.
 
 ## Community
 
-- Report bugs via [GitHub Issues](https://github.com/madebyshaurya/stud/issues)
+- Report bugs via [GitHub Issues](https://github.com/madebyshaurya/corpus/issues)
 - Feature requests welcome!
 - Star the repo if you find it useful
 

@@ -1,11 +1,11 @@
-//! Bridge Server for Stud <-> Roblox Studio Plugin Communication
+//! Bridge Server for Corpus <-> Roblox Studio Plugin Communication
 //!
 //! The Roblox Studio plugin cannot receive incoming HTTP requests, only make them.
 //! This bridge server acts as an intermediary:
 //!
-//! 1. Stud tools POST requests to /stud/request
-//! 2. Studio plugin polls /stud/poll for pending requests
-//! 3. Studio plugin responds to /stud/respond with results
+//! 1. Corpus tools POST requests to /corpus/request
+//! 2. Studio plugin polls /corpus/poll for pending requests
+//! 3. Studio plugin responds to /corpus/respond with results
 //! 4. The original request resolves with the result
 
 use parking_lot::Mutex;
@@ -135,7 +135,7 @@ pub async fn start_bridge_server() {
     let state: SharedState = Arc::new(Mutex::new(BridgeState::new()));
 
     // Status endpoint
-    let status = warp::path!("stud" / "status")
+    let status = warp::path!("corpus" / "status")
         .and(warp::get())
         .and(with_state(state.clone()))
         .map(|state: SharedState| {
@@ -148,15 +148,15 @@ pub async fn start_bridge_server() {
             warp::reply::json(&response)
         });
 
-    // Request endpoint - Stud sends requests here
-    let request = warp::path!("stud" / "request")
+    // Request endpoint - Corpus sends requests here
+    let request = warp::path!("corpus" / "request")
         .and(warp::post())
         .and(warp::body::json())
         .and(with_state(state.clone()))
         .and_then(handle_request);
 
     // Poll endpoint - Studio plugin polls here
-    let poll = warp::path!("stud" / "poll")
+    let poll = warp::path!("corpus" / "poll")
         .and(warp::get())
         .and(with_state(state.clone()))
         .map(|state: SharedState| {
@@ -180,7 +180,7 @@ pub async fn start_bridge_server() {
         });
 
     // Respond endpoint - Studio plugin responds here
-    let respond = warp::path!("stud" / "respond")
+    let respond = warp::path!("corpus" / "respond")
         .and(warp::post())
         .and(warp::body::json())
         .and(with_state(state.clone()))
@@ -201,8 +201,8 @@ pub async fn start_bridge_server() {
         .or(respond)
         .with(cors());
 
-    println!("[Stud Bridge] Starting on http://localhost:{}", BRIDGE_PORT);
-    println!("[Stud Bridge] Waiting for stud-bridge plugin to connect...");
+    println!("[Corpus Bridge] Starting on http://localhost:{}", BRIDGE_PORT);
+    println!("[Corpus Bridge] Waiting for corpus-bridge plugin to connect...");
 
     // Spawn cleanup task
     let cleanup_state = state.clone();
@@ -233,7 +233,7 @@ pub async fn start_bridge_server() {
         }
         Err(e) => {
             println!(
-                "[Stud Bridge] Port {} already in use ({}), assuming bridge is already running",
+                "[Corpus Bridge] Port {} already in use ({}), assuming bridge is already running",
                 BRIDGE_PORT, e
             );
         }
@@ -392,13 +392,13 @@ async fn start_oauth_server() {
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, OAUTH_PORT));
     match tokio::net::TcpListener::bind(addr).await {
         Ok(listener) => {
-            println!("[Stud OAuth] Callback server on http://localhost:{}", OAUTH_PORT);
+            println!("[Corpus OAuth] Callback server on http://localhost:{}", OAUTH_PORT);
             warp::serve(oauth_routes)
                 .run_incoming(tokio_stream::wrappers::TcpListenerStream::new(listener))
                 .await;
         }
         Err(e) => {
-            println!("[Stud OAuth] Port {} already in use ({})", OAUTH_PORT, e);
+            println!("[Corpus OAuth] Port {} already in use ({})", OAUTH_PORT, e);
         }
     }
 }
@@ -483,13 +483,13 @@ async fn start_codex_proxy() {
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, CODEX_PROXY_PORT));
     match tokio::net::TcpListener::bind(addr).await {
         Ok(listener) => {
-            println!("[Stud Codex] Proxy server on http://localhost:{}", CODEX_PROXY_PORT);
+            println!("[Corpus Codex] Proxy server on http://localhost:{}", CODEX_PROXY_PORT);
             warp::serve(proxy_routes)
                 .run_incoming(tokio_stream::wrappers::TcpListenerStream::new(listener))
                 .await;
         }
         Err(e) => {
-            println!("[Stud Codex] Port {} already in use ({})", CODEX_PROXY_PORT, e);
+            println!("[Corpus Codex] Port {} already in use ({})", CODEX_PROXY_PORT, e);
         }
     }
 }

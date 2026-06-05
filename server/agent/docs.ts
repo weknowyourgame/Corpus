@@ -127,7 +127,7 @@ const DOCS: DocChunk[] = [
   Atomic: ds:UpdateAsync(key, function(old) return new end)
   Delete: ds:RemoveAsync(key)
   Always wrap in pcall — calls can fail. Rate: 60+numPlayers*10 req/min.
-  From the Stud agent: use roblox_datastore__ tools instead of in-game Luau.`,
+  From the Corpus agent: use roblox_datastore__ tools instead of in-game Luau.`,
   },
   {
     id: "luau-typing",

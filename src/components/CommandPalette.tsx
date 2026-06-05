@@ -111,7 +111,7 @@ const COMMANDS = [
         id: "help-docs",
         icon: <ExternalLink className="w-4 h-4" />,
         label: "Documentation",
-        description: "Open Stud documentation",
+        description: "Open Corpus documentation",
       },
     ],
   },

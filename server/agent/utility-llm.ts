@@ -5,15 +5,15 @@ const OPENROUTER_DIRECT = "https://openrouter.ai/api/v1/chat/completions";
 
 function resolveUrlAndHeaders(): { url: string; headers: Record<string, string> } {
   const orKey = process.env.OPENROUTER_API_KEY;
-  if (!orKey) throw new Error("Stud model access is unavailable on this server");
+  if (!orKey) throw new Error("Corpus model access is unavailable on this server");
 
   const gatewayBase = (process.env.AI_GATEWAY_URL ?? "").replace(/\/$/, "");
   const cfToken = process.env.CLOUDFLARE_API_TOKEN;
   const headers: Record<string, string> = {
     Authorization: `Bearer ${orKey}`,
     "Content-Type": "application/json",
-    "HTTP-Referer": "https://stud.dev",
-    "X-OpenRouter-Title": "Stud",
+    "HTTP-Referer": "https://corpus.dev",
+    "X-OpenRouter-Title": "Corpus",
   };
 
   if (gatewayBase) {

@@ -1,5 +1,5 @@
 /**
- * For each converted game folder in ~/stud/games/converted/:
+ * For each converted game folder in ~/corpus/games/converted/:
  *   1. Walks all .lua/.luau files and writes manifest.json
  *   2. Prints the SQL INSERT needed to register the game in Postgres
  *
@@ -10,7 +10,7 @@ import { readdirSync, statSync, writeFileSync, existsSync } from "node:fs";
 import { join, relative, extname } from "node:path";
 import { homedir } from "node:os";
 
-const CONVERTED_DIR = join(homedir(), "stud", "games", "converted");
+const CONVERTED_DIR = join(homedir(), "corpus", "games", "converted");
 
 const NICHES = [
   "tower-defense", "fps", "obby", "rpg", "simulator",

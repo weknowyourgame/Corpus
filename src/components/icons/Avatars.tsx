@@ -4,7 +4,7 @@ interface AvatarIconProps {
   className?: string;
 }
 
-// Bot avatar - Stud logo mark styled for chat
+// Bot avatar - Corpus logo mark styled for chat
 export function BotAvatar({ className }: AvatarIconProps) {
   return (
     <div className={cn(
@@ -18,7 +18,7 @@ export function BotAvatar({ className }: AvatarIconProps) {
         xmlns="http://www.w3.org/2000/svg"
         className="w-5 h-5"
       >
-        {/* Stud logo mark - tilted square */}
+        {/* Corpus logo mark - tilted square */}
         <path
           d="M41.26 12.67L14.71 5.56a1.67 1.67 0 0 0-2.04 1.18L5.56 33.29a1.67 1.67 0 0 0 1.18 2.04l26.55 7.11a1.67 1.67 0 0 0 2.04-1.18l7.11-26.55a1.67 1.67 0 0 0-1.18-2.04Z"
           fill="currentColor"

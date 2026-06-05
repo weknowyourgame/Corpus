@@ -1,6 +1,6 @@
 # Roblox Open Source Game Knowledge Base Plan
 
-Goal: create a persistent knowledge base of open-source Roblox games so Stud can retrieve examples by game niche, systems, mechanics, and script patterns before it modifies a connected Roblox Studio project.
+Goal: create a persistent knowledge base of open-source Roblox games so Corpus can retrieve examples by game niche, systems, mechanics, and script patterns before it modifies a connected Roblox Studio project.
 
 Authority order:
 1. Live connected Studio project
@@ -22,7 +22,7 @@ Cron Job (Cloudflare Worker or server-side)
         +--> Store chunk metadata in Postgres (Prisma)
         +--> Store raw chunks in R2
 
-Stud server/agent/rag.ts
+Corpus server/agent/rag.ts
         |
         +--> live Studio in-memory retrieval
         +--> official docs retrieval

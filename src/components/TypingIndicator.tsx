@@ -61,7 +61,7 @@ function WaveAnimation() {
 function TextAnimation() {
   return (
     <span className="text-sm text-muted-foreground">
-      <span className="animate-pulse"><span className="font-logo">Stud</span> is thinking</span>
+      <span className="animate-pulse"><span className="font-logo">Corpus</span> is thinking</span>
       <span className="inline-flex">
         {[0, 1, 2].map((i) => (
           <span

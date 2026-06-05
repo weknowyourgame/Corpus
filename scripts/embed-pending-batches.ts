@@ -21,6 +21,7 @@ const limitArg      = process.argv.find((a) => a.startsWith("--limit="))?.split(
 const startAfterArg = process.argv.find((a) => a.startsWith("--start-after="))?.split("=")[1];
 const DRY_RUN       = process.argv.includes("--dry-run");
 const LIMIT         = limitArg ? parseInt(limitArg) : 25;
+const MAX_ATTEMPTS  = 3;
 
 const databaseUrl = process.env.DATABASE_URL!;
 if (!databaseUrl) {
@@ -39,12 +40,49 @@ function fmtDuration(ms: number): string {
   return `${s}s`;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withRetry<T>(label: string, fn: () => Promise<T>, attempts = MAX_ATTEMPTS): Promise<T> {
+  let last: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      last = error;
+      if (attempt === attempts) break;
+      const waitMs = 2_500 * attempt;
+      console.warn(`    ${label} failed (attempt ${attempt}/${attempts}); retrying in ${fmtDuration(waitMs)}`);
+      await sleep(waitMs);
+    }
+  }
+  throw last;
+}
+
+function isTransientFailure(output: string): boolean {
+  return /Failed to connect to upstream database|ECONNRESET|ETIMEDOUT|timeout|fetch failed|429|5\d\d/.test(output);
+}
+
+function summarizeFailure(output: string): string {
+  const lines = output
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim())
+    .filter((line) => !line.includes("SECURITY WARNING: The SSL modes"))
+    .filter((line) => !line.includes("In the next major version"))
+    .filter((line) => !line.includes("To prepare for this change"))
+    .filter((line) => !line.includes("See https://www.postgresql.org/docs/current/libpq-ssl.html"))
+    .filter((line) => !line.includes("Use `node --trace-warnings ...`"));
+  return lines.slice(-8).join("\n");
+}
+
 async function getPendingGames(): Promise<{ slug: string }[]> {
-  const all = await prisma.game.findMany({
+  const all = await withRetry("pending game query", () => prisma.game.findMany({
     where: { ingested: false },
     orderBy: { createdAt: "asc" },
     select: { slug: true },
-  });
+  }));
 
   if (!startAfterArg) return all.slice(0, LIMIT);
 
@@ -57,11 +95,11 @@ async function getPendingGames(): Promise<{ slug: string }[]> {
 }
 
 async function getCorpusCounts(): Promise<{ total: number; ingested: number; pending: number; chunks: number }> {
-  const [total, ingested, chunks] = await Promise.all([
+  const [total, ingested, chunks] = await withRetry("corpus count query", () => Promise.all([
     prisma.game.count(),
     prisma.game.count({ where: { ingested: true } }),
     prisma.corpusChunk.count(),
-  ]);
+  ]));
   return { total, ingested, pending: total - ingested, chunks };
 }
 
@@ -79,6 +117,22 @@ async function runEmbedForSlug(slug: string): Promise<{ ok: boolean; output: str
 
   const output = [stdout, stderr].filter(Boolean).join("\n").trim();
   return { ok: exitCode === 0, output };
+}
+
+async function runEmbedForSlugWithRetry(slug: string): Promise<{ ok: boolean; output: string; attempts: number }> {
+  let last = "";
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const result = await runEmbedForSlug(slug);
+    if (result.ok) return { ...result, attempts: attempt };
+    last = result.output;
+    if (!isTransientFailure(result.output) || attempt === MAX_ATTEMPTS) {
+      return { ...result, attempts: attempt };
+    }
+    const waitMs = 5_000 * attempt;
+    process.stdout.write(`retrying transient failure in ${fmtDuration(waitMs)} … `);
+    await sleep(waitMs);
+  }
+  return { ok: false, output: last, attempts: MAX_ATTEMPTS };
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -115,15 +169,16 @@ for (const { slug } of pending) {
   const start = Date.now();
   process.stdout.write(`  ${slug} … `);
 
-  const { ok, output } = await runEmbedForSlug(slug);
+  const { ok, output, attempts } = await runEmbedForSlugWithRetry(slug);
   const elapsed = Date.now() - start;
 
   if (ok) {
-    console.log(`✓ ${fmtDuration(elapsed)}`);
+    console.log(`✓ ${fmtDuration(elapsed)}${attempts > 1 ? ` (${attempts} attempts)` : ""}`);
     succeeded.push(slug);
   } else {
-    console.log(`✗ ${fmtDuration(elapsed)}`);
-    if (output) console.log(`    ${output.split("\n").slice(0, 3).join("\n    ")}`);
+    console.log(`✗ ${fmtDuration(elapsed)}${attempts > 1 ? ` (${attempts} attempts)` : ""}`);
+    const summary = summarizeFailure(output);
+    if (summary) console.log(`    ${summary.split("\n").join("\n    ")}`);
     failed.push(slug);
   }
 }

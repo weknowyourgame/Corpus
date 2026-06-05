@@ -4,8 +4,19 @@ import { parseAtMentions, resolveAtMentions, buildContextBlock } from "./context
 import { buildRagContext } from "./rag.ts";
 import { compactMessages, needsCompaction, TIER_MAX_TOKENS } from "./compact.ts";
 import { extractMemories, formatMemories, loadMemories, storeMemories } from "./memory.ts";
-import { RobloxStudioMcpGateway } from "./tools.ts";
+import { RobloxStudioMcpGateway, normalizePath } from "./tools.ts";
 import { executeBatches } from "./scheduler.ts";
+import {
+  isFailedToolResult,
+  classifyFailure,
+  isObligation,
+  failureMessage,
+  failureHint,
+  buildRecoveryCandidates,
+  verificationFor,
+  buildUnresolvedCorrection,
+  type UnresolvedObligation,
+} from "./recovery.ts";
 import type {
   AgentAnswer,
   AgentTask,
@@ -46,6 +57,10 @@ type ActiveRun = {
   tasks: Map<string, AgentTask>;
   proposedPlan?: ProposedPlan;
   undoWaypointName?: string;
+  /** Failed tool calls still owed a fix. Keyed by `${toolName}::${scope}`. */
+  unresolvedFailures: Map<string, UnresolvedObligation>;
+  /** Number of times completion was blocked to chase unresolved failures. */
+  completionNags: number;
 };
 
 type Listener = (event: AgentEvent) => void;
@@ -64,6 +79,10 @@ export class AgentRuntime {
     private readonly tools: AgentToolRegistry,
     private readonly maxIterations = 50,
     private readonly policy = new PermissionPolicy(),
+    /** Max automatic repair attempts (repaired retry + fallback) per failed call. */
+    private readonly maxRepairAttempts = 2,
+    /** Max times completion is blocked to chase unresolved failures before giving up. */
+    private readonly maxCompletionNags = 3,
   ) {}
 
   /**
@@ -122,6 +141,8 @@ export class AgentRuntime {
       interactions: new Map(),
       approvals: new Map(),
       tasks: new Map(),
+      unresolvedFailures: new Map(),
+      completionNags: 0,
     };
     this.active.set(run.id, active);
     await this.emit(conversation, run.id, {
@@ -392,6 +413,21 @@ export class AgentRuntime {
         }
 
         if (!turn.toolCalls.length) {
+          // Refuse to summarize completion while failed tool calls remain
+          // unresolved. Reinject them as an explicit task and loop. Capped by
+          // maxCompletionNags so a genuinely impossible fix cannot spin forever.
+          if (active.unresolvedFailures.size > 0 && active.completionNags < this.maxCompletionNags) {
+            active.completionNags += 1;
+            const correction = buildUnresolvedCorrection([...active.unresolvedFailures.values()]);
+            next.messages.push({ role: "user", content: correction });
+            await this.store.save(next);
+            await this.emitById(conversationId, runId, {
+              type: "text_delta",
+              text: "\n\n[Unresolved tool failures remain — fixing before completion]\n\n",
+            });
+            continue;
+          }
+
           const finished = this.requiredRun(next, runId);
           finished.status = "completed";
           finished.completedAt = now();
@@ -497,7 +533,145 @@ export class AgentRuntime {
         output: outcome.output,
       });
       await this.maybeEmitMutationResult(conversationId, runId, outcome.toolCallId, outcome.toolName, calls, outcome.output);
+      await this.reconcileObligations(conversationId, runId, calls, outcome.toolCallId, outcome.output, active);
     }
+  }
+
+  /**
+   * After a tool result is recorded, keep the run's unresolved-failure ledger
+   * accurate: clear obligations a later success covers, and for fresh failures
+   * attempt automatic recovery (repaired retry → safe fallback → verification)
+   * before registering anything the model still owes a fix.
+   */
+  private async reconcileObligations(
+    conversationId: string,
+    runId: string,
+    calls: AgentToolCall[],
+    toolCallId: string,
+    output: JsonValue,
+    active: ActiveRun,
+  ) {
+    const call = calls.find((item) => item.id === toolCallId);
+    if (!call) return;
+    const tool = this.tools.get(call.name);
+    const scope = tool ? tool.scope(call.input) : call.name;
+    const key = `${call.name}::${scope}`;
+    const path = typeof call.input.path === "string" ? normalizePath(call.input.path) : undefined;
+
+    if (!isFailedToolResult(output)) {
+      this.clearObligations(active, key, path);
+      return;
+    }
+
+    const cls = classifyFailure(output);
+    if (!isObligation(cls)) return;
+
+    if (active.controller.signal.aborted || this.cancelledRuns.has(runId)) return;
+    const resolved = await this.attemptRecovery(conversationId, runId, call, output, active);
+    if (resolved) {
+      this.clearObligations(active, key, path);
+      return;
+    }
+
+    active.unresolvedFailures.set(key, {
+      key,
+      toolName: call.name,
+      scope,
+      path,
+      error: failureMessage(output),
+      hint: failureHint(output),
+      class: cls,
+    });
+  }
+
+  private clearObligations(active: ActiveRun, key: string, path?: string) {
+    active.unresolvedFailures.delete(key);
+    if (!path) return;
+    for (const [obKey, obligation] of active.unresolvedFailures) {
+      if (obligation.path && obligation.path === path) active.unresolvedFailures.delete(obKey);
+    }
+  }
+
+  /**
+   * Try the ordered repair candidates for a failed call. Each candidate is
+   * executed through the normal governed path (policy + approval still apply),
+   * then the mutation is verified with a read tool. Returns true only when a
+   * candidate both succeeds and verifies. Bounded by maxRepairAttempts.
+   */
+  private async attemptRecovery(
+    conversationId: string,
+    runId: string,
+    call: AgentToolCall,
+    output: JsonValue,
+    active: ActiveRun,
+  ): Promise<boolean> {
+    const candidates = buildRecoveryCandidates(call, output, normalizePath);
+    if (!candidates.length) return false;
+
+    let attempts = 0;
+    for (const candidate of candidates) {
+      if (attempts >= this.maxRepairAttempts) break;
+      if (active.controller.signal.aborted || this.cancelledRuns.has(runId)) return false;
+      attempts += 1;
+      await this.emitById(conversationId, runId, {
+        type: "text_delta",
+        text: `\n\n[recovery] ${candidate.note}\n\n`,
+      });
+      const result = await this.runRecoveryTool(conversationId, runId, candidate.name, candidate.input, active);
+      if (isFailedToolResult(result)) continue;
+
+      const verified = await this.verifyRecovery(conversationId, runId, call, active);
+      if (verified) {
+        await this.emitById(conversationId, runId, {
+          type: "text_delta",
+          text: "\n\n[recovery] resolved and verified\n\n",
+        });
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private async verifyRecovery(
+    conversationId: string,
+    runId: string,
+    call: AgentToolCall,
+    active: ActiveRun,
+  ): Promise<boolean> {
+    const check = verificationFor(call, normalizePath);
+    if (!check) return true; // nothing to read back — accept the successful mutation
+    if (active.controller.signal.aborted || this.cancelledRuns.has(runId)) return false;
+    const result = await this.runRecoveryTool(conversationId, runId, check.name, check.input, active);
+    return !isFailedToolResult(result);
+  }
+
+  /**
+   * Execute a recovery sub-step through the governed tool path and record it as
+   * a first-class tool call/result in the conversation so the model and UI see
+   * the repair attempt. Reuses handleToolCall so policy/approval/audit apply.
+   */
+  private async runRecoveryTool(
+    conversationId: string,
+    runId: string,
+    toolName: string,
+    input: Record<string, unknown>,
+    active: ActiveRun,
+  ): Promise<JsonValue> {
+    const toolCallId = randomUUID();
+    await this.emitById(conversationId, runId, {
+      type: "tool_call",
+      toolCallId,
+      toolName,
+      input: this.observableInput(toolName, input),
+    });
+    const output = await this.handleToolCall(conversationId, runId, toolCallId, toolName, input, active);
+    if (active.controller.signal.aborted || this.cancelledRuns.has(runId)) return output;
+    const next = await this.requiredConversation(conversationId);
+    next.messages.push({ role: "tool", toolCallId, toolName, output });
+    await this.store.save(next);
+    await this.emit(next, runId, { type: "tool_result", toolCallId, toolName, output });
+    await this.maybeEmitMutationResult(conversationId, runId, toolCallId, toolName, [{ id: toolCallId, name: toolName, input }], output);
+    return output;
   }
 
   private async maybeEmitMutationResult(
@@ -728,7 +902,7 @@ export class AgentRuntime {
     const conversation = await this.requiredConversation(conversationId);
     const tool = this.tools.get("mcp__roblox_studio__execute_luau");
     if (!tool) return;
-    const waypointName = `Stud:run-start:${runId.slice(0, 8)}`;
+    const waypointName = `Corpus:run-start:${runId.slice(0, 8)}`;
     try {
       await tool.execute({
         code: `game:GetService("ChangeHistoryService"):SetWaypoint(${JSON.stringify(waypointName)})`,

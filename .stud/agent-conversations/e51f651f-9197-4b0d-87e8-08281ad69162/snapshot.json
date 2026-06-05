@@ -1,0 +1,278 @@
+{
+  "id": "e51f651f-9197-4b0d-87e8-08281ad69162",
+  "studioSessionId": "O9VSNWNW",
+  "accessTokenHash": "e89a79464283962df9d168d08a70c0d09fbd3a3d14f21e551febfd7afa248e11",
+  "createdAt": "2026-05-31T11:14:13.394Z",
+  "updatedAt": "2026-05-31T11:15:50.075Z",
+  "nextSequence": 22,
+  "messages": [
+    {
+      "role": "user",
+      "content": "can you playtest it ?\nmy game in the codebase ask no questions and playtest it"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "call_5e3beee2fb6946b18c677240",
+          "name": "mcp__roblox_studio__start_playtest",
+          "input": {
+            "mode": "play_solo"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "toolCallId": "call_5e3beee2fb6946b18c677240",
+      "toolName": "mcp__roblox_studio__start_playtest",
+      "output": {
+        "async": true,
+        "mode": "play_solo",
+        "response": "Started playtest",
+        "started": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Playtest started in solo mode.Let me know if you'd like to view the output logs or stop the test when you're done.",
+      "toolCalls": []
+    },
+    {
+      "role": "user",
+      "content": "no you play it man"
+    },
+    {
+      "role": "assistant",
+      "content": "Playtest started.",
+      "toolCalls": []
+    },
+    {
+      "role": "user",
+      "content": "can you not play the play test after starting it ?"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "call_73379eb9c68b4e059207c503",
+          "name": "mcp__roblox_studio__stop_playtest",
+          "input": {}
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "toolCallId": "call_73379eb9c68b4e059207c503",
+      "toolName": "mcp__roblox_studio__stop_playtest",
+      "output": {
+        "stopped": true
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "The playtest hasbeen stopped.",
+      "toolCalls": []
+    }
+  ],
+  "runs": [
+    {
+      "id": "168abc57-51fd-49ca-b41f-4338d12f47b3",
+      "status": "completed",
+      "mode": "execute",
+      "tier": "free",
+      "startedAt": "2026-05-31T11:14:27.060Z",
+      "iterations": 2,
+      "completedAt": "2026-05-31T11:14:38.421Z"
+    },
+    {
+      "id": "85e4bf02-7bb8-4f58-818c-b926ebdd75d3",
+      "status": "completed",
+      "mode": "execute",
+      "tier": "free",
+      "startedAt": "2026-05-31T11:14:56.350Z",
+      "iterations": 1,
+      "completedAt": "2026-05-31T11:15:18.756Z"
+    },
+    {
+      "id": "18016890-7942-4f08-951e-1cb4cf8fac29",
+      "status": "completed",
+      "mode": "execute",
+      "tier": "free",
+      "startedAt": "2026-05-31T11:15:35.094Z",
+      "iterations": 2,
+      "completedAt": "2026-05-31T11:15:50.073Z"
+    }
+  ],
+  "approvedScopes": [
+    {
+      "id": "a4f51c9e-0d6a-4f33-9d3d-c02a38298b9e",
+      "toolName": "mcp__roblox_studio__start_playtest",
+      "scope": "playtest:start:play_solo",
+      "approvedAt": "2026-05-31T11:14:33.641Z",
+      "approvalId": "f29be7de-baa9-4048-8444-7710a10f0d7a"
+    },
+    {
+      "id": "ee3e24df-9953-43a1-992b-07997b5c66f7",
+      "toolName": "mcp__roblox_studio__stop_playtest",
+      "scope": "playtest:stop",
+      "approvedAt": "2026-05-31T11:15:46.648Z",
+      "approvalId": "114b3d0b-da47-4593-a069-e7450067dd66"
+    }
+  ],
+  "auditEvents": [
+    {
+      "id": "e0aa018e-dc8c-4dde-a8c2-cc32ef3bcf0f",
+      "timestamp": "2026-05-31T11:14:27.060Z",
+      "runId": "168abc57-51fd-49ca-b41f-4338d12f47b3",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "can you playtest it ?\nmy game in the codebase ask no questions and playtest it"
+      }
+    },
+    {
+      "id": "31cb9788-ace0-4acd-aa39-fe2ed0b17525",
+      "timestamp": "2026-05-31T11:14:30.710Z",
+      "runId": "168abc57-51fd-49ca-b41f-4338d12f47b3",
+      "type": "tool_requested",
+      "actor": "model",
+      "summary": "start playtest (playtest:start:play_solo)",
+      "details": {
+        "mode": "play_solo"
+      },
+      "toolCallId": "call_5e3beee2fb6946b18c677240",
+      "toolName": "mcp__roblox_studio__start_playtest",
+      "risk": "low_mutation"
+    },
+    {
+      "id": "0ed29419-e746-4d05-8627-c851eabdc3a8",
+      "timestamp": "2026-05-31T11:14:30.710Z",
+      "runId": "168abc57-51fd-49ca-b41f-4338d12f47b3",
+      "type": "policy_decision",
+      "actor": "policy",
+      "summary": "This action changes the connected place.",
+      "details": {
+        "scope": "playtest:start:play_solo",
+        "planStepIndex": null
+      },
+      "toolCallId": "call_5e3beee2fb6946b18c677240",
+      "toolName": "mcp__roblox_studio__start_playtest",
+      "risk": "low_mutation",
+      "decision": "ask"
+    },
+    {
+      "id": "e3304313-c1c9-4b24-b102-e1e54c177137",
+      "timestamp": "2026-05-31T11:14:33.638Z",
+      "runId": "168abc57-51fd-49ca-b41f-4338d12f47b3",
+      "type": "approval_decision",
+      "actor": "user",
+      "summary": "User selected allow_scope.",
+      "details": {
+        "approvalId": "f29be7de-baa9-4048-8444-7710a10f0d7a"
+      },
+      "decision": "allow_scope"
+    },
+    {
+      "id": "5b130599-0737-4eda-af35-f8ce6bb66e5c",
+      "timestamp": "2026-05-31T11:14:34.003Z",
+      "runId": "168abc57-51fd-49ca-b41f-4338d12f47b3",
+      "type": "tool_outcome",
+      "actor": "tool",
+      "summary": "mcp__roblox_studio__start_playtest returned a result.",
+      "details": {
+        "async": true,
+        "mode": "play_solo",
+        "response": "Started playtest",
+        "started": true
+      },
+      "toolCallId": "call_5e3beee2fb6946b18c677240",
+      "toolName": "mcp__roblox_studio__start_playtest",
+      "risk": "low_mutation"
+    },
+    {
+      "id": "5c473cb6-f751-4b6e-ae35-6a6c7236d2de",
+      "timestamp": "2026-05-31T11:14:56.350Z",
+      "runId": "85e4bf02-7bb8-4f58-818c-b926ebdd75d3",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "no you play it man"
+      }
+    },
+    {
+      "id": "fdf1741b-afd4-41a6-92d8-f84ed4a455d4",
+      "timestamp": "2026-05-31T11:15:35.094Z",
+      "runId": "18016890-7942-4f08-951e-1cb4cf8fac29",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "can you not play the play test after starting it ?"
+      }
+    },
+    {
+      "id": "edd7e422-740e-47a6-9d12-42d58516f485",
+      "timestamp": "2026-05-31T11:15:42.422Z",
+      "runId": "18016890-7942-4f08-951e-1cb4cf8fac29",
+      "type": "tool_requested",
+      "actor": "model",
+      "summary": "stop playtest (playtest:stop)",
+      "details": {},
+      "toolCallId": "call_73379eb9c68b4e059207c503",
+      "toolName": "mcp__roblox_studio__stop_playtest",
+      "risk": "low_mutation"
+    },
+    {
+      "id": "018aa949-230d-4dbf-bb27-8ddb3342b31a",
+      "timestamp": "2026-05-31T11:15:42.422Z",
+      "runId": "18016890-7942-4f08-951e-1cb4cf8fac29",
+      "type": "policy_decision",
+      "actor": "policy",
+      "summary": "This action changes the connected place.",
+      "details": {
+        "scope": "playtest:stop",
+        "planStepIndex": null
+      },
+      "toolCallId": "call_73379eb9c68b4e059207c503",
+      "toolName": "mcp__roblox_studio__stop_playtest",
+      "risk": "low_mutation",
+      "decision": "ask"
+    },
+    {
+      "id": "35552121-0d12-41a1-b4cd-2fdbda8c665c",
+      "timestamp": "2026-05-31T11:15:46.643Z",
+      "runId": "18016890-7942-4f08-951e-1cb4cf8fac29",
+      "type": "approval_decision",
+      "actor": "user",
+      "summary": "User selected allow_scope.",
+      "details": {
+        "approvalId": "114b3d0b-da47-4593-a069-e7450067dd66"
+      },
+      "decision": "allow_scope"
+    },
+    {
+      "id": "32ec46d0-d37d-4293-b194-3495cc0c7a5f",
+      "timestamp": "2026-05-31T11:15:46.753Z",
+      "runId": "18016890-7942-4f08-951e-1cb4cf8fac29",
+      "type": "tool_outcome",
+      "actor": "tool",
+      "summary": "mcp__roblox_studio__stop_playtest returned a result.",
+      "details": {
+        "stopped": true
+      },
+      "toolCallId": "call_73379eb9c68b4e059207c503",
+      "toolName": "mcp__roblox_studio__stop_playtest",
+      "risk": "low_mutation"
+    }
+  ],
+  "pendingApprovals": [],
+  "pendingInteractions": []
+}

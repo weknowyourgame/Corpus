@@ -9,12 +9,12 @@ const content: Record<ChatChipAction, { title: string; body: string; icon: React
   },
   toolbox: {
     title: "Toolbox search",
-    body: "Stud will show Creator Store choices before any reviewed insertion.",
+    body: "Corpus will show Creator Store choices before any reviewed insertion.",
     icon: <Box />,
   },
   docs: {
     title: "Roblox docs context",
-    body: "Stud will retrieve its Roblox API reference context for this answer.",
+    body: "Corpus will retrieve its Roblox API reference context for this answer.",
     icon: <BookOpen />,
   },
   "run-code": {
@@ -27,9 +27,9 @@ const content: Record<ChatChipAction, { title: string; body: string; icon: React
 export function RunContextNotice({ active }: { active: ChatChipAction[] }) {
   if (!active.length) return null;
   return (
-    <div className="stud-mode-notices" aria-live="polite">
+    <div className="corpus-mode-notices" aria-live="polite">
       {active.map((chip) => (
-        <div key={chip} className={`stud-mode-notice is-${chip}`}>
+        <div key={chip} className={`corpus-mode-notice is-${chip}`}>
           {content[chip].icon}
           <div>
             <p>{content[chip].title}</p>

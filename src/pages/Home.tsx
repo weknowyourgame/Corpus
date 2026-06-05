@@ -9,8 +9,8 @@ import { ScrollButton } from "@/components/ui/scroll-button";
 import { MessageContent } from "@/components/ui/message";
 import { ToolCalls } from "@/components/ui/tool-call";
 import { Loader } from "@/components/ui/loader";
-import { StudAppHeader } from "@/stud-ui";
-import { StudComposer } from "@/stud-ui/StudComposer";
+import { CorpusAppHeader } from "@/corpus-ui";
+import { CorpusComposer } from "@/corpus-ui/CorpusComposer";
 import { BotAvatar, UserAvatar } from "@/components/icons/Avatars";
 import { ModelSelector } from "@/components/chat/ModelSelector";
 import { SettingsDialog } from "@/components/settings/SettingsDialog";
@@ -99,10 +99,10 @@ function ConnectionStep({
   status: "pending" | "active" | "complete";
 }) {
   return (
-    <div className="stud-step-row">
+    <div className="corpus-step-row">
       <div
         className={cn(
-          "stud-step-num",
+          "corpus-step-num",
           status === "complete" && "is-complete",
           status === "active" && "is-active"
         )}
@@ -117,7 +117,7 @@ function ConnectionStep({
       </div>
       <div className="flex-1 pt-0.5">
         <h3 className="font-medium text-[15px]">{title}</h3>
-        <p className="text-sm mt-0.5" style={{ color: "var(--stud-muted)" }}>
+        <p className="text-sm mt-0.5" style={{ color: "var(--corpus-muted)" }}>
           {description}
         </p>
       </div>
@@ -143,7 +143,7 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
   const handleDownloadPlugin = async () => {
     // Fetch the plugin content and trigger download
     try {
-      const response = await fetch("/studio-plugin/stud-bridge.server.lua");
+      const response = await fetch("/studio-plugin/corpus-bridge.server.lua");
       if (!response.ok) {
         // If not available via fetch, we'll use the embedded version from Tauri
         // For now, show manual path
@@ -155,7 +155,7 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "stud-bridge.server.lua";
+      a.download = "corpus-bridge.server.lua";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -179,25 +179,25 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
   };
 
   return (
-    <div className="stud-app-shell stud-workbench">
-      <div className="stud-atmosphere" aria-hidden="true" />
-      <StudAppHeader status={status} trailing={<SettingsDialog />} />
+    <div className="corpus-app-shell corpus-workbench">
+      <div className="corpus-atmosphere" aria-hidden="true" />
+      <CorpusAppHeader status={status} trailing={<SettingsDialog />} />
 
-      <main className="stud-connection-layout">
-        <div className="stud-connection-stack">
+      <main className="corpus-connection-layout">
+        <div className="corpus-connection-stack">
           <div className="text-center">
-            <span className="stud-eyebrow">OPEN A LIVE SCENE</span>
-            <h1 className="stud-display-title mt-6" style={{ fontSize: "2.25rem" }}>
+            <span className="corpus-eyebrow">OPEN A LIVE SCENE</span>
+            <h1 className="corpus-display-title mt-6" style={{ fontSize: "2.25rem" }}>
               Connect Roblox Studio
             </h1>
-            <div className="stud-display-subtitle">
+            <div className="corpus-display-subtitle">
               <Loader variant="terminal" text="Waiting for Roblox Studio" size="sm" />
             </div>
           </div>
 
           <StudioToken />
 
-          <div className="stud-panel p-6 space-y-5">
+          <div className="corpus-panel p-6 space-y-5">
             <ConnectionStep
               step={1}
               title="Bridge server running"
@@ -205,16 +205,16 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
               status={getStepStatus(1)}
             />
 
-            <div className="stud-divider ml-4 w-8" />
+            <div className="corpus-divider ml-4 w-8" />
 
             <ConnectionStep
               step={2}
-              title="Install the Stud Studio plugin"
+              title="Install the Corpus Studio plugin"
               description="Download and copy it to your Roblox Plugins folder"
               status={getStepStatus(2)}
             />
 
-            <div className="stud-divider ml-4 w-8" />
+            <div className="corpus-divider ml-4 w-8" />
 
             <ConnectionStep
               step={3}
@@ -223,7 +223,7 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
               status={getStepStatus(3)}
             />
 
-            <div className="stud-divider ml-4 w-8" />
+            <div className="corpus-divider ml-4 w-8" />
 
             <ConnectionStep
               step={4}
@@ -233,17 +233,17 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
             />
           </div>
 
-          <div className="stud-panel p-5 space-y-4">
+          <div className="corpus-panel p-5 space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="font-medium">Install the Studio plugin</h2>
-                <p className="text-sm mt-1" style={{ color: "var(--stud-muted)" }}>
+                <p className="text-sm mt-1" style={{ color: "var(--corpus-muted)" }}>
                   Download the plugin, open Roblox Studio, then connect it from the plugin panel.
                 </p>
               </div>
               <button
                 type="button"
-                className="stud-icon-btn"
+                className="corpus-icon-btn"
                 onClick={() => checkPlugin()}
                 disabled={isChecking}
               >
@@ -266,14 +266,14 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
             </div>
 
             {showManualPath && pluginStatus && (
-              <div className="stud-panel-soft p-3 text-xs space-y-1" style={{ color: "var(--stud-muted)" }}>
-                <p className="font-medium" style={{ color: "var(--stud-text)" }}>
+              <div className="corpus-panel-soft p-3 text-xs space-y-1" style={{ color: "var(--corpus-muted)" }}>
+                <p className="font-medium" style={{ color: "var(--corpus-text)" }}>
                   Manual installation
                 </p>
                 <p>Copy the plugin to your Roblox Plugins folder:</p>
                 <code
                   className="block px-2 py-1 rounded text-xs break-all"
-                  style={{ background: "var(--stud-soft)", fontFamily: "var(--stud-tech)" }}
+                  style={{ background: "var(--corpus-soft)", fontFamily: "var(--corpus-tech)" }}
                 >
                   {pluginStatus.plugins_folder}
                 </code>
@@ -296,7 +296,7 @@ function DevModeHeaderToggle({
   return (
     <button
       type="button"
-      className={cn("stud-icon-btn nav-button", active && "is-primary")}
+      className={cn("corpus-icon-btn nav-button", active && "is-primary")}
       onClick={onToggle}
       aria-pressed={active}
       aria-label={active ? "Disable dev mode" : "Enable dev mode"}
@@ -317,12 +317,12 @@ function FullAccessToggle({
   return (
     <button
       type="button"
-      className={cn("stud-icon-btn nav-button", active && "is-primary")}
+      className={cn("corpus-icon-btn nav-button", active && "is-primary")}
       onClick={onToggle}
       aria-pressed={active}
       aria-label={active ? "Disable full access mode" : "Enable full access mode"}
       title={active ? "Full access ON — mutations auto-approved. Click to disable." : "Enable full access mode (local/dev only)"}
-      style={active ? { color: "var(--stud-warning, #f59e0b)" } : undefined}
+      style={active ? { color: "var(--corpus-warning, #f59e0b)" } : undefined}
     >
       <Zap className="h-4 w-4" />
     </button>
@@ -353,23 +353,23 @@ function LoginScreen() {
   };
 
   return (
-    <div className="stud-app-shell stud-workbench">
-      <div className="stud-atmosphere" aria-hidden="true" />
-      <StudAppHeader status="disconnected" trailing={<SettingsDialog />} />
-      <main className="stud-connection-layout">
-        <div className="stud-connection-stack">
+    <div className="corpus-app-shell corpus-workbench">
+      <div className="corpus-atmosphere" aria-hidden="true" />
+      <CorpusAppHeader status="disconnected" trailing={<SettingsDialog />} />
+      <main className="corpus-connection-layout">
+        <div className="corpus-connection-stack">
           <div className="text-center">
-            <span className="stud-eyebrow">STUD ACCOUNT</span>
-            <h1 className="stud-display-title mt-6" style={{ fontSize: "2.25rem" }}>
-              Sign in to Stud
+            <span className="corpus-eyebrow">CORPUS ACCOUNT</span>
+            <h1 className="corpus-display-title mt-6" style={{ fontSize: "2.25rem" }}>
+              Sign in to Corpus
             </h1>
           </div>
 
-          <div className="stud-panel p-5 space-y-3">
+          <div className="corpus-panel p-5 space-y-3">
             <Button type="button" className="w-full" onClick={() => void startGoogleLogin()}>
               Continue with Google
             </Button>
-            <div className="stud-divider" />
+            <div className="corpus-divider" />
             <input
               className="w-full rounded-md border bg-background px-3 py-2 text-sm"
               placeholder="you@example.com"
@@ -387,7 +387,7 @@ function LoginScreen() {
               />
             )}
             {devLoginToken && (
-              <code className="block rounded-md px-3 py-2 text-xs break-all" style={{ background: "var(--stud-soft)" }}>
+              <code className="block rounded-md px-3 py-2 text-xs break-all" style={{ background: "var(--corpus-soft)" }}>
                 {devLoginToken}
               </code>
             )}
@@ -784,10 +784,10 @@ export function Home() {
 
   if (authLoading) {
     return (
-      <div className="stud-app-shell stud-workbench">
-        <div className="stud-atmosphere" aria-hidden="true" />
-        <main className="stud-connection-layout">
-          <Loader variant="terminal" text="Loading Stud session" size="sm" />
+      <div className="corpus-app-shell corpus-workbench">
+        <div className="corpus-atmosphere" aria-hidden="true" />
+        <main className="corpus-connection-layout">
+          <Loader variant="terminal" text="Loading Corpus session" size="sm" />
         </main>
       </div>
     );
@@ -812,7 +812,7 @@ export function Home() {
         {fullAccessAllowed && <FullAccessToggle active={fullAccess} onToggle={toggleFullAccess} />}
         <button
           type="button"
-          className={cn("stud-icon-btn", input.trim() && !isStreaming && hasConfiguredProvider && "is-primary")}
+          className={cn("corpus-icon-btn", input.trim() && !isStreaming && hasConfiguredProvider && "is-primary")}
           onClick={isStreaming ? handleStop : handleSubmit}
           disabled={isStreaming ? false : !input.trim() || !hasConfiguredProvider}
           aria-label={isStreaming ? "Cancel run" : "Send message"}
@@ -824,9 +824,9 @@ export function Home() {
   );
   if (messages.length === 0) {
     return (
-      <div className="stud-app-shell stud-workbench">
-        <div className="stud-atmosphere" aria-hidden="true" />
-        <StudAppHeader
+      <div className="corpus-app-shell corpus-workbench">
+        <div className="corpus-atmosphere" aria-hidden="true" />
+        <CorpusAppHeader
           status={studioStatus}
           transport={studioTransport}
           trailing={
@@ -839,28 +839,28 @@ export function Home() {
             </>
           }
         />
-        <main className="stud-app-main stud-welcome-layout">
-          <div className="stud-welcome-card">
-            <div className="stud-welcome-heading">
-              <span className="stud-eyebrow">STUD FOR ROBLOX STUDIO</span>
-              <h1 className="stud-display-title">Build an entire Roblox<br />game with agents</h1>
-              <p className="stud-display-subtitle">
+        <main className="corpus-app-main corpus-welcome-layout">
+          <div className="corpus-welcome-card">
+            <div className="corpus-welcome-heading">
+              <span className="corpus-eyebrow">CORPUS FOR ROBLOX STUDIO</span>
+              <h1 className="corpus-display-title">Build an entire Roblox<br />game with agents</h1>
+              <p className="corpus-display-subtitle">
                 Run scripting, worldbuilding, UI, DataStores, and live Studio ops.
               </p>
             </div>
-            <div className="stud-agent-tasks" aria-hidden="true">
-              <div className="stud-agent-task is-active"><span />Task running <strong>Generate world</strong></div>
-              <div className="stud-agent-task"><span />Task Completed <strong>Write Luau scripts</strong></div>
-              <div className="stud-agent-task"><span />Task Completed <strong>Place assets</strong></div>
+            <div className="corpus-agent-tasks" aria-hidden="true">
+              <div className="corpus-agent-task is-active"><span />Task running <strong>Generate world</strong></div>
+              <div className="corpus-agent-task"><span />Task Completed <strong>Write Luau scripts</strong></div>
+              <div className="corpus-agent-task"><span />Task Completed <strong>Place assets</strong></div>
             </div>
-            <section className="stud-prompt-deck">
+            <section className="corpus-prompt-deck">
               <ContextChips
                 onChipClick={handleChipClick}
                 activeChips={activeChips}
                 disabled={isStreaming || !hasConfiguredProvider}
               />
               <RunContextNotice active={activeChips} />
-              <StudComposer
+              <CorpusComposer
                 value={input}
                 onValueChange={setInput}
                 onSubmit={handleSubmit}
@@ -869,21 +869,21 @@ export function Home() {
                 placeholder={
                   hasConfiguredProvider
                       ? "Describe the world, mechanic, or script you want to build..."
-                      : "Stud model access is unavailable..."
+                      : "Corpus model access is unavailable..."
                 }
               >
                 {composerActions}
-              </StudComposer>
+              </CorpusComposer>
             </section>
-            <div className="stud-suggestions">
+            <div className="corpus-suggestions">
               {suggestionsLoading && (
-                <span className="stud-suggestion-chip">Loading suggestions...</span>
+                <span className="corpus-suggestion-chip">Loading suggestions...</span>
               )}
               {displayedSuggestions.map((suggestion) => (
                 <button
                   key={suggestion}
                   type="button"
-                  className="stud-suggestion-chip"
+                  className="corpus-suggestion-chip"
                   onClick={() => handleSuggestionClick(suggestion)}
                 >
                   {suggestion}
@@ -891,7 +891,7 @@ export function Home() {
               ))}
             </div>
             {!hasConfiguredProvider && (
-              <RecoveryBanner error="Stud model access is unavailable." />
+              <RecoveryBanner error="Corpus model access is unavailable." />
             )}
           </div>
         </main>
@@ -900,9 +900,9 @@ export function Home() {
   }
 
   return (
-    <div className="stud-app-shell stud-workbench">
-      <div className="stud-atmosphere" aria-hidden="true" />
-      <StudAppHeader
+    <div className="corpus-app-shell corpus-workbench">
+      <div className="corpus-atmosphere" aria-hidden="true" />
+      <CorpusAppHeader
         status={studioStatus}
         transport={studioTransport}
         compact
@@ -918,39 +918,39 @@ export function Home() {
         }
       />
 
-      <main className="stud-chat-workspace">
-        <aside className="stud-session-rail">
-          <div className="stud-rail-status"><span /> LIVE WORLD</div>
+      <main className="corpus-chat-workspace">
+        <aside className="corpus-session-rail">
+          <div className="corpus-rail-status"><span /> LIVE WORLD</div>
           <h2>Scene<br />control</h2>
-          <p className="stud-rail-copy">Your agent is attached to the open Roblox place.</p>
-          <ConnectionBadges status={studioStatus} className="stud-rail-routes" />
-          <div className="stud-rail-divider" />
-          <p className="stud-rail-label">AI TIER</p>
-          <p className="stud-rail-model">{selectedTier.toUpperCase()}</p>
-          <p className="stud-rail-label">GUARDRAIL</p>
-          <p className="stud-rail-copy">Writes and code execution stay behind approval.</p>
-          <div className="stud-session-tasks" aria-label="Agent task status">
-            <div className="stud-session-task is-active"><span />Running <strong>Read Studio state</strong></div>
-            <div className="stud-session-task"><span />Waiting <strong>Human approvals</strong></div>
-            <div className="stud-session-task"><span />Ready <strong>Studio plugin tools</strong></div>
+          <p className="corpus-rail-copy">Your agent is attached to the open Roblox place.</p>
+          <ConnectionBadges status={studioStatus} className="corpus-rail-routes" />
+          <div className="corpus-rail-divider" />
+          <p className="corpus-rail-label">AI TIER</p>
+          <p className="corpus-rail-model">{selectedTier.toUpperCase()}</p>
+          <p className="corpus-rail-label">GUARDRAIL</p>
+          <p className="corpus-rail-copy">Writes and code execution stay behind approval.</p>
+          <div className="corpus-session-tasks" aria-label="Agent task status">
+            <div className="corpus-session-task is-active"><span />Running <strong>Read Studio state</strong></div>
+            <div className="corpus-session-task"><span />Waiting <strong>Human approvals</strong></div>
+            <div className="corpus-session-task"><span />Ready <strong>Studio plugin tools</strong></div>
           </div>
-          <div className="stud-rail-image" aria-hidden="true" />
+          <div className="corpus-rail-image" aria-hidden="true" />
         </aside>
 
-        <div className="studio-window stud-chat-panel">
-        <header className="stud-chat-header">
-          <div className="stud-chat-title">
-            <span className="stud-live-beacon" />
-            <strong>STUD AGENT</strong>
+        <div className="studio-window corpus-chat-panel">
+        <header className="corpus-chat-header">
+          <div className="corpus-chat-title">
+            <span className="corpus-live-beacon" />
+            <strong>CORPUS AGENT</strong>
             <small>live workspace</small>
           </div>
           <ConnectionBadges status={studioStatus} />
         </header>
 
-      <ChatContainerRoot className="stud-transcript">
-        <ChatContainerContent className="stud-chat-scroll space-y-2">
+      <ChatContainerRoot className="corpus-transcript">
+        <ChatContainerContent className="corpus-chat-scroll space-y-2">
           {fullAccessAllowed && fullAccess && (
-            <div className="stud-panel-soft border-amber-300/60 p-3 text-sm text-amber-900">
+            <div className="corpus-panel-soft border-amber-300/60 p-3 text-sm text-amber-900">
               Full access mode is on. The agent will not ask for approval before making changes.
             </div>
           )}
@@ -962,12 +962,12 @@ export function Home() {
           {messages.map((message) => (
             <div
               key={message.id}
-              className={cn("stud-message-block", message.role === "user" && "is-user")}
+              className={cn("corpus-message-block", message.role === "user" && "is-user")}
             >
               {message.role === "user" && message.contextChips && message.contextChips.length > 0 && (
                 <div className="flex items-center gap-1.5 flex-wrap justify-end">
                   {message.contextChips.map((chip) => (
-                    <span key={chip} className="stud-suggestion-chip text-xs py-1">
+                    <span key={chip} className="corpus-suggestion-chip text-xs py-1">
                       {chip === "toolbox" && <><Box className="w-3 h-3 inline mr-1" /> Toolbox</>}
                       {chip === "docs" && <><FileText className="w-3 h-3 inline mr-1" /> Docs</>}
                       {chip === "run-code" && <><Play className="w-3 h-3 inline mr-1" /> Run Code</>}
@@ -977,19 +977,19 @@ export function Home() {
                 </div>
               )}
 
-              <div className={cn("stud-message-row", message.role === "user" && "is-user")}>
+              <div className={cn("corpus-message-row", message.role === "user" && "is-user")}>
                 {message.role === "assistant" ? <BotAvatar /> : <UserAvatar />}
                 <div className="flex-1 min-w-0">
-                  <p className="stud-message-label">{message.role === "assistant" ? "STUD" : "YOU"}</p>
+                  <p className="corpus-message-label">{message.role === "assistant" ? "CORPUS" : "YOU"}</p>
                   {message.role === "assistant" && message.toolCalls && message.toolCalls.length > 0 && (
-                    <div className="stud-tool-card">
+                    <div className="corpus-tool-card">
                       <ToolCalls toolCalls={message.toolCalls} />
                     </div>
                   )}
                   {message.content ? (
                     <div
                       className={cn(
-                        "stud-message-bubble",
+                        "corpus-message-bubble",
                         message.role === "user" ? "is-user" : "is-assistant"
                       )}
                     >
@@ -1003,7 +1003,7 @@ export function Home() {
                     !message.toolCalls?.length && (
                       <div className="flex items-center gap-2 py-2">
                         <Loader variant="wave" size="sm" />
-                        <span className="text-sm" style={{ color: "var(--stud-muted)" }}>
+                        <span className="text-sm" style={{ color: "var(--corpus-muted)" }}>
                           Thinking...
                         </span>
                       </div>
@@ -1022,7 +1022,7 @@ export function Home() {
           )}
 
           {pendingPlan && (
-            <div className="stud-interaction-card space-y-3">
+            <div className="corpus-interaction-card space-y-3">
               <PlanStepList summary={pendingPlan.summary} steps={pendingPlan.steps} />
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => void handleRejectPlan()}>
@@ -1037,7 +1037,7 @@ export function Home() {
 
           {/* Pending question from AI */}
           {pendingQuestion && (
-            <div className="stud-interaction-card">
+            <div className="corpus-interaction-card">
               <QuestionPrompt
                 questions={pendingQuestion.questions}
                 onSubmit={answerQuestion}
@@ -1047,7 +1047,7 @@ export function Home() {
           )}
 
           {pendingApproval && (
-            <div className="stud-interaction-card">
+            <div className="corpus-interaction-card">
               <ApprovalPrompt approval={pendingApproval} onDecision={answerApproval} />
             </div>
           )}
@@ -1067,7 +1067,7 @@ export function Home() {
               <TaskProgress tasks={tasks} />
               <div className="flex items-center gap-3 py-3 max-w-fit mx-auto">
                 <Loader variant="wave" size="sm" />
-                <span className="text-sm" style={{ color: "var(--stud-muted)" }}>
+                <span className="text-sm" style={{ color: "var(--corpus-muted)" }}>
                   AI is working...
                 </span>
               </div>
@@ -1075,31 +1075,31 @@ export function Home() {
           )}
         </ChatContainerContent>
         <ChatContainerFollow submissionCount={messages.filter((message) => message.role === "user").length} />
-        <ScrollButton className="stud-scroll-button" aria-label="Jump to newest message" />
+        <ScrollButton className="corpus-scroll-button" aria-label="Jump to newest message" />
       </ChatContainerRoot>
 
-      <div className="stud-chat-composer">
+      <div className="corpus-chat-composer">
         <ContextChips onChipClick={handleChipClick} activeChips={activeChips} disabled={isStreaming} />
         <RunContextNotice active={activeChips} />
-        <StudComposer
+        <CorpusComposer
           value={input}
           onValueChange={setInput}
           onSubmit={handleSubmit}
           isLoading={isStreaming}
           disabled={!hasConfiguredProvider}
-          placeholder={hasConfiguredProvider ? "Ask a follow-up..." : "Stud model access is unavailable..."}
+          placeholder={hasConfiguredProvider ? "Ask a follow-up..." : "Corpus model access is unavailable..."}
           className="mt-3"
         >
           {composerActions}
-        </StudComposer>
+        </CorpusComposer>
         {!isStreaming && displayedSuggestions.length > 0 && (
-          <div className="stud-suggestions mt-3">
-            {suggestionsLoading && <span className="stud-suggestion-chip">Loading suggestions...</span>}
+          <div className="corpus-suggestions mt-3">
+            {suggestionsLoading && <span className="corpus-suggestion-chip">Loading suggestions...</span>}
             {displayedSuggestions.slice(0, 3).map((suggestion) => (
               <button
                 key={suggestion}
                 type="button"
-                className="stud-suggestion-chip"
+                className="corpus-suggestion-chip"
                 onClick={() => handleSuggestionClick(suggestion)}
               >
                 {suggestion}

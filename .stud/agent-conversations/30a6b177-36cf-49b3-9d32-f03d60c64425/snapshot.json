@@ -1,0 +1,1255 @@
+{
+  "id": "30a6b177-36cf-49b3-9d32-f03d60c64425",
+  "studioSessionId": "DT6FPUGU",
+  "accessTokenHash": "addfd80388775d4ffbd64dce8966cbfbd0c23693b3f6a8dd954b16f8c613fe7c",
+  "createdAt": "2026-05-29T17:55:59.071Z",
+  "updatedAt": "2026-05-29T17:56:09.856Z",
+  "nextSequence": 4,
+  "messages": [
+    {
+      "role": "user",
+      "content": "# Roblox Game Idea: Sky Salvagers\n\nPlayers spawn on tiny floating islands in an endless sky.\n\nThe world is constantly generating drifting wreckage from ancient airships, floating cities, robots, castles, and mysterious civilizations.\n\nPlayers must:\n\n* Hook floating debris\n* Pull it to their island\n* Break it apart\n* Collect resources\n* Expand their island\n* Build machines\n* Unlock better tools\n* Explore dangerous sky zones\n\nCore Loop:\n\n1. Spot wreckage floating nearby.\n2. Use a Grapple Launcher to capture it.\n3. Reel it toward your island.\n4. Salvage valuable parts.\n5. Sell resources.\n6. Upgrade equipment.\n7. Reach rarer sky regions.\n\nResources:\n\nCommon:\n\n* Scrap Metal\n* Wood\n* Stone\n\nRare:\n\n* Energy Cores\n* Ancient Tech\n* Crystal Shards\n\nLegendary:\n\n* Sky Relics\n* Lost Artifacts\n* Celestial Fragments\n\nIsland Expansion:\n\nPlayers can:\n\n* Build larger platforms\n* Add storage\n* Add automated salvagers\n* Add resource processors\n* Build defenses\n\nAutomation:\n\nUnlock:\n\n* Auto Grapplers\n* Collection Drones\n* Sorting Machines\n* Resource Compressors\n* Cargo Airships\n\nProgression:\n\nStarter Zone:\n\n* Broken crates\n* Small debris\n\nCloud Zone:\n\n* Abandoned sky ships\n* Rare resources\n\nStorm Zone:\n\n* Dangerous lightning fields\n* Better loot\n\nAncient Zone:\n\n* Lost civilizations\n* Exclusive relics\n\nVoid Zone:\n\n* Endgame content\n* Mythic rewards\n\nMultiplayer Features:\n\n* Trading\n* Island visits\n* Guilds\n* Shared salvage expeditions\n* Leaderboards\n\nEvents:\n\nMeteor Shower\n\n* Rare resources spawn\n\nGhost Fleet\n\n* Haunted ships appear\n\nAncient Vault\n\n* Global boss event\n\nSky Leviathan\n\n* Massive flying creature carrying loot\n\nMonetization:\n\n* Cosmetic grapples\n* Island themes\n* Drone skins\n* Airship skins\n\nNever sell power.\n\nRetention Systems:\n\n* Daily quests\n* Weekly expeditions\n* Collection log\n* Artifact museum\n* Achievement system\n\nVisual Style:\n\n* Cozy floating islands\n* Bright skies\n* Cartoon aesthetic\n* Satisfying destruction\n* Physics-based debris\n\nTarget:\n\nEasy to learn in 30 seconds.\nHundreds of hours of progression.\nStrong social gameplay.\nStrong automation progression.\nSuitable for Roblox front page quality."
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "call_488fe85017e84682b74670f0",
+          "name": "mcp__roblox_studio__list_children",
+          "input": {
+            "path": "game"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "toolCallId": "call_488fe85017e84682b74670f0",
+      "toolName": "mcp__roblox_studio__list_children",
+      "output": [
+        {
+          "path": "game.Workspace",
+          "name": "Workspace",
+          "className": "Workspace"
+        },
+        {
+          "path": "game.Run Service",
+          "name": "Run Service",
+          "className": "RunService"
+        },
+        {
+          "path": "game.GuiService",
+          "name": "GuiService",
+          "className": "GuiService"
+        },
+        {
+          "path": "game.Stats",
+          "name": "Stats",
+          "className": "Stats"
+        },
+        {
+          "path": "game.Instance",
+          "name": "Instance",
+          "className": "TimerService"
+        },
+        {
+          "path": "game.SoundService",
+          "name": "SoundService",
+          "className": "SoundService"
+        },
+        {
+          "path": "game.VideoCaptureService",
+          "name": "VideoCaptureService",
+          "className": "VideoCaptureService"
+        },
+        {
+          "path": "game.LogService",
+          "name": "LogService",
+          "className": "LogService"
+        },
+        {
+          "path": "game.MicroProfilerService",
+          "name": "MicroProfilerService",
+          "className": "MicroProfilerService"
+        },
+        {
+          "path": "game.ContentProvider",
+          "name": "ContentProvider",
+          "className": "ContentProvider"
+        },
+        {
+          "path": "game.KeyframeSequenceProvider",
+          "name": "KeyframeSequenceProvider",
+          "className": "KeyframeSequenceProvider"
+        },
+        {
+          "path": "game.AnimationClipProvider",
+          "name": "AnimationClipProvider",
+          "className": "AnimationClipProvider"
+        },
+        {
+          "path": "game.Chat",
+          "name": "Chat",
+          "className": "Chat"
+        },
+        {
+          "path": "game.MarketplaceService",
+          "name": "MarketplaceService",
+          "className": "MarketplaceService"
+        },
+        {
+          "path": "game.Players",
+          "name": "Players",
+          "className": "Players"
+        },
+        {
+          "path": "game.PointsService",
+          "name": "PointsService",
+          "className": "PointsService"
+        },
+        {
+          "path": "game.NotificationService",
+          "name": "NotificationService",
+          "className": "NotificationService"
+        },
+        {
+          "path": "game.ReplicatedFirst",
+          "name": "ReplicatedFirst",
+          "className": "ReplicatedFirst"
+        },
+        {
+          "path": "game.HttpRbxApiService",
+          "name": "HttpRbxApiService",
+          "className": "HttpRbxApiService"
+        },
+        {
+          "path": "game.TweenService",
+          "name": "TweenService",
+          "className": "TweenService"
+        },
+        {
+          "path": "game.MaterialService",
+          "name": "MaterialService",
+          "className": "MaterialService"
+        },
+        {
+          "path": "game.TextChatService",
+          "name": "TextChatService",
+          "className": "TextChatService"
+        },
+        {
+          "path": "game.TextService",
+          "name": "TextService",
+          "className": "TextService"
+        },
+        {
+          "path": "game.PermissionsService",
+          "name": "PermissionsService",
+          "className": "PermissionsService"
+        },
+        {
+          "path": "game.SharedTableRegistry",
+          "name": "SharedTableRegistry",
+          "className": "SharedTableRegistry"
+        },
+        {
+          "path": "game.StarterPlayer",
+          "name": "StarterPlayer",
+          "className": "StarterPlayer"
+        },
+        {
+          "path": "game.StarterPack",
+          "name": "StarterPack",
+          "className": "StarterPack"
+        },
+        {
+          "path": "game.StarterGui",
+          "name": "StarterGui",
+          "className": "StarterGui"
+        },
+        {
+          "path": "game.CoreGui",
+          "name": "CoreGui",
+          "className": "CoreGui"
+        },
+        {
+          "path": "game.LocalizationService",
+          "name": "LocalizationService",
+          "className": "LocalizationService"
+        },
+        {
+          "path": "game.PolicyService",
+          "name": "PolicyService",
+          "className": "PolicyService"
+        },
+        {
+          "path": "game.Teleport Service",
+          "name": "Teleport Service",
+          "className": "TeleportService"
+        },
+        {
+          "path": "game.JointsService",
+          "name": "JointsService",
+          "className": "JointsService"
+        },
+        {
+          "path": "game.CollectionService",
+          "name": "CollectionService",
+          "className": "CollectionService"
+        },
+        {
+          "path": "game.PhysicsService",
+          "name": "PhysicsService",
+          "className": "PhysicsService"
+        },
+        {
+          "path": "game.BadgeService",
+          "name": "BadgeService",
+          "className": "BadgeService"
+        },
+        {
+          "path": "game.FriendService",
+          "name": "FriendService",
+          "className": "FriendService"
+        },
+        {
+          "path": "game.InsertService",
+          "name": "InsertService",
+          "className": "InsertService"
+        },
+        {
+          "path": "game.GamePassService",
+          "name": "GamePassService",
+          "className": "GamePassService"
+        },
+        {
+          "path": "game.Debris",
+          "name": "Debris",
+          "className": "Debris"
+        },
+        {
+          "path": "game.CookiesService",
+          "name": "CookiesService",
+          "className": "CookiesService"
+        },
+        {
+          "path": "game.Selection",
+          "name": "Selection",
+          "className": "Selection"
+        },
+        {
+          "path": "game.UserInputService",
+          "name": "UserInputService",
+          "className": "UserInputService"
+        },
+        {
+          "path": "game.KeyboardService",
+          "name": "KeyboardService",
+          "className": "KeyboardService"
+        },
+        {
+          "path": "game.MouseService",
+          "name": "MouseService",
+          "className": "MouseService"
+        },
+        {
+          "path": "game.VRService",
+          "name": "VRService",
+          "className": "VRService"
+        },
+        {
+          "path": "game.ContextActionService",
+          "name": "ContextActionService",
+          "className": "ContextActionService"
+        },
+        {
+          "path": "game.Instance",
+          "name": "Instance",
+          "className": "ScriptService"
+        },
+        {
+          "path": "game.AssetService",
+          "name": "AssetService",
+          "className": "AssetService"
+        },
+        {
+          "path": "game.TouchInputService",
+          "name": "TouchInputService",
+          "className": "TouchInputService"
+        },
+        {
+          "path": "game.BrowserService",
+          "name": "BrowserService",
+          "className": "BrowserService"
+        },
+        {
+          "path": "game.CaptureService",
+          "name": "CaptureService",
+          "className": "CaptureService"
+        },
+        {
+          "path": "game.AnalyticsService",
+          "name": "AnalyticsService",
+          "className": "AnalyticsService"
+        },
+        {
+          "path": "game.SlimContentProvider",
+          "name": "SlimContentProvider",
+          "className": "SlimContentProvider"
+        },
+        {
+          "path": "game.Packages",
+          "name": "Packages",
+          "className": "Packages"
+        },
+        {
+          "path": "game.GuidRegistryService",
+          "name": "GuidRegistryService",
+          "className": "GuidRegistryService"
+        },
+        {
+          "path": "game.PublishService",
+          "name": "PublishService",
+          "className": "PublishService"
+        },
+        {
+          "path": "game.ChangeHistoryService",
+          "name": "ChangeHistoryService",
+          "className": "ChangeHistoryService"
+        },
+        {
+          "path": "game.LuaWebService",
+          "name": "LuaWebService",
+          "className": "LuaWebService"
+        },
+        {
+          "path": "game.ProcessInstancePhysicsService",
+          "name": "ProcessInstancePhysicsService",
+          "className": "ProcessInstancePhysicsService"
+        },
+        {
+          "path": "game.ReplicatedStorage",
+          "name": "ReplicatedStorage",
+          "className": "ReplicatedStorage"
+        },
+        {
+          "path": "game.ServerScriptService",
+          "name": "ServerScriptService",
+          "className": "ServerScriptService"
+        },
+        {
+          "path": "game.ServerStorage",
+          "name": "ServerStorage",
+          "className": "ServerStorage"
+        },
+        {
+          "path": "game.StudioService",
+          "name": "StudioService",
+          "className": "StudioService"
+        },
+        {
+          "path": "game.PluginGuiService",
+          "name": "PluginGuiService",
+          "className": "PluginGuiService"
+        },
+        {
+          "path": "game.Script Context",
+          "name": "Script Context",
+          "className": "ScriptContext"
+        },
+        {
+          "path": "game.ServiceVisibilityService",
+          "name": "ServiceVisibilityService",
+          "className": "ServiceVisibilityService"
+        },
+        {
+          "path": "game.PathfindingService",
+          "name": "PathfindingService",
+          "className": "PathfindingService"
+        },
+        {
+          "path": "game.SelectionHighlightManager",
+          "name": "SelectionHighlightManager",
+          "className": "SelectionHighlightManager"
+        },
+        {
+          "path": "game.HttpService",
+          "name": "HttpService",
+          "className": "HttpService"
+        },
+        {
+          "path": "game.HapticService",
+          "name": "HapticService",
+          "className": "HapticService"
+        },
+        {
+          "path": "game.RemoteDebuggerServer",
+          "name": "RemoteDebuggerServer",
+          "className": "RemoteDebuggerServer"
+        },
+        {
+          "path": "game.ScriptEditorService",
+          "name": "ScriptEditorService",
+          "className": "ScriptEditorService"
+        },
+        {
+          "path": "game.PluginDebugService",
+          "name": "PluginDebugService",
+          "className": "PluginDebugService"
+        },
+        {
+          "path": "game.PackageService",
+          "name": "PackageService",
+          "className": "PackageService"
+        },
+        {
+          "path": "game.Visit",
+          "name": "Visit",
+          "className": "Visit"
+        },
+        {
+          "path": "game.DataStoreService",
+          "name": "DataStoreService",
+          "className": "DataStoreService"
+        },
+        {
+          "path": "game.Lighting",
+          "name": "Lighting",
+          "className": "Lighting"
+        },
+        {
+          "path": "game.ProximityPromptService",
+          "name": "ProximityPromptService",
+          "className": "ProximityPromptService"
+        },
+        {
+          "path": "game.Teams",
+          "name": "Teams",
+          "className": "Teams"
+        },
+        {
+          "path": "game.TestService",
+          "name": "TestService",
+          "className": "TestService"
+        },
+        {
+          "path": "game.VirtualInputManager",
+          "name": "VirtualInputManager",
+          "className": "VirtualInputManager"
+        },
+        {
+          "path": "game.VoiceChatService",
+          "name": "VoiceChatService",
+          "className": "VoiceChatService"
+        },
+        {
+          "path": "game.SpawnerService",
+          "name": "SpawnerService",
+          "className": "SpawnerService"
+        },
+        {
+          "path": "game.GenerationService",
+          "name": "GenerationService",
+          "className": "GenerationService"
+        },
+        {
+          "path": "game.AvatarCreationService",
+          "name": "AvatarCreationService",
+          "className": "AvatarCreationService"
+        },
+        {
+          "path": "game.StudioTestService",
+          "name": "StudioTestService",
+          "className": "StudioTestService"
+        },
+        {
+          "path": "game.MemStorageService",
+          "name": "MemStorageService",
+          "className": "MemStorageService"
+        },
+        {
+          "path": "game.StylingService",
+          "name": "StylingService",
+          "className": "StylingService"
+        },
+        {
+          "path": "game.MeshContentProvider",
+          "name": "MeshContentProvider",
+          "className": "MeshContentProvider"
+        },
+        {
+          "path": "game.UniqueIdLookupService",
+          "name": "UniqueIdLookupService",
+          "className": "UniqueIdLookupService"
+        },
+        {
+          "path": "game.PluginManagementService",
+          "name": "PluginManagementService",
+          "className": "PluginManagementService"
+        },
+        {
+          "path": "game.InstanceExtensionsService",
+          "name": "InstanceExtensionsService",
+          "className": "InstanceExtensionsService"
+        },
+        {
+          "path": "game.Instance",
+          "name": "Instance",
+          "className": "InstanceFileSyncService"
+        },
+        {
+          "path": "game.RemoteCommandService",
+          "name": "RemoteCommandService",
+          "className": "RemoteCommandService"
+        },
+        {
+          "path": "game.DraggerService",
+          "name": "DraggerService",
+          "className": "DraggerService"
+        },
+        {
+          "path": "game.FilteredSelection",
+          "name": "FilteredSelection",
+          "className": ""
+        },
+        {
+          "path": "game.FilteredSelection",
+          "name": "FilteredSelection",
+          "className": ""
+        },
+        {
+          "path": "game.FilteredSelection",
+          "name": "FilteredSelection",
+          "className": ""
+        },
+        {
+          "path": "game.FilteredSelection",
+          "name": "FilteredSelection",
+          "className": ""
+        },
+        {
+          "path": "game.DraftsService",
+          "name": "DraftsService",
+          "className": "DraftsService"
+        },
+        {
+          "path": "game.PlacesService",
+          "name": "PlacesService",
+          "className": "PlacesService"
+        },
+        {
+          "path": "game.UserService",
+          "name": "UserService",
+          "className": "UserService"
+        },
+        {
+          "path": "game.EncodingService",
+          "name": "EncodingService",
+          "className": "EncodingService"
+        },
+        {
+          "path": "game.ReflectionService",
+          "name": "ReflectionService",
+          "className": "ReflectionService"
+        },
+        {
+          "path": "game.SerializationService",
+          "name": "SerializationService",
+          "className": "SerializationService"
+        },
+        {
+          "path": "game.VisualizationModeService",
+          "name": "VisualizationModeService",
+          "className": "VisualizationModeService"
+        },
+        {
+          "path": "game.SolidModelContentProvider",
+          "name": "SolidModelContentProvider",
+          "className": "SolidModelContentProvider"
+        },
+        {
+          "path": "game.HSRDataContentProvider",
+          "name": "HSRDataContentProvider",
+          "className": "HSRDataContentProvider"
+        },
+        {
+          "path": "game.VideoService",
+          "name": "VideoService",
+          "className": "VideoService"
+        },
+        {
+          "path": "game.GamepadService",
+          "name": "GamepadService",
+          "className": "GamepadService"
+        },
+        {
+          "path": "game.TextBoxService",
+          "name": "TextBoxService",
+          "className": "TextBoxService"
+        },
+        {
+          "path": "game.ControllerService",
+          "name": "ControllerService",
+          "className": "ControllerService"
+        },
+        {
+          "path": "game.UIDragDetectorService",
+          "name": "UIDragDetectorService",
+          "className": "UIDragDetectorService"
+        }
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "id": "511a0010-f862-4a3e-aae3-d19dedac3668",
+      "status": "cancelled",
+      "mode": "execute",
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-nano-30b-a3b:free",
+      "startedAt": "2026-05-29T17:56:01.391Z",
+      "iterations": 2,
+      "completedAt": "2026-05-29T17:56:09.849Z",
+      "error": "Server restarted before this run completed"
+    }
+  ],
+  "approvedScopes": [],
+  "auditEvents": [
+    {
+      "id": "804f2564-feff-4f24-939b-4c0c3bc41286",
+      "timestamp": "2026-05-29T17:56:01.392Z",
+      "runId": "511a0010-f862-4a3e-aae3-d19dedac3668",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "# Roblox Game Idea: Sky Salvagers\n\nPlayers spawn on tiny floating islands in an endless sky.\n\nThe world is constantly generating drifting wreckage from ancient airships, floating cities, robots, castles, and mysterious civilizations.\n\nPlayers must:\n\n* Hook floating debris\n* Pull it to their island\n* Break it apart\n* Collect resources\n* Expand their island\n* Build machines\n* Unlock better tools\n* Explore dangerous sky zones\n\nCore Loop:\n\n1. Spot wreckage floating nearby.\n2. Use a Grapple Launcher to capture it.\n3. Reel it toward your island.\n4. Salvage valuable parts.\n5. Sell resources.\n6. Upgrade equipment.\n7. Reach rarer sky regions.\n\nResources:\n\nCommon:\n\n* Scrap Metal\n* Wood\n* Stone\n\nRare:\n\n* Energy Cores\n* Ancient Tech\n* Crystal Shards\n\nLegendary:\n\n* Sky Relics\n* Lost Artifacts\n* Celestial Fragments\n\nIsland Expansion:\n\nPlayers can:\n\n* Build larger platforms\n* Add storage\n* Add automated salvagers\n* Add resource processors\n* Build defenses\n\nAutomation:\n\nUnlock:\n\n* Auto Grapplers\n* Collection Drones\n* Sorting Machines\n* Resource Compressors\n* Cargo Airships\n\nProgression:\n\nStarter Zone:\n\n* Broken crates\n* Small debris\n\nCloud Zone:\n\n* Abandoned sky ships\n* Rare resources\n\nStorm Zone:\n\n* Dangerous lightning fields\n* Better loot\n\nAncient Zone:\n\n* Lost civilizations\n* Exclusive relics\n\nVoid Zone:\n\n* Endgame content\n* Mythic rewards\n\nMultiplayer Features:\n\n* Trading\n* Island visits\n* Guilds\n* Shared salvage expeditions\n* Leaderboards\n\nEvents:\n\nMeteor Shower\n\n* Rare resources spawn\n\nGhost Fleet\n\n* Haunted ships appear\n\nAncient Vault\n\n* Global boss event\n\nSky Leviathan\n\n* Massive flying creature carrying loot\n\nMonetization:\n\n* Cosmetic grapples\n* Island themes\n* Drone skins\n* Airship skins\n\nNever sell power.\n\nRetention Systems:\n\n* Daily quests\n* Weekly expeditions\n* Collection log\n* Artifact museum\n* Achievement system\n\nVisual Style:\n\n* Cozy floating islands\n* Bright skies\n* Cartoon aesthetic\n* Satisfying destruction\n* Physics-based debris\n\nTarget:\n\nEasy to learn in 30 seconds.\nHundreds of hours of progression.\nStrong social gameplay.\nStrong automation progression.\nSuitable for Roblox front page quality."
+      }
+    },
+    {
+      "id": "baacc79e-ac0a-49a5-b145-6da82440c61f",
+      "timestamp": "2026-05-29T17:56:03.661Z",
+      "runId": "511a0010-f862-4a3e-aae3-d19dedac3668",
+      "type": "tool_requested",
+      "actor": "model",
+      "summary": "list children (game)",
+      "details": {
+        "path": "game"
+      },
+      "toolCallId": "call_488fe85017e84682b74670f0",
+      "toolName": "mcp__roblox_studio__list_children",
+      "risk": "read"
+    },
+    {
+      "id": "95669c2a-f8bf-4e9a-833b-4e4a927fdb60",
+      "timestamp": "2026-05-29T17:56:03.662Z",
+      "runId": "511a0010-f862-4a3e-aae3-d19dedac3668",
+      "type": "policy_decision",
+      "actor": "policy",
+      "summary": "Read-only operations are allowed.",
+      "details": {
+        "scope": "game",
+        "planStepIndex": null
+      },
+      "toolCallId": "call_488fe85017e84682b74670f0",
+      "toolName": "mcp__roblox_studio__list_children",
+      "risk": "read",
+      "decision": "allow"
+    },
+    {
+      "id": "a00e9c67-5ede-410e-b548-d34e4644d6cb",
+      "timestamp": "2026-05-29T17:56:03.698Z",
+      "runId": "511a0010-f862-4a3e-aae3-d19dedac3668",
+      "type": "tool_outcome",
+      "actor": "tool",
+      "summary": "mcp__roblox_studio__list_children returned a result.",
+      "details": [
+        {
+          "path": "game.Workspace",
+          "name": "Workspace",
+          "className": "Workspace"
+        },
+        {
+          "path": "game.Run Service",
+          "name": "Run Service",
+          "className": "RunService"
+        },
+        {
+          "path": "game.GuiService",
+          "name": "GuiService",
+          "className": "GuiService"
+        },
+        {
+          "path": "game.Stats",
+          "name": "Stats",
+          "className": "Stats"
+        },
+        {
+          "path": "game.Instance",
+          "name": "Instance",
+          "className": "TimerService"
+        },
+        {
+          "path": "game.SoundService",
+          "name": "SoundService",
+          "className": "SoundService"
+        },
+        {
+          "path": "game.VideoCaptureService",
+          "name": "VideoCaptureService",
+          "className": "VideoCaptureService"
+        },
+        {
+          "path": "game.LogService",
+          "name": "LogService",
+          "className": "LogService"
+        },
+        {
+          "path": "game.MicroProfilerService",
+          "name": "MicroProfilerService",
+          "className": "MicroProfilerService"
+        },
+        {
+          "path": "game.ContentProvider",
+          "name": "ContentProvider",
+          "className": "ContentProvider"
+        },
+        {
+          "path": "game.KeyframeSequenceProvider",
+          "name": "KeyframeSequenceProvider",
+          "className": "KeyframeSequenceProvider"
+        },
+        {
+          "path": "game.AnimationClipProvider",
+          "name": "AnimationClipProvider",
+          "className": "AnimationClipProvider"
+        },
+        {
+          "path": "game.Chat",
+          "name": "Chat",
+          "className": "Chat"
+        },
+        {
+          "path": "game.MarketplaceService",
+          "name": "MarketplaceService",
+          "className": "MarketplaceService"
+        },
+        {
+          "path": "game.Players",
+          "name": "Players",
+          "className": "Players"
+        },
+        {
+          "path": "game.PointsService",
+          "name": "PointsService",
+          "className": "PointsService"
+        },
+        {
+          "path": "game.NotificationService",
+          "name": "NotificationService",
+          "className": "NotificationService"
+        },
+        {
+          "path": "game.ReplicatedFirst",
+          "name": "ReplicatedFirst",
+          "className": "ReplicatedFirst"
+        },
+        {
+          "path": "game.HttpRbxApiService",
+          "name": "HttpRbxApiService",
+          "className": "HttpRbxApiService"
+        },
+        {
+          "path": "game.TweenService",
+          "name": "TweenService",
+          "className": "TweenService"
+        },
+        {
+          "path": "game.MaterialService",
+          "name": "MaterialService",
+          "className": "MaterialService"
+        },
+        {
+          "path": "game.TextChatService",
+          "name": "TextChatService",
+          "className": "TextChatService"
+        },
+        {
+          "path": "game.TextService",
+          "name": "TextService",
+          "className": "TextService"
+        },
+        {
+          "path": "game.PermissionsService",
+          "name": "PermissionsService",
+          "className": "PermissionsService"
+        },
+        {
+          "path": "game.SharedTableRegistry",
+          "name": "SharedTableRegistry",
+          "className": "SharedTableRegistry"
+        },
+        {
+          "path": "game.StarterPlayer",
+          "name": "StarterPlayer",
+          "className": "StarterPlayer"
+        },
+        {
+          "path": "game.StarterPack",
+          "name": "StarterPack",
+          "className": "StarterPack"
+        },
+        {
+          "path": "game.StarterGui",
+          "name": "StarterGui",
+          "className": "StarterGui"
+        },
+        {
+          "path": "game.CoreGui",
+          "name": "CoreGui",
+          "className": "CoreGui"
+        },
+        {
+          "path": "game.LocalizationService",
+          "name": "LocalizationService",
+          "className": "LocalizationService"
+        },
+        {
+          "path": "game.PolicyService",
+          "name": "PolicyService",
+          "className": "PolicyService"
+        },
+        {
+          "path": "game.Teleport Service",
+          "name": "Teleport Service",
+          "className": "TeleportService"
+        },
+        {
+          "path": "game.JointsService",
+          "name": "JointsService",
+          "className": "JointsService"
+        },
+        {
+          "path": "game.CollectionService",
+          "name": "CollectionService",
+          "className": "CollectionService"
+        },
+        {
+          "path": "game.PhysicsService",
+          "name": "PhysicsService",
+          "className": "PhysicsService"
+        },
+        {
+          "path": "game.BadgeService",
+          "name": "BadgeService",
+          "className": "BadgeService"
+        },
+        {
+          "path": "game.FriendService",
+          "name": "FriendService",
+          "className": "FriendService"
+        },
+        {
+          "path": "game.InsertService",
+          "name": "InsertService",
+          "className": "InsertService"
+        },
+        {
+          "path": "game.GamePassService",
+          "name": "GamePassService",
+          "className": "GamePassService"
+        },
+        {
+          "path": "game.Debris",
+          "name": "Debris",
+          "className": "Debris"
+        },
+        {
+          "path": "game.CookiesService",
+          "name": "CookiesService",
+          "className": "CookiesService"
+        },
+        {
+          "path": "game.Selection",
+          "name": "Selection",
+          "className": "Selection"
+        },
+        {
+          "path": "game.UserInputService",
+          "name": "UserInputService",
+          "className": "UserInputService"
+        },
+        {
+          "path": "game.KeyboardService",
+          "name": "KeyboardService",
+          "className": "KeyboardService"
+        },
+        {
+          "path": "game.MouseService",
+          "name": "MouseService",
+          "className": "MouseService"
+        },
+        {
+          "path": "game.VRService",
+          "name": "VRService",
+          "className": "VRService"
+        },
+        {
+          "path": "game.ContextActionService",
+          "name": "ContextActionService",
+          "className": "ContextActionService"
+        },
+        {
+          "path": "game.Instance",
+          "name": "Instance",
+          "className": "ScriptService"
+        },
+        {
+          "path": "game.AssetService",
+          "name": "AssetService",
+          "className": "AssetService"
+        },
+        {
+          "path": "game.TouchInputService",
+          "name": "TouchInputService",
+          "className": "TouchInputService"
+        },
+        {
+          "path": "game.BrowserService",
+          "name": "BrowserService",
+          "className": "BrowserService"
+        },
+        {
+          "path": "game.CaptureService",
+          "name": "CaptureService",
+          "className": "CaptureService"
+        },
+        {
+          "path": "game.AnalyticsService",
+          "name": "AnalyticsService",
+          "className": "AnalyticsService"
+        },
+        {
+          "path": "game.SlimContentProvider",
+          "name": "SlimContentProvider",
+          "className": "SlimContentProvider"
+        },
+        {
+          "path": "game.Packages",
+          "name": "Packages",
+          "className": "Packages"
+        },
+        {
+          "path": "game.GuidRegistryService",
+          "name": "GuidRegistryService",
+          "className": "GuidRegistryService"
+        },
+        {
+          "path": "game.PublishService",
+          "name": "PublishService",
+          "className": "PublishService"
+        },
+        {
+          "path": "game.ChangeHistoryService",
+          "name": "ChangeHistoryService",
+          "className": "ChangeHistoryService"
+        },
+        {
+          "path": "game.LuaWebService",
+          "name": "LuaWebService",
+          "className": "LuaWebService"
+        },
+        {
+          "path": "game.ProcessInstancePhysicsService",
+          "name": "ProcessInstancePhysicsService",
+          "className": "ProcessInstancePhysicsService"
+        },
+        {
+          "path": "game.ReplicatedStorage",
+          "name": "ReplicatedStorage",
+          "className": "ReplicatedStorage"
+        },
+        {
+          "path": "game.ServerScriptService",
+          "name": "ServerScriptService",
+          "className": "ServerScriptService"
+        },
+        {
+          "path": "game.ServerStorage",
+          "name": "ServerStorage",
+          "className": "ServerStorage"
+        },
+        {
+          "path": "game.StudioService",
+          "name": "StudioService",
+          "className": "StudioService"
+        },
+        {
+          "path": "game.PluginGuiService",
+          "name": "PluginGuiService",
+          "className": "PluginGuiService"
+        },
+        {
+          "path": "game.Script Context",
+          "name": "Script Context",
+          "className": "ScriptContext"
+        },
+        {
+          "path": "game.ServiceVisibilityService",
+          "name": "ServiceVisibilityService",
+          "className": "ServiceVisibilityService"
+        },
+        {
+          "path": "game.PathfindingService",
+          "name": "PathfindingService",
+          "className": "PathfindingService"
+        },
+        {
+          "path": "game.SelectionHighlightManager",
+          "name": "SelectionHighlightManager",
+          "className": "SelectionHighlightManager"
+        },
+        {
+          "path": "game.HttpService",
+          "name": "HttpService",
+          "className": "HttpService"
+        },
+        {
+          "path": "game.HapticService",
+          "name": "HapticService",
+          "className": "HapticService"
+        },
+        {
+          "path": "game.RemoteDebuggerServer",
+          "name": "RemoteDebuggerServer",
+          "className": "RemoteDebuggerServer"
+        },
+        {
+          "path": "game.ScriptEditorService",
+          "name": "ScriptEditorService",
+          "className": "ScriptEditorService"
+        },
+        {
+          "path": "game.PluginDebugService",
+          "name": "PluginDebugService",
+          "className": "PluginDebugService"
+        },
+        {
+          "path": "game.PackageService",
+          "name": "PackageService",
+          "className": "PackageService"
+        },
+        {
+          "path": "game.Visit",
+          "name": "Visit",
+          "className": "Visit"
+        },
+        {
+          "path": "game.DataStoreService",
+          "name": "DataStoreService",
+          "className": "DataStoreService"
+        },
+        {
+          "path": "game.Lighting",
+          "name": "Lighting",
+          "className": "Lighting"
+        },
+        {
+          "path": "game.ProximityPromptService",
+          "name": "ProximityPromptService",
+          "className": "ProximityPromptService"
+        },
+        {
+          "path": "game.Teams",
+          "name": "Teams",
+          "className": "Teams"
+        },
+        {
+          "path": "game.TestService",
+          "name": "TestService",
+          "className": "TestService"
+        },
+        {
+          "path": "game.VirtualInputManager",
+          "name": "VirtualInputManager",
+          "className": "VirtualInputManager"
+        },
+        {
+          "path": "game.VoiceChatService",
+          "name": "VoiceChatService",
+          "className": "VoiceChatService"
+        },
+        {
+          "path": "game.SpawnerService",
+          "name": "SpawnerService",
+          "className": "SpawnerService"
+        },
+        {
+          "path": "game.GenerationService",
+          "name": "GenerationService",
+          "className": "GenerationService"
+        },
+        {
+          "path": "game.AvatarCreationService",
+          "name": "AvatarCreationService",
+          "className": "AvatarCreationService"
+        },
+        {
+          "path": "game.StudioTestService",
+          "name": "StudioTestService",
+          "className": "StudioTestService"
+        },
+        {
+          "path": "game.MemStorageService",
+          "name": "MemStorageService",
+          "className": "MemStorageService"
+        },
+        {
+          "path": "game.StylingService",
+          "name": "StylingService",
+          "className": "StylingService"
+        },
+        {
+          "path": "game.MeshContentProvider",
+          "name": "MeshContentProvider",
+          "className": "MeshContentProvider"
+        },
+        {
+          "path": "game.UniqueIdLookupService",
+          "name": "UniqueIdLookupService",
+          "className": "UniqueIdLookupService"
+        },
+        {
+          "path": "game.PluginManagementService",
+          "name": "PluginManagementService",
+          "className": "PluginManagementService"
+        },
+        {
+          "path": "game.InstanceExtensionsService",
+          "name": "InstanceExtensionsService",
+          "className": "InstanceExtensionsService"
+        },
+        {
+          "path": "game.Instance",
+          "name": "Instance",
+          "className": "InstanceFileSyncService"
+        },
+        {
+          "path": "game.RemoteCommandService",
+          "name": "RemoteCommandService",
+          "className": "RemoteCommandService"
+        },
+        {
+          "path": "game.DraggerService",
+          "name": "DraggerService",
+          "className": "DraggerService"
+        },
+        {
+          "path": "game.FilteredSelection",
+          "name": "FilteredSelection",
+          "className": ""
+        },
+        {
+          "path": "game.FilteredSelection",
+          "name": "FilteredSelection",
+          "className": ""
+        },
+        {
+          "path": "game.FilteredSelection",
+          "name": "FilteredSelection",
+          "className": ""
+        },
+        {
+          "path": "game.FilteredSelection",
+          "name": "FilteredSelection",
+          "className": ""
+        },
+        {
+          "path": "game.DraftsService",
+          "name": "DraftsService",
+          "className": "DraftsService"
+        },
+        {
+          "path": "game.PlacesService",
+          "name": "PlacesService",
+          "className": "PlacesService"
+        },
+        {
+          "path": "game.UserService",
+          "name": "UserService",
+          "className": "UserService"
+        },
+        {
+          "path": "game.EncodingService",
+          "name": "EncodingService",
+          "className": "EncodingService"
+        },
+        {
+          "path": "game.ReflectionService",
+          "name": "ReflectionService",
+          "className": "ReflectionService"
+        },
+        {
+          "path": "game.SerializationService",
+          "name": "SerializationService",
+          "className": "SerializationService"
+        },
+        {
+          "path": "game.VisualizationModeService",
+          "name": "VisualizationModeService",
+          "className": "VisualizationModeService"
+        },
+        {
+          "path": "game.SolidModelContentProvider",
+          "name": "SolidModelContentProvider",
+          "className": "SolidModelContentProvider"
+        },
+        {
+          "path": "game.HSRDataContentProvider",
+          "name": "HSRDataContentProvider",
+          "className": "HSRDataContentProvider"
+        },
+        {
+          "path": "game.VideoService",
+          "name": "VideoService",
+          "className": "VideoService"
+        },
+        {
+          "path": "game.GamepadService",
+          "name": "GamepadService",
+          "className": "GamepadService"
+        },
+        {
+          "path": "game.TextBoxService",
+          "name": "TextBoxService",
+          "className": "TextBoxService"
+        },
+        {
+          "path": "game.ControllerService",
+          "name": "ControllerService",
+          "className": "ControllerService"
+        },
+        {
+          "path": "game.UIDragDetectorService",
+          "name": "UIDragDetectorService",
+          "className": "UIDragDetectorService"
+        }
+      ],
+      "toolCallId": "call_488fe85017e84682b74670f0",
+      "toolName": "mcp__roblox_studio__list_children",
+      "risk": "read"
+    },
+    {
+      "id": "77d8cbef-7ce5-4d3f-8e14-87bd09e2e534",
+      "timestamp": "2026-05-29T17:56:09.849Z",
+      "runId": "511a0010-f862-4a3e-aae3-d19dedac3668",
+      "type": "run_recovered",
+      "actor": "system",
+      "summary": "Run cancelled after server restart."
+    }
+  ],
+  "pendingApprovals": [],
+  "pendingInteractions": []
+}

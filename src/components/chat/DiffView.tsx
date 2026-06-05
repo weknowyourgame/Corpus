@@ -97,7 +97,7 @@ export function DiffView({
         </div>
         <button
           type="button"
-          className="stud-icon-btn h-7 w-7"
+          className="corpus-icon-btn h-7 w-7"
           aria-label="Copy after source"
           title="Copy after source"
           onClick={() => void copyText(newCode)}
@@ -107,7 +107,7 @@ export function DiffView({
         {canExpand && (
           <button
             type="button"
-            className="stud-icon-btn h-7 w-7"
+            className="corpus-icon-btn h-7 w-7"
             aria-label="Expand full diff"
             title="Expand full diff"
             onClick={() => setFullDiff(true)}

@@ -2,20 +2,20 @@ import { AlertTriangle, Info, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function recoveryCopy(error: string) {
-  const provider = /provider|credential|api[_ ]?key|set (anthropic|openrouter|stud_codex)/i.test(error);
+  const provider = /provider|credential|api[_ ]?key|set (anthropic|openrouter|corpus_codex)/i.test(error);
   const plugin = /instance not found:\s*game|studio request|plugin|waiting for studio/i.test(error);
   const cancelled = /cancel/i.test(error);
 
   if (provider) {
     return {
       title: "Model access is not available",
-      detail: "Stud-managed model access is unavailable on this server. Retry later or contact the workspace admin.",
+      detail: "Corpus-managed model access is unavailable on this server. Retry later or contact the workspace admin.",
     };
   }
   if (plugin) {
     return {
       title: "Studio connection needs attention",
-      detail: "If Studio says connected but tools fail, download and reload the latest Stud plugin, then reconnect your session code.",
+      detail: "If Studio says connected but tools fail, download and reload the latest Corpus plugin, then reconnect your session code.",
     };
   }
   if (cancelled) {
@@ -41,14 +41,14 @@ export function RecoveryBanner({
 }) {
   const copy = recoveryCopy(error);
   return (
-    <section className="stud-recovery-banner" role="alert">
-      <AlertTriangle className="stud-recovery-icon" />
+    <section className="corpus-recovery-banner" role="alert">
+      <AlertTriangle className="corpus-recovery-icon" />
       <div className="min-w-0 flex-1">
         <p className="font-medium">{copy.title}</p>
         <p className="mt-1 text-sm">{copy.detail}</p>
-        <p className="stud-recovery-detail">{error}</p>
+        <p className="corpus-recovery-detail">{error}</p>
       </div>
-      <div className="stud-recovery-actions">
+      <div className="corpus-recovery-actions">
         {onRetry && (
           <Button variant="outline" size="sm" onClick={onRetry}>
             <RotateCcw />

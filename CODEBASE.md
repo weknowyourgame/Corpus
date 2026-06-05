@@ -1,6 +1,6 @@
-# Stud Codebase Knowledge Base
+# Corpus Codebase Knowledge Base
 
-**Stud** is an AI agent for Roblox Studio — "Cursor AI for Roblox." It connects AI assistants (Claude, OpenAI, OpenRouter) to Roblox Studio via an HTTP bridge, letting the AI read and write scripts, manipulate the instance hierarchy, set properties, and manage DataStores through natural language.
+**Corpus** is an AI agent for Roblox Studio — "Cursor AI for Roblox." It connects AI assistants (Claude, OpenAI, OpenRouter) to Roblox Studio via an HTTP bridge, letting the AI read and write scripts, manipulate the instance hierarchy, set properties, and manage DataStores through natural language.
 
 ---
 
@@ -24,7 +24,7 @@
                      ▼
 ┌──────────────────────────────────────────────────────┐
 │          Roblox Studio Plugin  (Lua)                  │
-│  studio-plugin/stud-bridge.server.lua                 │
+│  studio-plugin/corpus-bridge.server.lua                 │
 │  Polls /poll, executes commands, creates undo waypoints│
 └──────────────────────────────────────────────────────┘
 ```
@@ -36,7 +36,7 @@ The polling pattern is fundamental: Roblox Studio cannot receive HTTP requests s
 ## Directory Map
 
 ```
-stud/
+corpus/
 ├── src/                        # React frontend
 │   ├── components/             # UI components
 │   │   ├── chat/               # Message list, input, tool call display
@@ -65,10 +65,11 @@ stud/
 │       ├── plan.ts             # Plan mode — structured step proposal + approval
 │       ├── policy.ts           # PermissionPolicy — tool risk assessment, scope approval
 │       ├── scheduler.ts        # Parallel/sequential batch execution of tool calls
+│       ├── recovery.ts         # Tool-failure detection, typed-value repair, run_code fallback, obligations
 │       ├── conflict.ts         # Concurrent edit conflict detection
 │       ├── subagent.ts         # Specialist subagent spawning (debugger, ui, combat, network)
 │       ├── drivers.ts          # ModelDriver factory (Anthropic / OpenAI abstraction)
-│       ├── gateway-driver.ts   # Driver for Stud's own gateway API
+│       ├── gateway-driver.ts   # Driver for Corpus's own gateway API
 │       ├── ai-config.ts        # AI model config loader
 │       ├── store.ts            # ConversationStore (Postgres default, file/memory fallbacks)
 │       ├── prisma.ts           # Shared Prisma client / pg adapter
@@ -90,7 +91,7 @@ stud/
 ├── prisma/
 │   └── schema.prisma           # Corpus DB schema (games, chunks, patterns)
 ├── studio-plugin/
-│   └── stud-bridge.server.lua  # Roblox Studio plugin
+│   └── corpus-bridge.server.lua  # Roblox Studio plugin
 ├── knowledge-base/
 │   └── ROBLOX_OPEN_SOURCE_GAME_KNOWLEDGE_BASE_PLAN.md
 └── CLAUDE.md                   # Claude Code instructions
@@ -108,11 +109,11 @@ All global state lives in `src/stores/`. Stores use `zustand` with `immer`-style
 |-------|------|---------|
 | Chat | `chat.ts` | Message history, run status, streaming state |
 | Settings | `settings.ts` | Tier/dev-model/UI preferences; localStorage cache + Postgres sync for logged-in users; no provider API keys |
-| Auth | `auth.ts` | Cookie-backed Stud auth session, login/logout state, Google OAuth redirect completion |
+| Auth | `auth.ts` | Cookie-backed Corpus auth session, login/logout state, Google OAuth redirect completion |
 | Roblox | `roblox.ts` | Studio connection status, session pairing |
 | Plugin | `plugin.ts` | Plugin health + last poll timestamp |
 | Models | `models.ts` | Available model list (fetched + cached) |
-| Prerequisites | `prereq.ts` | End-user onboarding checks only: Roblox Studio, Stud plugin, bridge server, and Studio connection. Server-side model access is not shown as a prerequisite. |
+| Prerequisites | `prereq.ts` | End-user onboarding checks only: Roblox Studio, Corpus plugin, bridge server, and Studio connection. Server-side model access is not shown as a prerequisite. |
 | Studio Token | `studio-token.ts` | Studio access token for Open Cloud |
 
 Connection screen:
@@ -123,11 +124,11 @@ Connection screen:
 
 - **`server-agent.ts`** — The main client for the server-side agent. Calls `POST /agent/conversations/:id/runs` and streams SSE events back to the chat UI. Maps `text_delta`, `tool_call`, `tool_result`, `run_completed`, `approval_pending`, `interaction_requested` events into Zustand chat state.
 - **`providers.ts`** — Browser-safe compatibility shim only; frontend AI calls route through the server agent and never receive provider keys.
-- **`gateway-client.ts`** — Server-side gateway helper for Stud-owned model credentials and hosted/Cloudflare gateway paths.
+- **`gateway-client.ts`** — Server-side gateway helper for Corpus-owned model credentials and hosted/Cloudflare gateway paths.
 - **`profiles.ts`** — AI personality / instruction profiles per provider.
 - **`types.ts`** — Shared AI message and tool call types.
-- **Dev model config UI** — `components/settings/DevModelConfigDialog.tsx` is shown only when `/agent/config` reports `devModeAllowed: true`. It edits model overrides through `GET/PATCH /agent/dev/model-config` for every server profile (`planner-*`, `coder-*`, `classifier`, `summarizer`, `title-generator`, `embeddings`). Overrides are saved in `app_config` under `dev.modelOverrides`, hydrated into bridge memory, and survive restarts. If `STUD_DEV_MODE_TOKEN` is required and missing, the dialog shows an unlock input that stores trimmed `localStorage.stud_dev_mode_token` and surfaces exact 401/403 server errors.
-- **Dev rate-limit UI** — `components/settings/DevRateLimitsDialog.tsx` is shown beside the dev model config button when dev mode is allowed. It edits runtime max-concurrent-run and per-tier RPM limits through `GET/PATCH/POST /agent/dev/rate-limits`; values are saved in `app_config` under `dev.rateLimits`, hydrated into bridge memory, and survive restarts. Token locking uses the same `localStorage.stud_dev_mode_token` unlock flow and exact error reporting.
+- **Dev model config UI** — `components/settings/DevModelConfigDialog.tsx` is shown only when `/agent/config` reports `devModeAllowed: true`. It edits model overrides through `GET/PATCH /agent/dev/model-config` for every server profile (`planner-*`, `coder-*`, `classifier`, `summarizer`, `title-generator`, `embeddings`). Overrides are saved in `app_config` under `dev.modelOverrides`, hydrated into bridge memory, and survive restarts. If `CORPUS_DEV_MODE_TOKEN` is required and missing, the dialog shows an unlock input that stores trimmed `localStorage.corpus_dev_mode_token` and surfaces exact 401/403 server errors.
+- **Dev rate-limit UI** — `components/settings/DevRateLimitsDialog.tsx` is shown beside the dev model config button when dev mode is allowed. It edits runtime max-concurrent-run and per-tier RPM limits through `GET/PATCH/POST /agent/dev/rate-limits`; values are saved in `app_config` under `dev.rateLimits`, hydrated into bridge memory, and survive restarts. Token locking uses the same `localStorage.corpus_dev_mode_token` unlock flow and exact error reporting.
 
 ### Bridge Client (`src/lib/bridge/`)
 
@@ -136,7 +137,7 @@ Connection screen:
 
 ### Roblox Client (`src/lib/roblox/`)
 
-- **`client.ts`** — Low-level HTTP client for `/stud/sessions/:id/request` on the bridge. Sends JSON commands and waits for the plugin to execute and respond.
+- **`client.ts`** — Low-level HTTP client for `/corpus/sessions/:id/request` on the bridge. Sends JSON commands and waits for the plugin to execute and respond.
 - **`tools.ts`** — Defines all AI tool schemas (Zod) and their implementations. Each tool builds a command object and calls `studioRequest()`. Tools: `roblox_get_script`, `roblox_set_script`, `roblox_edit_script`, `roblox_get_children`, `roblox_get_properties`, `roblox_set_property`, `roblox_create`, `roblox_delete`, `roblox_clone`, `roblox_move`, `roblox_search`, `roblox_get_selection`, `roblox_run_code`, `roblox_bulk_create`, `roblox_bulk_delete`, `roblox_bulk_set_property`.
 - **`toolbox.ts`** — Roblox Creator Marketplace (toolbox) search and asset insertion.
 
@@ -158,7 +159,7 @@ Key components:
 
 Prompt-kit components used: `PromptInput`, `ChatContainer`, `Message`, `ToolCall`, `Loader`, `Reasoning`, `ResponseStream`, `Markdown`, `CodeBlock`, `PromptSuggestion`, `ScrollButton`.
 
-**Connection model** — one active path: browser → bridge → Stud Studio plugin (polls bridge) → Roblox Studio. No "official MCP" or "plugin fallback" concepts in the UI.
+**Connection model** — one active path: browser → bridge → Corpus Studio plugin (polls bridge) → Roblox Studio. No "official MCP" or "plugin fallback" concepts in the UI.
 
 **Transport strings** — `effectiveTransport` / `preferredTransport` / `lastUsedTransport` are `"studio_plugin" | "unknown"`. `"official_mcp"` and `"plugin_fallback"` no longer appear anywhere in user-facing code. Internal `mcp__roblox_studio__*` tool-name prefixes and `mcp-server.ts` (JSON-RPC adapter) keep their names as implementation details.
 
@@ -177,11 +178,11 @@ Prompt-kit components used: `PromptInput`, `ChatContainer`, `Message`, `ToolCall
 Express server on port 3001. Responsibilities:
 
 1. **Session management** — Each web+plugin pair shares a `sessionId`. The bridge keeps a per-session request queue.
-2. **Web→Plugin relay** — `POST /stud/sessions/:id/request` enqueues a command. The plugin polls `GET /poll` and picks it up. The plugin posts the result to `POST /respond`. The web app gets the result via long-poll or SSE.
+2. **Web→Plugin relay** — `POST /corpus/sessions/:id/request` enqueues a command. The plugin polls `GET /poll` and picks it up. The plugin posts the result to `POST /respond`. The web app gets the result via long-poll or SSE.
 3. **Auth routes** — Cookie session auth, login-token auth, Google OAuth, logout, and `/auth/me`.
 4. **Agent routes** — Delegates to `server/agent/routes.ts` for user-owned conversation, run management, and user settings (`GET /agent/user/settings`, `PATCH /agent/user/settings`).
 5. **OAuth** — Handles Google OAuth redirect flows.
-5. **Codex proxy** — Proxies requests to Stud-owned hosted model infrastructure when enabled server-side.
+5. **Codex proxy** — Proxies requests to Corpus-owned hosted model infrastructure when enabled server-side.
 6. **Open Cloud** — Exposes endpoints that wrap Roblox Open Cloud APIs.
 
 **Process keep-alive (Bun):** `app.listen()` is captured into `server`; an explicit `setInterval(() => {}, 1<<30)` keeps the event loop alive because under Bun the node:http server handle does not reliably hold the loop open — without it the bridge exits cleanly (code 0) right after binding once startup async work settles (consistently when launched via `concurrently`/`npm run dev`). `server.on("error")` surfaces bind failures (e.g. `EADDRINUSE`) and exits 1 instead of silently mis-binding.
@@ -190,7 +191,7 @@ Express server on port 3001. Responsibilities:
 
 ## Agent Runtime (`server/agent/`)
 
-The agent runtime is the core of Stud's intelligence. It is an autonomous multi-turn loop that calls an LLM, dispatches tool calls to Studio, handles approvals, and streams events back to the client.
+The agent runtime is the core of Corpus's intelligence. It is an autonomous multi-turn loop that calls an LLM, dispatches tool calls to Studio, handles approvals, and streams events back to the client.
 
 ### `runtime.ts` — AgentRuntime
 
@@ -292,7 +293,7 @@ When user clicks "Approve this scope", `deriveScopeInfo(toolName, scope)` comput
 **Audit trail** — every policy decision includes a `matchReason` field: `exact_scope | path_prefix | parent_class | tool_family | full_access | plan`.
 
 **Full access mode** — opt-in for local/dev:
-- Server env: `STUD_FULL_ACCESS_ENABLED=true` (default false). Optional `STUD_FULL_ACCESS_TOKEN` requires matching `X-Stud-Full-Access-Token` header.
+- Server env: `CORPUS_FULL_ACCESS_ENABLED=true` (default false). Optional `CORPUS_FULL_ACCESS_TOKEN` requires matching `X-Corpus-Full-Access-Token` header.
 - `/agent/config` returns `fullAccessAllowed: true/false` — client only shows toggle when allowed.
 - Client passes `fullAccess: true` in run request body. Server validates against env before accepting.
 - When `run.fullAccess === true`, policy allows `low_mutation` and `destructive` without prompting. `runtime_code`, `external_asset`, `secret`, and `elevated` still require approval.
@@ -300,6 +301,20 @@ When user clicks "Approve this scope", `deriveScopeInfo(toolName, scope)` comput
 - UI: `FullAccessToggle` (⚡ icon) only visible when server reports `fullAccessAllowed`. Active state shown in amber. `fullAccess` preference stored localStorage-only — not synced to server.
 
 **Studio error surfacing** — `surfaceStudioError()` in `tools.ts` normalizes all Studio plugin error responses to `{ success: false, error: "...", hint?: "..." }`. Prevents the agent from silently ignoring failed tool calls. Type-mismatch errors (Vector3/Color3/etc.) get a hint string guiding the agent to correct value format.
+
+### `recovery.ts` — Tool-Failure Recovery
+
+Claude Code-style recovery so the agent never silently skips or "succeeds past" a failed tool call. Pure, unit-tested helpers consumed by `runtime.ts`:
+
+- **`isFailedToolResult`** — consistent failure detection across `{ success: false }`, non-empty `error` strings, `{ conflict: true }`, `{ denied: true }`, `{ cancelled: true }`.
+- **`classifyFailure`** — `type_mismatch | not_found | conflict | denied | cancelled | generic`. `isObligation()` excludes `denied`/`cancelled` (decided outcomes, not outstanding work).
+- **`repairPropertyValue`** — converts common model mistakes into the bare string format the plugin's `set_property` handler parses, mirroring its exact rules: `Color3.fromRGB(40,40,50)` → `"40, 40, 50"` (only when the property name contains "Color" and values ≤255), `Color3.new(1,0,0)` floats → `"255, 0, 0"`, integer `Vector3.new(x,y,z)` → `"x, y, z"`. Returns null when the plugin can't parse it (forces the run_code fallback).
+- **`toLuauAssignment` / `toLuauExpression`** — safe `execute_luau` fallback for typed values the plugin string parser can't handle (CFrame, UDim2, Color3 on non-"Color" props like `Lighting.Ambient`). Whitelist regex permits only known constructors/literals with numeric args, so no statement separators or assignments can be smuggled into the value (e.g. `Color3.fromRGB(1,2,3); game:Destroy()` is rejected). Example: `game.Lighting.FogColor = Color3.fromRGB(40, 40, 50)`.
+- **`buildRecoveryCandidates`** — ordered repair plan for a failed call (repaired retry → run_code fallback; per-op repair for `bulk_set_property`).
+- **`verificationFor`** — the read-back tool/path for a mutation (`get_properties` after `set_property`, `read_script` after write/edit).
+- **`buildUnresolvedCorrection`** — the explicit unresolved-task message reinjected before completion.
+
+**Runtime integration (`runtime.ts`):** each `AgentRun` carries an `unresolvedFailures` ledger keyed by `${toolName}::${scope}`. After every tool outcome, `reconcileObligations` clears obligations a later success covers, and for fresh failures runs `attemptRecovery` (repaired retry → run_code fallback → verification via read tool), all through the normal policy/approval path so security is preserved (`execute_luau` still asks, mutations still respect `fullAccess`/scope rules). Capped by `maxRepairAttempts` (default 2). The execute loop **refuses to mark a run completed while obligations remain**, reinjecting them as an explicit user task and looping, capped by `maxCompletionNags` (default 3) to avoid infinite loops. Recovery sub-steps emit first-class `tool_call`/`tool_result` events so the UI and model see the repair. Applies to any tool, not just `set_property`. System prompt (`system-prompt.ts`) now makes the agent explicitly responsible for fixing failed tool calls before continuing and never ignoring failed results. Tests: `recovery.test.ts` (pure functions), `runtime-recovery.test.ts` (Color3 repair+verify, failure carried into next iteration, completion blocked while unresolved, retry-cap, repair-exhaustion).
 
 ### `plan.ts` — Plan Mode
 
@@ -347,7 +362,7 @@ When the user presses Stop, `POST /agent/conversations/:id/runs/:runId/cancel` i
 Durable persistence for agent conversations, runs, events, approvals, plans, and audit logs.
 
 - **Default:** `PostgresConversationStore` is selected automatically when `DATABASE_URL` exists.
-- **Fallbacks:** set `STUD_AGENT_STORE=file` for `.stud/agent-conversations/` JSON snapshot + JSONL event logs, or `STUD_AGENT_STORE=memory` for tests/dev-only memory state.
+- **Fallbacks:** set `CORPUS_AGENT_STORE=file` for `.corpus/agent-conversations/` JSON snapshot + JSONL event logs, or `CORPUS_AGENT_STORE=memory` for tests/dev-only memory state.
 - **Postgres layout:** `agent_conversations` stores conversation snapshots; `agent_events` stores append-only streamed/runtime events by `conversation_id + sequence`.
 - **Crash recovery:** `recoverFromCrash()` cancels stale running runs and clears pending approvals/interactions so reconnecting clients do not see ghost prompts.
 
@@ -408,7 +423,7 @@ Core app persistence:
 
 Studio tokens (`studio_tokens` table) carry a `user_id` that ties each token to the user who generated it.
 
-- **Generation** (`POST /auth/studio-token/generate`): when `STUD_ALLOW_ANONYMOUS=true` (local dev), tokens may be created without a logged-in user (`user_id = null`). Otherwise a valid auth session is required and `user_id` is set from the session. Old-token revocation during re-generation is scoped to the current user — a user's `oldToken` can never revoke another user's token.
+- **Generation** (`POST /auth/studio-token/generate`): when `CORPUS_ALLOW_ANONYMOUS=true` (local dev), tokens may be created without a logged-in user (`user_id = null`). Otherwise a valid auth session is required and `user_id` is set from the session. Old-token revocation during re-generation is scoped to the current user — a user's `oldToken` can never revoke another user's token.
 - **Revocation** (`POST /auth/studio-token/revoke`): requires auth cookie (`credentials: include` on the client). If the token has a `user_id`, the request must be from that same user; mismatched ownership returns 403.
 - **Token resolution** (`requireToken`): every plugin request (poll, respond, MCP, direct relay) resolves `{ token, hash, entry }` where `entry` carries `{ sessionId, userId, createdAt }`. The `userId` is available to all downstream handlers.
 - **Isolation**: User A cannot revoke, regenerate, or use User B's token. The raw token value is stored only in the generating user's browser localStorage and is never returned after the initial generate response.
@@ -421,7 +436,7 @@ Settings are persisted in `user_settings` (Postgres) for session-authenticated n
 - `PATCH /agent/user/settings` — partial update; `appSettings` is **merged** (not replaced) into the existing JSON column. Returns the full updated settings object.
 - **Frontend** (`src/stores/settings.ts`): every setter (`setTier`, `setDevMode`, `setDevModel`, `updateAppSettings`, `resetAppSettings`) fires a fire-and-forget `PATCH /agent/user/settings` with `credentials: include`. Server 401s are silently ignored so the store works identically when offline or unauthenticated.
 - **Boot sequence** (`Home.tsx`): when `user.id` is set and `!user.anonymous`, `loadFromServer()` is called. It fetches the server row and merges it over the current localStorage state (server wins). The merged state is then persisted back to localStorage by the zustand `persist` middleware.
-- Anonymous local dev (`STUD_ALLOW_ANONYMOUS=true`) skips `loadFromServer` — localStorage is the only store.
+- Anonymous local dev (`CORPUS_ALLOW_ANONYMOUS=true`) skips `loadFromServer` — localStorage is the only store.
 
 ### Conversation Ownership Model
 
@@ -429,34 +444,34 @@ Every `agent_conversations` row carries a `user_id` (FK → `users.id`). Ownersh
 
 1. `ownsConversation` — checks `conversation.userId === currentUser.id` for session-authenticated users; for anonymous sessions checks `!conversation.userId`.
 2. **Session-authenticated users** (non-anonymous, `user.id` set): `userId` match from `ownsConversation` is sufficient. The per-conversation bearer access token is secondary — it is not required when the session cookie proves identity. This allows multi-device access for logged-in users.
-3. **Anonymous sessions** (only on localhost when `STUD_ALLOW_ANONYMOUS=true`): no persistent `userId`, so the bearer access token stored in localStorage is the only per-conversation identity guard and is strictly required.
+3. **Anonymous sessions** (only on localhost when `CORPUS_ALLOW_ANONYMOUS=true`): no persistent `userId`, so the bearer access token stored in localStorage is the only per-conversation identity guard and is strictly required.
 4. User A can never fetch, run, stream, approve, or mutate User B's conversation — all routes call `authorize()` before any runtime call.
 5. `GET /agent/conversations` lists by `userId`; anonymous list by `userId: null`.
 6. `POST /agent/conversations` sets `userId` from `currentUser.id` at creation time.
 
 ### Dev Mode Guard
 
-- `/agent/*` requires a resolved current user by default; unauthenticated requests return 401 unless `STUD_ALLOW_ANONYMOUS=true` on local/dev hosts.
+- `/agent/*` requires a resolved current user by default; unauthenticated requests return 401 unless `CORPUS_ALLOW_ANONYMOUS=true` on local/dev hosts.
 - Studio tokens generated from the web app are stored hashed and now persist `user_id` when a logged-in user creates them.
-- Dev mode/model override is disabled unless `STUD_DEV_MODE_ENABLED=true` (server-side only; never set in public deployments).
-- If `STUD_DEV_MODE_TOKEN` is set on the server, dev routes require the matching `X-Stud-Dev-Token` header before exposing the model list or accepting `devModel`. Token comparison trims browser and server values. The token is sent from the browser via `localStorage.getItem("stud_dev_mode_token")` only — it is never baked into the JS bundle (`VITE_STUD_DEV_MODE_TOKEN` is intentionally removed).
+- Dev mode/model override is disabled unless `CORPUS_DEV_MODE_ENABLED=true` (server-side only; never set in public deployments).
+- If `CORPUS_DEV_MODE_TOKEN` is set on the server, dev routes require the matching `X-Corpus-Dev-Token` header before exposing the model list or accepting `devModel`. Token comparison trims browser and server values. The token is sent from the browser via `localStorage.getItem("corpus_dev_mode_token")` only — it is never baked into the JS bundle (`VITE_CORPUS_DEV_MODE_TOKEN` is intentionally removed).
 - Dev-token-unlocked `/agent/config`, `/agent/models`, and `/agent/dev/*` can be reached without a normal auth cookie so local internal controls still work when auth is being debugged.
 - The header dev-mode toggle is only rendered when `/agent/config` returns `devModeAllowed: true`; turning it off clears the selected dev model and returns to normal tier routing.
-- Dev model config: `GET/PATCH /agent/dev/model-config` uses the same dev-mode gate and lets the running bridge override all model profiles, including memory/suggestions/compaction (`summarizer`) and title generation. Server model resolution goes through `resolveProfileConfig()` so utility LLMs and gateway driver calls honor overrides. Overrides are persisted by `server/agent/app-config.ts` in `app_config.dev.modelOverrides` and hydrated into memory on bridge startup / dev-config reads. The dialog includes an unlock field for `STUD_DEV_MODE_TOKEN`.
+- Dev model config: `GET/PATCH /agent/dev/model-config` uses the same dev-mode gate and lets the running bridge override all model profiles, including memory/suggestions/compaction (`summarizer`) and title generation. Server model resolution goes through `resolveProfileConfig()` so utility LLMs and gateway driver calls honor overrides. Overrides are persisted by `server/agent/app-config.ts` in `app_config.dev.modelOverrides` and hydrated into memory on bridge startup / dev-config reads. The dialog includes an unlock field for `CORPUS_DEV_MODE_TOKEN`.
 - Dev rate limits: `GET/PATCH /agent/dev/rate-limits` and `POST /agent/dev/rate-limits/reset` use the same dev-mode gate. `server/agent/rate-limit.ts` keeps runtime config for `maxConcurrentRuns` plus `free/pro/hyper/super` RPM values; defaults are 2 concurrent runs and 5/20/10/10 runs per minute. Values are persisted by `server/agent/app-config.ts` in `app_config.dev.rateLimits` and hydrated into memory on bridge startup / dev-config reads.
-- Production default: `STUD_DEV_MODE_ENABLED` unset or `false` → `/agent/config` returns `devModeAllowed: false` → toggle hidden, dev model list returns `[]`, any `devModel` field in a run request is rejected 403.
+- Production default: `CORPUS_DEV_MODE_ENABLED` unset or `false` → `/agent/config` returns `devModeAllowed: false` → toggle hidden, dev model list returns `[]`, any `devModel` field in a run request is rejected 403.
 
 Auth routes and env:
 
-- `POST /auth/login/start` — starts email token login or Google OAuth (`provider: "email" | "google"`); stores only hashed login/state tokens. Email-token login requires either local/dev echo (`STUD_LOGIN_TOKEN_ECHO=true` or anonymous local dev) or real Resend delivery via `RESEND_API_KEY` + `STUD_AUTH_EMAIL_FROM`; otherwise it returns 503 instead of pretending an email was sent.
-- `POST /auth/login/verify` — verifies email token, Google OAuth code, or Google ID credential; creates an HTTP-only `stud_session` cookie backed by `auth_sessions`.
+- `POST /auth/login/start` — starts email token login or Google OAuth (`provider: "email" | "google"`); stores only hashed login/state tokens. Email-token login requires either local/dev echo (`CORPUS_LOGIN_TOKEN_ECHO=true` or anonymous local dev) or real Resend delivery via `RESEND_API_KEY` + `CORPUS_AUTH_EMAIL_FROM`; otherwise it returns 503 instead of pretending an email was sent.
+- `POST /auth/login/verify` — verifies email token, Google OAuth code, or Google ID credential; creates an HTTP-only `corpus_session` cookie backed by `auth_sessions`.
 - `POST /auth/logout` — revokes the current session hash and clears the cookie. Setting `user: null` in auth store causes `Home.tsx` to render `LoginScreen` immediately.
 - `GET /auth/me` — returns current user, 401 when logged out and anonymous dev bypass is not enabled.
 - **Login UX** — `LoginScreen` in `Home.tsx`: email field is disabled only after email-token start succeeds; when start/verify fails the error is shown and the user stays on the correct step. The main product UI requires a real non-anonymous user; anonymous local-dev auth does not bypass the visible login screen.
 - **Google OAuth** — `/auth/login/start` prefers server-side `GOOGLE_REDIRECT_URI` and returns that URI to the browser so login verification uses the same exact callback. `GOOGLE_REDIRECT_URI` must exactly match an Authorized redirect URI in Google Cloud Console.
 - **User creation** — login normalizes email to lowercase and uses find/create with `P2002` recovery instead of Prisma `upsert`, avoiding crashes when the unique `users.email` index is hit during repeated or racing login attempts.
-- **User badge** — `UserBadge` in `StudAppHeader.tsx` shows avatar (or initial) + truncated display name / email for non-anonymous users. Clicking signs out via `useAuthStore().logout()`.
-- Env: `DATABASE_URL`, `STUD_ALLOW_ANONYMOUS`, `STUD_LOGIN_TOKEN_ECHO`, `RESEND_API_KEY`, `STUD_AUTH_EMAIL_FROM`, `STUD_COOKIE_SECURE`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`.
+- **User badge** — `UserBadge` in `CorpusAppHeader.tsx` shows avatar (or initial) + truncated display name / email for non-anonymous users. Clicking signs out via `useAuthStore().logout()`.
+- Env: `DATABASE_URL`, `CORPUS_ALLOW_ANONYMOUS`, `CORPUS_LOGIN_TOKEN_ECHO`, `RESEND_API_KEY`, `CORPUS_AUTH_EMAIL_FROM`, `CORPUS_COOKIE_SECURE`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`.
 
 Corpus knowledge base:
 
@@ -471,7 +486,7 @@ Scripts: `db:generate`, `db:migrate`, `db:migrate:deploy`, `db:studio`
 
 ---
 
-## Studio Plugin (`studio-plugin/stud-bridge.server.lua`)
+## Studio Plugin (`studio-plugin/corpus-bridge.server.lua`)
 
 Lua plugin that runs inside Roblox Studio. Key behavior:
 
@@ -527,14 +542,14 @@ The plan lives at `knowledge-base/ROBLOX_OPEN_SOURCE_GAME_KNOWLEDGE_BASE_PLAN.md
 ## Environment Variables
 
 ```bash
-# Stud-owned model credentials (server/private config only)
+# Corpus-owned model credentials (server/private config only)
 AI_GATEWAY_URL=
 CLOUDFLARE_API_TOKEN=
 OPENROUTER_API_KEY=
 
-# Stud Gateway (optional — for Stud's own hosted model access)
-STUD_GATEWAY_URL=
-STUD_GATEWAY_KEY=
+# Corpus Gateway (optional — for Corpus's own hosted model access)
+CORPUS_GATEWAY_URL=
+CORPUS_GATEWAY_KEY=
 
 # Corpus (all optional — corpus disabled unless CORPUS_ENABLED=true)
 CORPUS_ENABLED=false
@@ -554,12 +569,12 @@ CLOUDFLARE_VECTORIZE_PATTERN_INDEX=roblox-patterns
 CLOUDFLARE_WORKERS_AI_EMBED_MODEL=@cf/baai/bge-base-en-v1.5
 
 DATABASE_URL=
-STUD_AGENT_STORE=postgres|file|memory  # optional override; default uses Postgres when DATABASE_URL exists
-STUD_DEV_MODE_ENABLED=false            # default; set true only in local/private environments — never in public deployments
-STUD_DEV_MODE_TOKEN=                   # optional server-side secret; if set, client must send X-Stud-Dev-Token header to unlock dev mode
-                                       # set the matching value in browser devtools: localStorage.setItem("stud_dev_mode_token","<token>")
-STUD_FULL_ACCESS_ENABLED=false         # default; allow client to enable full-access mode (bypasses mutation approvals)
-STUD_FULL_ACCESS_TOKEN=                # optional; if set, client must send X-Stud-Full-Access-Token header
+CORPUS_AGENT_STORE=postgres|file|memory  # optional override; default uses Postgres when DATABASE_URL exists
+CORPUS_DEV_MODE_ENABLED=false            # default; set true only in local/private environments — never in public deployments
+CORPUS_DEV_MODE_TOKEN=                   # optional server-side secret; if set, client must send X-Corpus-Dev-Token header to unlock dev mode
+                                       # set the matching value in browser devtools: localStorage.setItem("corpus_dev_mode_token","<token>")
+CORPUS_FULL_ACCESS_ENABLED=false         # default; allow client to enable full-access mode (bypasses mutation approvals)
+CORPUS_FULL_ACCESS_TOKEN=                # optional; if set, client must send X-Corpus-Full-Access-Token header
 ```
 
 ---
@@ -595,7 +610,7 @@ All scripts read `.env` for credentials. Run from the repo root.
 ### Full pipeline order
 
 ```bash
-# 1. Convert all .rbxl files in ~/stud/games/ → ~/stud/games/converted/
+# 1. Convert all .rbxl files in ~/corpus/games/ → ~/corpus/games/converted/
 bun run scripts/batch-convert.ts
 
 # 2. Sync local converted games to R2 + register in Postgres
@@ -660,7 +675,7 @@ Slugs not URL-safe   → run migrate-slugs.ts --apply
 - Vectorize stores only embeddings plus small metadata (`r2Path`, game slug/name, niche, chunk type, Roblox path).
 - Postgres `chunks` rows store the lookup catalog: `vectorizeId`, `vectorizeIndex`, `r2Path`, metadata, tags, symbols, remotes, and services.
 - Retrieval flow: embed query → Vectorize nearest-neighbor search → use returned ids/metadata to find Postgres chunk rows → fetch full chunk text from R2.
-- Claude Code reference review: `claude-code/` favors demand-driven context/tool loading instead of always-on vector retrieval; Stud corpus should gate retrieval by user intent and relevance score before injecting chunks.
+- Claude Code reference review: `claude-code/` favors demand-driven context/tool loading instead of always-on vector retrieval; Corpus corpus should gate retrieval by user intent and relevance score before injecting chunks.
 - Corpus metadata note: `scripts/embed-games.ts` reuses the richer shared script parser from `server/agent/corpus/extract.ts`; script chunks should have file path, Roblox path, line range, source hash, symbols, required modules, remotes, services, tags, and quality score populated when source is available.
 - Summary and system chunks may legitimately have null `file_path`, `roblox_path`, `line_start`, `line_end`, and `source_hash` when they summarize many files rather than one clear source file.
 - Metadata backfill: `bun run scripts/embed-games.ts --slug=<slug> --backfill-metadata`, `--games=all --backfill-metadata`, or `--games=10 --backfill-metadata` rebuilds descriptors from R2/local meta and updates existing Postgres rows by deterministic `vectorizeId` without calling Workers AI, upserting/deleting Vectorize data, or creating duplicate chunk rows.
@@ -668,49 +683,56 @@ Slugs not URL-safe   → run migrate-slugs.ts --apply
 
 ---
 
-## StudLandingPage (`StudLandingPage/`)
+## RobloxLandingPage (`RobloxLandingPage/`)
 
-Next.js 16.2.6 (App Router) marketing landing page for Stud. Deployed to Cloudflare Pages as a fully static export.
+Next.js 16.2.6 (App Router) marketing landing page for Corpus. Deployed to Cloudflare Pages as a fully static export.
 
 - **`next.config.ts`** — Turbopack enabled; no `output` override (standalone-compatible for `@opennextjs/cloudflare`).
 - **`open-next.config.ts`** — Full Cloudflare adapter config: `wrapper: "cloudflare-node"`, `converter: "edge"`, all caches set to `"dummy"`, `edgeExternals: ["node:crypto"]`. Using dummy caches means no `WORKER_SELF_REFERENCE` or R2 bindings needed. Excluded from `tsconfig.json` (package installed locally as devDep, types available, but file lives outside Next.js compilation scope).
-- **`wrangler.jsonc`** — Minimal Cloudflare Workers config: name `stud-landing-page`, points `main` at `.open-next/worker.js`, `assets.directory` at `.open-next/assets`. No `WORKER_SELF_REFERENCE` binding (dummy caches don't need it). No `r2_buckets` (no ISR).
+- **`wrangler.jsonc`** — Minimal Cloudflare Workers config: name `corpus-landing-page`, points `main` at `.open-next/worker.js`, `assets.directory` at `.open-next/assets`. No `WORKER_SELF_REFERENCE` binding (dummy caches don't need it). No `r2_buckets` (no ISR).
 - **`package.json`** — `@opennextjs/cloudflare: "latest"` in devDependencies so `bunx opennextjs-cloudflare build` resolves the binary from `node_modules/.bin/`.
 - Build command: `bunx opennextjs-cloudflare build` → full pipeline runs locally and on Cloudflare Pages.
 - **`src/app/page.tsx`** — Single `"use client"` page with all landing page sections (hero, features, tools, permissions, CTA, footer, waitlist modal).
 - **`src/app/layout.tsx`** — Minimal App Router layout with metadata (title, icons).
-- **`public/stud/assets/`** — Images, video clips, fonts served at `/stud/assets/...` paths.
+- **`public/corpus/assets/`** — Images, video clips, fonts served at `/corpus/assets/...` paths.
 - No server-side code, no API routes, no ISR — purely client-rendered.
 
 ---
 
 ## Product Planning Docs
 
-- **`MVP_NEXT_STEPS.md`** — Product-ready MVP checklist for Stud, including architecture decision, must-have build phases, database/storage notes, smoke tests, deferred features, and copy-paste prompts for future implementation runs.
-- Auth/dev-mode/provider-key follow-up prompts were drafted in chat; provider credentials MVP direction is Stud-owned server credentials only, with user-facing provider key entry removed/hidden.
+- **`MVP_NEXT_STEPS.md`** — Product-ready MVP checklist for Corpus, including architecture decision, must-have build phases, database/storage notes, smoke tests, deferred features, and copy-paste prompts for future implementation runs.
+- Auth/dev-mode/provider-key follow-up prompts were drafted in chat; provider credentials MVP direction is Corpus-owned server credentials only, with user-facing provider key entry removed/hidden.
 - Prompt status audit: corpus gating, auth sessions/login routes, user-owned conversations, settings persistence, provider-key UI removal, and metadata backfill are present; MCP transport wording still has legacy `plugin_fallback`/`official_mcp` labels in UI/status code.
-- Local anonymous auth debug: `/auth/me` can still return anonymous local-dev sessions when `STUD_ALLOW_ANONYMOUS=true`, but `Home.tsx` keeps showing `LoginScreen` until a non-anonymous user session exists.
-- Dev mode debug: when `STUD_DEV_MODE_TOKEN` is set, browser must set `localStorage.stud_dev_mode_token` to the same value; `/agent/config` returns `devModeAllowed=false` without the `X-Stud-Dev-Token` header.
+- Local anonymous auth debug: `/auth/me` can still return anonymous local-dev sessions when `CORPUS_ALLOW_ANONYMOUS=true`, but `Home.tsx` keeps showing `LoginScreen` until a non-anonymous user session exists.
+- Dev mode debug: when `CORPUS_DEV_MODE_TOKEN` is set, browser must set `localStorage.corpus_dev_mode_token` to the same value; `/agent/config` returns `devModeAllowed=false` without the `X-Corpus-Dev-Token` header.
 - Bug prompt audit: cancellation currently aborts the agent run but should also cancel queued/in-flight Studio relay work; approve-scope is exact tool+scope matching and needs broader/persistent scope matching plus an explicit full-access mode.
-- Diff prompt audit: Claude Code reference has structured/color diff code under `claude-code/native-ts/color-diff/`; Stud should render script mutations as first-class before/after hunks with line numbers and word highlights, not raw tool JSON.
-- Claude Code Part 3 integration: added run-scoped task tools/events (`stud_task_create`, `stud_task_update`, `stud_task_list`) plus `TaskProgress` UI during streaming.
+- Diff prompt audit: Claude Code reference has structured/color diff code under `claude-code/native-ts/color-diff/`; Corpus should render script mutations as first-class before/after hunks with line numbers and word highlights, not raw tool JSON.
+- Claude Code Part 3 integration: added run-scoped task tools/events (`corpus_task_create`, `corpus_task_update`, `corpus_task_list`) plus `TaskProgress` UI during streaming.
 - Claude Code Part 3 integration: plan steps now accept richer structured fields (`index`, `title`, `description`, `toolNames`, `risk`, `scope`, `estimatedChanges`) with `PlanStepList` approval UI.
 - Claude Code Part 3 integration: session memory now extracts/stores recent project/preference/pattern facts in `agent_memories` and injects them into future run context.
 - Claude Code Part 3 integration: runtime auto-compacts long conversations, emits `context_compacted`, and shows a subtle chat notice.
 - Claude Code Part 3 integration: post-run prompt suggestions are generated via `/agent/conversations/:id/suggestions` and shown under the composer.
 - Claude Code Part 3 integration: each run creates a Studio ChangeHistoryService waypoint and exposes `/agent/conversations/:id/runs/:runId/restore` for UI "Undo run".
-- Claude Code Part 3 integration: external MCP servers from `STUD_MCP_SERVERS=name:url` load as first-class agent tools and `/agent/mcp/status` powers the MCP connection badge.
+- Claude Code Part 3 integration: external MCP servers from `CORPUS_MCP_SERVERS=name:url` load as first-class agent tools and `/agent/mcp/status` powers the MCP connection badge.
 - Claude Code Part 3 integration: `roblox_spawn_subagent` now supports explore, plan, debugger, ui_specialist, and network_specialist specialists with scoped tools/progress events.
 - Auth polish: header shows signed-in user/avatar with sign-out; logout now clears the client session back to the login screen, and email-token login has retry/reset recovery.
-- Production hardening: bridge startup rejects unsafe production config (`STUD_ALLOW_ANONYMOUS=true`, dev mode enabled, insecure cookies, or missing database); `.env.example` documents production-safe flags and MCP server config.
+- Production hardening: bridge startup rejects unsafe production config (`CORPUS_ALLOW_ANONYMOUS=true`, dev mode enabled, insecure cookies, or missing database); `.env.example` documents production-safe flags and MCP server config.
 - Corpus debug: `GET /corpus/debug` runs a fixed "tycoon dropper income system" retrieval and returns corpus readiness/config plus the retrieval result.
 - Corpus ops run: `sync-corpus.ts` synced 439 R2-only games into Postgres with 18 already done; `embed-games.ts --games=all` was started and stopped after slow progress, leaving Postgres at 896 games / 76 ingested / 820 pending / 1,756 chunks.
-- MCP management UI: `ConnectionBadges` hides MCP entirely when no external MCP servers are configured. When MCP servers exist or error, the MCP pill opens a dialog with summary counts (configured/connected/tools + last-loaded time), tool search/filter input, per-server connection state + full tool chip list, copyable `STUD_MCP_SERVERS=…` env snippet, and a refresh button that re-fetches `GET /agent/mcp/status` without restarting.
+- MCP management UI: `ConnectionBadges` hides MCP entirely when no external MCP servers are configured. When MCP servers exist or error, the MCP pill opens a dialog with summary counts (configured/connected/tools + last-loaded time), tool search/filter input, per-server connection state + full tool chip list, copyable `CORPUS_MCP_SERVERS=…` env snippet, and a refresh button that re-fetches `GET /agent/mcp/status` without restarting.
 - MCP status endpoint `GET /agent/mcp/status` now returns `{ configuredCount, connectedCount, totalToolCount, lastLoadedAt, servers[] }` — richer than the previous `{ servers[] }` shape. `ExternalMcpRegistry.status()` computes all counts and records `loadedAt` after `loadFromEnv()` completes.
 - Follow-up task file: `REMAINING_AGENT_TASKS.md` lists only non-production remaining work with copy-paste prompts for corpus embedding/resume/verification, MCP management polish, and tests.
 - Corpus retrieval verified (Task 3): `/corpus/status` → `enabled: true, ready: true, pendingGames: 820`; pipeline is end-to-end functional (embed → Vectorize → Postgres → R2 → chunk injection). Ingested niche distribution: general(53), social(8), fps(3), simulator(3), rpg(2), horror(2), battle-royale(2), racing(1), tower-defense(1), obby(1), tycoon(1).
 - Corpus retrieval calibration: added `"general": []` to `NICHE_KEYWORDS` in `server/agent/corpus/retrieve.ts` so `roblox-general` (53 games) participates in all-index fallback searches; also added `roblox-general` as a parallel secondary search alongside any niche-specific index query (`niche !== "general"` guard prevents double-search). This surfaces the 53 general-niche games that were previously never reachable.
 - Corpus retrieval test results: "help me build a tycoon dropper income system" → 4 chunks from Mansion Tycoon (tycoon, scores 0.73–0.66); "make a shop GUI with coins" → 1 chunk from Project Pokemon (general, score 0.68); "create a gun damage system with server validation" → 4 chunks from Lasertag! + Martian Invasion (fps+general, scores 0.74–0.72). `CORPUS_LOG_RETRIEVAL=true` and `CORPUS_MIN_SCORE=0.50` remain in `.env`.
+- Corpus niche audit: Postgres currently has 622/896 games labeled `general`, and chunks are heavily skewed toward `roblox-general` (2,332 chunks) versus the next largest niche (`roblox-simulator`, 84 chunks). Root cause is slug/name keyword auto-detection falling back to `general`; safest remediation is relabel games with per-game `meta.json`, cleanup/re-embed only ingested misclassified games, and relabel un-ingested games before embedding.
+- Corpus niche repair tooling: added `scripts/fix-corpus-niches.ts` for bulk niche classification, local `meta.json` writing, Postgres relabeling, stale Vectorize-index detection, targeted raw R2 repair, and cleanup/re-embed of already-ingested games. `scripts/embed-games.ts` now has R2/embedding timeouts, progress logs, bounded parallel raw R2 reads, conservative/retried R2 chunk writes, and upload progress.
+- Corpus niche repair run: relabeled 205 former `general` games; repaired all stale ingested chunk indexes so `games.niche` now matches `chunks.vectorize_index` for ingested rows (`stale=0`). `roblox-general` dropped from 2,332 chunks to 1,121; corrected indexes now include `roblox-social` 449, `roblox-rpg` 395, `roblox-obby` 173, `roblox-battle-royale` 151, and `roblox-fps` 132. Remaining non-general rows are pending normal embedding, not stale-index pollution.
+- Corpus repair resume commands: `bun run scripts/fix-corpus-niches.ts --repair-stale-indexes` audits stale uploaded vectors; add `--reembed` to repair them. `bun run scripts/fix-corpus-niches.ts --repair-missing-raw` audits pending raw R2 manifests; add `--apply` to rebuild missing raw uploads from local converted folders. Then run `bun run scripts/embed-pending-batches.ts --limit=25` repeatedly to continue pending embeddings.
+- Corpus pending embed runner: `scripts/embed-pending-batches.ts` now retries transient Postgres/Cloudflare failures up to 3 attempts, retries DB count/pending queries, and prints the meaningful tail of failures instead of only SSL warning noise.
+- Corpus repair validation: stale uploaded vector audit is currently `0`; pending raw manifest audit found no missing manifests in the sampled/latest run. A hardened pending batch embedded 5/5 games successfully, moving corpus status to 896 games / 237 ingested / 659 pending / 2,632 chunks.
+- Product rebrand: the product was renamed **Stud → Corpus** (mechanical, `Studio` references always preserved via negative-lookahead). This is breaking and requires ops follow-up: env vars `STUD_*` → `CORPUS_*` (redeploy with the new names; `.env` must be updated), the auth cookie `stud_session` → `corpus_session` (existing sessions are invalidated — users must log in again), localStorage keys (`stud_dev_mode_token` → `corpus_dev_mode_token`, etc.) reset, model-facing task tools `stud_task_*` → `corpus_task_*` (system prompt updated to match), HTTP relay routes `/stud/*` → `/corpus/*` (plugin + bridge updated together), and files/dirs renamed: `studio-plugin/corpus-bridge.server.lua`, `src/corpus-ui/` with `Corpus*` components, `public/corpus/` assets. No Postgres table/column rename was needed (all `stud`-looking DB names were actually `studio_*`). The existing knowledge-base **corpus** feature (`CORPUS_ENABLED`, `CORPUS_MAX_CHUNKS`, `server/agent/corpus/`, "Corpus retrieval") is unrelated and unchanged — the product name now shares that word, but there is no literal env-var/identifier collision. The marketing site lives at `RobloxLandingPage/` (its own nested git repo; the old `StudLandingPage/` path was renamed to it outside this work) and was rebranded too: `corpus-landing-page` package/wrangler name, `public/corpus/` assets (hero renamed `corpus-world-hero.webp`), "Corpus Chat" copy. Its `.open-next/` build output is generated and regenerates on `bunx opennextjs-cloudflare build`.
 
 ---
 

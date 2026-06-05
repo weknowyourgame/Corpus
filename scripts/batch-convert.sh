@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Batch extracts all .rbxl files in ~/stud/games using Lune (zero interaction).
+# Batch extracts all .rbxl files in ~/corpus/games using Lune (zero interaction).
 # Usage: bash scripts/batch-convert.sh
 
 set -e
 
-GAMES_DIR="$HOME/stud/games"
+GAMES_DIR="$HOME/corpus/games"
 CONVERTED_DIR="$GAMES_DIR/converted"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 

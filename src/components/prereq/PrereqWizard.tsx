@@ -10,7 +10,7 @@ import { usePrereqStore, type PrereqCheck } from "@/stores/prereq";
 import { Loader } from "@/components/ui/loader";
 import { cn } from "@/lib/utils";
 import { SettingsDialog } from "@/components/settings/SettingsDialog";
-import { StudLogo } from "@/stud-ui";
+import { CorpusLogo } from "@/corpus-ui";
 import { Button } from "@/components/ui/button";
 import {
   CheckCircle,
@@ -26,7 +26,7 @@ import {
 
 const iconMap: Record<string, React.ElementType> = {
   "roblox-studio": Monitor,
-  "stud-plugin": Plug,
+  "corpus-plugin": Plug,
   "bridge-server": Server,
   "studio-connection": Plug,
 };
@@ -57,10 +57,10 @@ function CheckItem({
   const isIssue = check.status === "failed" || check.status === "warning";
 
   return (
-    <div className="stud-prereq-check stud-panel flex items-start gap-4 p-4">
+    <div className="corpus-prereq-check corpus-panel flex items-start gap-4 p-4">
       <div
         className={cn(
-          "stud-prereq-check-icon p-2 rounded-lg",
+          "corpus-prereq-check-icon p-2 rounded-lg",
           check.status === "failed" && "is-failed",
           check.status === "warning" && "is-warning",
           check.status === "passed" && "is-passed",
@@ -124,8 +124,8 @@ export function PrereqWizard() {
         break;
       case "install-plugin": {
         const a = document.createElement("a");
-        a.href = "/studio-plugin/stud-bridge.server.lua";
-        a.download = "stud-bridge.server.lua";
+        a.href = "/studio-plugin/corpus-bridge.server.lua";
+        a.download = "corpus-bridge.server.lua";
         a.click();
         runAllChecks();
         break;
@@ -152,24 +152,24 @@ export function PrereqWizard() {
   // Show loading state while checking
   if (isChecking) {
     return (
-      <div className="stud-prereq-screen fixed inset-0 z-50 flex items-center justify-center">
+      <div className="corpus-prereq-screen fixed inset-0 z-50 flex items-center justify-center">
         <div className="text-center">
           <Loader variant="wave" size="lg" />
-          <p className="mt-4" style={{ color: "var(--stud-muted)" }}>Checking prerequisites...</p>
+          <p className="mt-4" style={{ color: "var(--corpus-muted)" }}>Checking prerequisites...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="stud-prereq-screen fixed inset-0 z-50 overflow-auto">
-      <div className="stud-prereq-content max-w-2xl mx-auto px-6 py-12">
-        <div className="stud-prereq-heading text-center mb-8">
-          <StudLogo className="justify-center mb-6" />
-          <h1 className="stud-display-title" style={{ fontSize: "2.25rem" }}>Setup Required</h1>
-          <p className="stud-display-subtitle">
+    <div className="corpus-prereq-screen fixed inset-0 z-50 overflow-auto">
+      <div className="corpus-prereq-content max-w-2xl mx-auto px-6 py-12">
+        <div className="corpus-prereq-heading text-center mb-8">
+          <CorpusLogo className="justify-center mb-6" />
+          <h1 className="corpus-display-title" style={{ fontSize: "2.25rem" }}>Setup Required</h1>
+          <p className="corpus-display-subtitle">
             {hasIssues
-              ? "Some prerequisites need your attention before using Stud."
+              ? "Some prerequisites need your attention before using Corpus."
               : "Almost ready! Just a few optional items to review."}
           </p>
         </div>
@@ -177,7 +177,7 @@ export function PrereqWizard() {
         {/* Failed checks (required) */}
         {failedChecks.length > 0 && (
           <div className="mb-6">
-            <h2 className="stud-prereq-section-title is-required text-sm font-medium uppercase tracking-wide mb-3">
+            <h2 className="corpus-prereq-section-title is-required text-sm font-medium uppercase tracking-wide mb-3">
               Required
             </h2>
             <div className="space-y-3">
@@ -191,7 +191,7 @@ export function PrereqWizard() {
         {/* Warning checks (optional) */}
         {warningChecks.length > 0 && (
           <div className="mb-6">
-            <h2 className="stud-prereq-section-title is-recommended text-sm font-medium uppercase tracking-wide mb-3">
+            <h2 className="corpus-prereq-section-title is-recommended text-sm font-medium uppercase tracking-wide mb-3">
               Recommended
             </h2>
             <div className="space-y-3">
@@ -217,10 +217,10 @@ export function PrereqWizard() {
         </details>
 
         {/* Actions */}
-        <div className="stud-prereq-actions flex items-center justify-center gap-4">
+        <div className="corpus-prereq-actions flex items-center justify-center gap-4">
           <Button variant="outline" onClick={() => runAllChecks()}>Re-check</Button>
           {!hasIssues && (
-            <Button variant="dark" onClick={dismissWizard}>Continue to Stud</Button>
+            <Button variant="dark" onClick={dismissWizard}>Continue to Corpus</Button>
           )}
           {hasIssues && (
             <Button variant="ghost" onClick={dismissWizard}>Skip for now</Button>

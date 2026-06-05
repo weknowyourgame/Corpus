@@ -1,6 +1,6 @@
 # Roblox Corpus Infrastructure
 
-This folder contains the server-side infrastructure for Stud's open-source Roblox game knowledge base.
+This folder contains the server-side infrastructure for Corpus's open-source Roblox game knowledge base.
 
 Current scope:
 
@@ -71,7 +71,7 @@ bun run db:studio
 
 Do not use Hyperdrive for this plan.
 
-For Cloudflare Workers later, use Prisma's JavaScript client engine with an edge-compatible Postgres path. This repo is set up for the driver-adapter direction (`@prisma/adapter-pg` + `pg`) without binding the design to Hyperdrive. If the Worker DB access becomes too heavy, keep Prisma in the Stud API server and let Workers call internal API routes for corpus jobs.
+For Cloudflare Workers later, use Prisma's JavaScript client engine with an edge-compatible Postgres path. This repo is set up for the driver-adapter direction (`@prisma/adapter-pg` + `pg`) without binding the design to Hyperdrive. If the Worker DB access becomes too heavy, keep Prisma in the Corpus API server and let Workers call internal API routes for corpus jobs.
 
 ## Phase 3: Cloudflare Resources
 

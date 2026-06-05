@@ -1,12 +1,12 @@
 @import "tailwindcss";
-@import "./stud-ui/stud.css";
-@import "./stud-ui/stud-app.css";
+@import "./corpus-ui/corpus.css";
+@import "./corpus-ui/corpus-app.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-sans: var(--stud-sans, "Stud Pixel", system-ui, sans-serif);
-  --font-mono: var(--stud-tech, "Stud Raster", ui-monospace, monospace);
+  --font-sans: var(--corpus-sans, "Corpus Pixel", system-ui, sans-serif);
+  --font-mono: var(--corpus-tech, "Corpus Raster", ui-monospace, monospace);
 }
 
 @layer base {
@@ -26,6 +26,6 @@
     background: #f8f8f6;
     color: #1a1817;
     -webkit-font-smoothing: antialiased;
-    font-family: var(--stud-sans, system-ui, sans-serif);
+    font-family: var(--corpus-sans, system-ui, sans-serif);
   }
 }

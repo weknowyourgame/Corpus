@@ -1,0 +1,1142 @@
+{
+  "id": "7fd2ab6a-b407-42f9-b9b4-435642958adb",
+  "studioSessionId": "O9VSNWNW",
+  "accessTokenHash": "08e6b717d75f1a1cb2aec7bca7d207c3269c9b0b83582ec14a8005b00aad2185",
+  "createdAt": "2026-05-31T08:52:38.932Z",
+  "updatedAt": "2026-05-31T10:22:30.699Z",
+  "nextSequence": 127,
+  "messages": [
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "user",
+      "content": "hiiiii"
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": "Hello! How can I assist you today? Let me know if you have any Roblox Studio questions or projects you'd like to work on.",
+      "toolCalls": []
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": "Hello! Howcan I help you today? If you have a Roblox Studio project or any specific question, just let me know!",
+      "toolCalls": []
+    },
+    {
+      "role": "user",
+      "content": "what all can you do mate ?"
+    },
+    {
+      "role": "assistant",
+      "content": "I’m a hands‑on Roblox Studio assistant that can work directly inside your place. Here’s what I can do for you:\n\n- **Create and modify objects** – I can add new Parts, Models, GUI elements, Scripts, ModuleScripts, RemoteEvents, etc., and I can rename, move, or delete any existing instance you point to.  \n- **Write and edit scripts** – I can replace the full source of a Script, LocalScript, or ModuleScript, or patch a specific snippet inside an existing script. I never ask you to paste anything; I just apply the change for you.  \n- **Control properties** – I can set any property on any instance (size, color, CFrame, etc.) or batch‑set many at once.  \n- **Set up server‑client communication** – I can place RemoteEvents, RemoteFunctions, RemoteCommands, and write the corresponding server‑ and client‑side code to handle them.  \n- **Work with DataStores** – I can read, write, increment, or delete keys in your game’s DataStore, handling the required approvals and summarising the changes.  \n- **Add assets from the Toolbox** – I can search the catalog, let you pick an asset, and insert it while optionally stripping out any embedded scripts.  \n- **Run and control playtests** – I can start or stop a Play Solo/team test session, capture logs, and help you iterate on bugs.  \n- **Debug and analyse problems** – I can surface Script Analyzer errors, surface the call stack, and suggest fixes for logic or runtime issues.  \n- **Coordinate complex tasks** – I’m able to plan a multi‑step feature (e.g., a shop, a leaderboard, a custom ability) and execute each step in the correct order, making sure each piece is created, wired up, and verified.  \n\nAll of that is done by calling the internal Studio tools directly, so you don’t have to leave the editor or manually copy‑paste anything. If you have a specific project or feature in mind, just let me know and I’ll start working on it right away.",
+      "toolCalls": []
+    },
+    {
+      "role": "user",
+      "content": "what are your interactive abilities"
+    },
+    {
+      "role": "assistant",
+      "content": "Ican work directly inside your Roblox Studio project without any copy‑and‑paste step. Here’s what I’m able to do interactively:\n\n- **Create any Roblox instance** (Parts, Models, GUI objects, Scripts, ModuleScripts, RemoteEvents, etc.) and position it under the exact parent you need.  \n- **Replace or edit script source** – I can overwrite the full code of a Script, LocalScript or ModuleScript, or patch a specific snippet inside an existing script.  \n- **Set or change instance properties** (Size, Color, CFrame, Enabled, etc.) on single objects or on many objects in a batch.  \n- **Wire up server‑client communication** by adding RemoteEvents/RemoteFunctions and attaching the appropriate server‑side and client‑side scripts.  \n- ** Manage DataStore keys** – read values, write new ones, increment counters, or delete keys, with the required approval step and a summary of the change.  \n- **Insert Toolbox assets** – search the catalog, let you pick an asset thumbnail, insert it under a chosen parent, and optionally strip out any embedded scripts.  \n- **Control play‑testing** – start or stop a Play Solo/Team test session, capture live logs, and keep the test state consistent.  \n- **Analyze and debug** – surface Script Analyzer warnings/errors, show stack traces, and suggest concrete fixes for logic or runtime problems.  \n- **Plan and execute multi‑step features** (e.g., a shop, leaderboard, ability system) by breaking the work into ordered tool calls, creating each piece, wiring it up, and verifying the result.  \n\nAll actions are performed through internal tools, so the project is modified instantly and you never need to leave the Studio UI. If you have a particular task in mind, just let me know and I’ll execute it for you.",
+      "toolCalls": []
+    },
+    {
+      "role": "user",
+      "content": "Insert Toolbox assets – search the catalog, let you pick an asset thumbnail, insert it under a chosen parent, and optionally strip out any embedded scripts.\nshow me this mate"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "call_5edf40add6c34382ab453238",
+          "name": "roblox_ask_user",
+          "input": {
+            "questions": [
+              {
+                "question": "What keyword or category would you like to search for in the Toolbox?",
+                "type": "text"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "toolCallId": "call_5edf40add6c34382ab453238",
+      "toolName": "roblox_ask_user",
+      "output": {
+        "answered": true,
+        "questions": [
+          {
+            "question": "What keyword or category would you like to search for in the Toolbox?",
+            "answer": "spaceship"
+          }
+        ]
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "call_e995e383a0124e5094808425",
+          "name": "roblox_toolbox_search",
+          "input": {
+            "expand": true,
+            "limit": 10,
+            "query": "spaceship",
+            "category": "Model"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "toolCallId": "call_e995e383a0124e5094808425",
+      "toolName": "roblox_toolbox_search",
+      "output": {
+        "query": "spaceship",
+        "expandedQueries": [
+          "spaceship"
+        ],
+        "count": 10,
+        "totalResults": 1000,
+        "nextPageCursor": "MV8xXzFfMTA=_9a51d0d39942f94b3a197149a8051824",
+        "pageSize": 10,
+        "results": [
+          {
+            "id": 10558420013,
+            "name": "Rocket spaceship (READ DESC)- Works- Official",
+            "description": "If you use this, you must give me credit in your game's description or else I will file a DMCA and you can be banned from roblox, or legal action can occur.\n\nThis is working 100% and its just like real rocket ships or space ships!!!!",
+            "creator": "Kenzie_7406",
+            "verifiedCreator": true,
+            "favoriteCount": 415,
+            "upVotes": 415,
+            "downVotes": 85,
+            "hasScripts": true,
+            "scriptCount": 3,
+            "thumbnailUrl": "https://tr.rbxcdn.com/180DAY-6b358e5c63aa81371d137f96fe637731/150/150/Model/Png/noFilter",
+            "query": "spaceship"
+          },
+          {
+            "id": 11134404981,
+            "name": "spaceship",
+            "description": "",
+            "creator": "hirobrien321",
+            "verifiedCreator": true,
+            "favoriteCount": 88,
+            "upVotes": 88,
+            "downVotes": 12,
+            "hasScripts": true,
+            "scriptCount": 2,
+            "thumbnailUrl": "https://tr.rbxcdn.com/180DAY-9b5791ab8f2736c3d05124adea112cbc/150/150/Model/Png/noFilter",
+            "query": "spaceship"
+          },
+          {
+            "id": 430247809,
+            "name": "Spaceship Meshpart",
+            "description": "i dunno how to put this in meshes yet.\r\n\r\ncomes with a texture.",
+            "creator": "JDLENL",
+            "verifiedCreator": true,
+            "favoriteCount": 30,
+            "upVotes": 30,
+            "downVotes": 20,
+            "hasScripts": false,
+            "scriptCount": 0,
+            "thumbnailUrl": "https://tr.rbxcdn.com/180DAY-4fe51fc1781bf14fe6a93c88285b3788/150/150/Model/Png/noFilter",
+            "query": "spaceship"
+          },
+          {
+            "id": 140284072262225,
+            "name": "Spaceship with turret",
+            "description": "",
+            "creator": "stxrbvrst7",
+            "verifiedCreator": true,
+            "favoriteCount": 0,
+            "upVotes": 0,
+            "downVotes": 0,
+            "hasScripts": true,
+            "scriptCount": 9,
+            "thumbnailUrl": "https://tr.rbxcdn.com/180DAY-86f87142f4f43844495f0021a04d5814/150/150/Model/Png/noFilter",
+            "query": "spaceship"
+          },
+          {
+            "id": 11627390900,
+            "name": "Spaceship",
+            "description": "",
+            "creator": "EvelienSterk",
+            "verifiedCreator": true,
+            "favoriteCount": 0,
+            "upVotes": 0,
+            "downVotes": 0,
+            "hasScripts": true,
+            "scriptCount": 5,
+            "thumbnailUrl": "https://tr.rbxcdn.com/180DAY-5084875211ecca08282e300481e1611b/150/150/Model/Png/noFilter",
+            "query": "spaceship"
+          },
+          {
+            "id": 115408582073866,
+            "name": "Spaceship Spawner Laser Detailed Star Spaceship",
+            "description": "",
+            "creator": "Xx_LegendDriftFusion",
+            "verifiedCreator": true,
+            "favoriteCount": 0,
+            "upVotes": 0,
+            "downVotes": 0,
+            "hasScripts": false,
+            "scriptCount": 0,
+            "thumbnailUrl": "https://tr.rbxcdn.com/180DAY-6446da8455ab9ea76c76507f7d2eff6a/150/150/Model/Png/noFilter",
+            "query": "spaceship"
+          },
+          {
+            "id": 76180737227917,
+            "name": "SpaceShip Vehicle Spaceship Speed Galaxy Alien Fly",
+            "description": "",
+            "creator": "GoldenADTwilightg153",
+            "verifiedCreator": true,
+            "favoriteCount": 0,
+            "upVotes": 0,
+            "downVotes": 0,
+            "hasScripts": true,
+            "scriptCount": 7,
+            "thumbnailUrl": "https://tr.rbxcdn.com/180DAY-8f73a400d7c4928f0856aecfe578612e/150/150/Model/Png/noFilter",
+            "query": "spaceship"
+          },
+          {
+            "id": 122324037961361,
+            "name": "🚀 Space Ship (Works) Spaceship Galaxy Star Wars",
+            "description": "",
+            "creator": "V0rtex4dHypera186662",
+            "verifiedCreator": true,
+            "favoriteCount": 0,
+            "upVotes": 0,
+            "downVotes": 0,
+            "hasScripts": true,
+            "scriptCount": 6,
+            "thumbnailUrl": "https://tr.rbxcdn.com/180DAY-5a0f8addc635c998297b2834f8c3ce20/150/150/Model/Png/noFilter",
+            "query": "spaceship"
+          },
+          {
+            "id": 125245019220487,
+            "name": "Sci Fi Spaceship",
+            "description": "Feel free to use in studio.",
+            "creator": "Fallowick",
+            "verifiedCreator": true,
+            "favoriteCount": 0,
+            "upVotes": 0,
+            "downVotes": 0,
+            "hasScripts": false,
+            "scriptCount": 0,
+            "thumbnailUrl": "https://tr.rbxcdn.com/180DAY-60804b13418fc8f7b0fdd685a7ec6b72/150/150/Model/Png/noFilter",
+            "query": "spaceship"
+          },
+          {
+            "id": 16239792438,
+            "name": "SpaceShip (Working!)",
+            "description": "its working acually!",
+            "creator": "haz3mn_DevL",
+            "verifiedCreator": true,
+            "favoriteCount": 70,
+            "upVotes": 70,
+            "downVotes": 430,
+            "hasScripts": false,
+            "scriptCount": 0,
+            "thumbnailUrl": "https://tr.rbxcdn.com/180DAY-51a2bc3ac3d3dbb01fd1bd190f3061ec/150/150/Model/Png/noFilter",
+            "query": "spaceship"
+          }
+        ],
+        "selectionQuestion": {
+          "question": "Which Creator Store asset should I prepare for safe insertion?",
+          "type": "single",
+          "options": [
+            {
+              "label": "Rocket spaceship (READ DESC)- Works- Official",
+              "value": "10558420013",
+              "imageUrl": "https://tr.rbxcdn.com/180DAY-6b358e5c63aa81371d137f96fe637731/150/150/Model/Png/noFilter",
+              "description": "Kenzie_7406 (verified) | 415 upvotes | contains scripts"
+            },
+            {
+              "label": "spaceship",
+              "value": "11134404981",
+              "imageUrl": "https://tr.rbxcdn.com/180DAY-9b5791ab8f2736c3d05124adea112cbc/150/150/Model/Png/noFilter",
+              "description": "hirobrien321 (verified) | 88 upvotes | contains scripts"
+            },
+            {
+              "label": "Spaceship Meshpart",
+              "value": "430247809",
+              "imageUrl": "https://tr.rbxcdn.com/180DAY-4fe51fc1781bf14fe6a93c88285b3788/150/150/Model/Png/noFilter",
+              "description": "JDLENL (verified) | 30 upvotes"
+            },
+            {
+              "label": "Spaceship with turret",
+              "value": "140284072262225",
+              "imageUrl": "https://tr.rbxcdn.com/180DAY-86f87142f4f43844495f0021a04d5814/150/150/Model/Png/noFilter",
+              "description": "stxrbvrst7 (verified) | 0 upvotes | contains scripts"
+            },
+            {
+              "label": "Spaceship",
+              "value": "11627390900",
+              "imageUrl": "https://tr.rbxcdn.com/180DAY-5084875211ecca08282e300481e1611b/150/150/Model/Png/noFilter",
+              "description": "EvelienSterk (verified) | 0 upvotes | contains scripts"
+            },
+            {
+              "label": "Spaceship Spawner Laser Detailed Star Spaceship",
+              "value": "115408582073866",
+              "imageUrl": "https://tr.rbxcdn.com/180DAY-6446da8455ab9ea76c76507f7d2eff6a/150/150/Model/Png/noFilter",
+              "description": "Xx_LegendDriftFusion (verified) | 0 upvotes"
+            },
+            {
+              "label": "SpaceShip Vehicle Spaceship Speed Galaxy Alien Fly",
+              "value": "76180737227917",
+              "imageUrl": "https://tr.rbxcdn.com/180DAY-8f73a400d7c4928f0856aecfe578612e/150/150/Model/Png/noFilter",
+              "description": "GoldenADTwilightg153 (verified) | 0 upvotes | contains scripts"
+            },
+            {
+              "label": "🚀 Space Ship (Works) Spaceship Galaxy Star Wars",
+              "value": "122324037961361",
+              "imageUrl": "https://tr.rbxcdn.com/180DAY-5a0f8addc635c998297b2834f8c3ce20/150/150/Model/Png/noFilter",
+              "description": "V0rtex4dHypera186662 (verified) | 0 upvotes | contains scripts"
+            },
+            {
+              "label": "Sci Fi Spaceship",
+              "value": "125245019220487",
+              "imageUrl": "https://tr.rbxcdn.com/180DAY-60804b13418fc8f7b0fdd685a7ec6b72/150/150/Model/Png/noFilter",
+              "description": "Fallowick (verified) | 0 upvotes"
+            },
+            {
+              "label": "SpaceShip (Working!)",
+              "value": "16239792438",
+              "imageUrl": "https://tr.rbxcdn.com/180DAY-51a2bc3ac3d3dbb01fd1bd190f3061ec/150/150/Model/Png/noFilter",
+              "description": "haz3mn_DevL (verified) | 70 upvotes"
+            },
+            {
+              "label": "Load more results",
+              "value": "__load_more__",
+              "imageUrl": null,
+              "description": "Fetch the next 10 matches"
+            },
+            {
+              "label": "Search again with a different query",
+              "value": "__search_again__",
+              "imageUrl": null,
+              "description": "Pick a refined keyword and run a fresh search"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "call_e9463f33966a49b3aea7f4ba",
+          "name": "roblox_ask_user",
+          "input": {
+            "questions": [
+              {
+                "question": "Which Creator Store asset should I prepare for safe insertion?",
+                "type": "single",
+                "options": [
+                  {
+                    "label": "Rocket spaceship (READ DESC)- Works- Official",
+                    "value": "10558420013",
+                    "imageUrl": "https://tr.rbxcdn.com/180DAY-6b358e5c63aa81371d137f96fe637731/150/150/Model/Png/noFilter",
+                    "description": "Kenzie_7406 (verified) | 415 upvotes | contains scripts"
+                  },
+                  {
+                    "label": "spaceship",
+                    "value": "11134404981",
+                    "imageUrl": "https://tr.rbxcdn.com/180DAY-9b5791ab8f2736c3d05124adea112cbc/150/150/Model/Png/noFilter",
+                    "description": "hirobrien321 (verified) | 88 upvotes | contains scripts"
+                  },
+                  {
+                    "label": "Spaceship Meshpart",
+                    "value": "430247809",
+                    "imageUrl": "https://tr.rbxcdn.com/180DAY-4fe51fc1781bf14fe6a93c88285b3788/150/150/Model/Png/noFilter",
+                    "description": "JDLENL (verified) | 30 upvotes"
+                  },
+                  {
+                    "label": "Spaceship with turret",
+                    "value": "140284072262225",
+                    "imageUrl": "https://tr.rbxcdn.com/180DAY-86f87142f4f43844495f0021a04d5814/150/150/Model/Png/noFilter",
+                    "description": "stxrbvrst7 (verified) | 0 upvotes | contains scripts"
+                  },
+                  {
+                    "label": "Spaceship",
+                    "value": "11627390900",
+                    "imageUrl": "https://tr.rbxcdn.com/180DAY-5084875211ecca08282e300481e1611b/150/150/Model/Png/noFilter",
+                    "description": "EvelienSterk (verified) | 0 upvotes | contains scripts"
+                  },
+                  {
+                    "label": "Spaceship Spawner Laser Detailed Star Spaceship",
+                    "value": "115408582073866",
+                    "imageUrl": "https://tr.rbxcdn.com/180DAY-6446da8455ab9ea76c76507f7d2eff6a/150/150/Model/Png/noFilter",
+                    "description": "Xx_LegendDriftFusion (verified) | 0 upvotes"
+                  },
+                  {
+                    "label": "SpaceShip Vehicle Spaceship Speed Galaxy Alien Fly",
+                    "value": "76180737227917",
+                    "imageUrl": "https://tr.rbxcdn.com/180DAY-8f73a400d7c4928f0856aecfe578612e/150/150/Model/Png/noFilter",
+                    "description": "GoldenADTwilightg153 (verified) | 0 upvotes | contains scripts"
+                  },
+                  {
+                    "label": "🚀 Space Ship (Works) Spaceship Galaxy Star Wars",
+                    "value": "122324037961361",
+                    "imageUrl": "https://tr.rbxcdn.com/180DAY-5a0f8addc635c998297b2834f8c3ce20/150/150/Model/Png/noFilter",
+                    "description": "V0rtex4dHypera186662 (verified) | 0 upvotes | contains scripts"
+                  },
+                  {
+                    "label": "Sci Fi Spaceship",
+                    "value": "125245019220487",
+                    "imageUrl": "https://tr.rbxcdn.com/180DAY-60804b13418fc8f7b0fdd685a7ec6b72/150/150/Model/Png/noFilter",
+                    "description": "Fallowick (verified) | 0 upvotes"
+                  },
+                  {
+                    "label": "SpaceShip (Working!)",
+                    "value": "16239792438",
+                    "imageUrl": "https://tr.rbxcdn.com/180DAY-51a2bc3ac3d3dbb01fd1bd190f3061ec/150/150/Model/Png/noFilter",
+                    "description": "haz3mn_DevL (verified) | 70 upvotes"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "id": "479400a7-afe2-42cf-a136-c0eb71b93b8f",
+      "status": "error",
+      "mode": "execute",
+      "tier": "pro",
+      "startedAt": "2026-05-31T09:57:06.944Z",
+      "iterations": 1,
+      "completedAt": "2026-05-31T09:57:07.753Z",
+      "error": "Gateway error 401 for profile coder-pro: {\"success\":false,\"result\":[],\"messages\":[],\"error\":[{\"code\":2009,\"message\":\"Unauthorized\"}],\"name\":\"AiGatewayError\",\"httpCode\":401,\"internalCode\":2009,\"message\":\"Unauthorized\",\"description\":\"Unauthorized\"}"
+    },
+    {
+      "id": "40980d6e-2691-483e-9fa9-7c78121d767e",
+      "status": "error",
+      "mode": "execute",
+      "tier": "free",
+      "startedAt": "2026-05-31T09:59:38.224Z",
+      "iterations": 1,
+      "completedAt": "2026-05-31T09:59:40.200Z",
+      "error": "Gateway error 401 for profile coder-free: {\"success\":false,\"result\":[],\"messages\":[],\"error\":[{\"code\":2009,\"message\":\"Unauthorized\"}],\"name\":\"AiGatewayError\",\"httpCode\":401,\"internalCode\":2009,\"message\":\"Unauthorized\",\"description\":\"Unauthorized\"}"
+    },
+    {
+      "id": "11fb4f4d-8e0b-434b-94a0-d347e547715f",
+      "status": "error",
+      "mode": "execute",
+      "tier": "free",
+      "startedAt": "2026-05-31T10:00:45.558Z",
+      "iterations": 1,
+      "completedAt": "2026-05-31T10:00:45.920Z",
+      "error": "Gateway error 401 for profile coder-free: {\"success\":false,\"result\":[],\"messages\":[],\"error\":[{\"code\":2009,\"message\":\"Unauthorized\"}],\"name\":\"AiGatewayError\",\"httpCode\":401,\"internalCode\":2009,\"message\":\"Unauthorized\",\"description\":\"Unauthorized\"}"
+    },
+    {
+      "id": "65b537aa-168b-4154-b72a-bc67dcaa0614",
+      "status": "error",
+      "mode": "execute",
+      "tier": "free",
+      "startedAt": "2026-05-31T10:01:21.067Z",
+      "iterations": 1,
+      "completedAt": "2026-05-31T10:01:21.179Z",
+      "error": "Gateway error 401 for profile coder-free: {\"success\":false,\"result\":[],\"messages\":[],\"error\":[{\"code\":2009,\"message\":\"Unauthorized\"}],\"name\":\"AiGatewayError\",\"httpCode\":401,\"internalCode\":2009,\"message\":\"Unauthorized\",\"description\":\"Unauthorized\"}"
+    },
+    {
+      "id": "23f5c614-3083-4762-a76a-12c553edf05d",
+      "status": "error",
+      "mode": "execute",
+      "tier": "free",
+      "startedAt": "2026-05-31T10:03:07.938Z",
+      "iterations": 1,
+      "completedAt": "2026-05-31T10:03:08.274Z",
+      "error": "Gateway error 401 for profile coder-free: {\"success\":false,\"result\":[],\"messages\":[],\"error\":[{\"code\":2009,\"message\":\"Unauthorized\"}],\"name\":\"AiGatewayError\",\"httpCode\":401,\"internalCode\":2009,\"message\":\"Unauthorized\",\"description\":\"Unauthorized\"}"
+    },
+    {
+      "id": "4cbb90f6-df86-4077-b3ae-749e4eb0ab1d",
+      "status": "error",
+      "mode": "execute",
+      "tier": "free",
+      "startedAt": "2026-05-31T10:06:21.623Z",
+      "iterations": 1,
+      "completedAt": "2026-05-31T10:06:22.165Z",
+      "error": "Gateway error 400 for profile coder-free: {\"success\":false,\"result\":[],\"messages\":[],\"error\":[{\"code\":2008,\"message\":\"Invalid provider\"}],\"name\":\"AiGatewayError\",\"httpCode\":400,\"internalCode\":2008,\"message\":\"Invalid provider\",\"description\":\"Invalid provider\"}"
+    },
+    {
+      "id": "33b4e39e-f300-4832-a68a-217bee400509",
+      "status": "error",
+      "mode": "execute",
+      "tier": "free",
+      "startedAt": "2026-05-31T10:06:43.022Z",
+      "iterations": 1,
+      "completedAt": "2026-05-31T10:06:43.084Z",
+      "error": "Gateway error 400 for profile coder-free: {\"success\":false,\"result\":[],\"messages\":[],\"error\":[{\"code\":2008,\"message\":\"Invalid provider\"}],\"name\":\"AiGatewayError\",\"httpCode\":400,\"internalCode\":2008,\"message\":\"Invalid provider\",\"description\":\"Invalid provider\"}"
+    },
+    {
+      "id": "8ef6112f-ed83-4446-8be1-a8f80c3e2b83",
+      "status": "completed",
+      "mode": "execute",
+      "tier": "free",
+      "startedAt": "2026-05-31T10:09:31.241Z",
+      "iterations": 1,
+      "completedAt": "2026-05-31T10:09:33.730Z"
+    },
+    {
+      "id": "0766ea8d-f6c1-4f0d-86dd-4184e29c9e19",
+      "status": "completed",
+      "mode": "execute",
+      "tier": "free",
+      "startedAt": "2026-05-31T10:09:59.062Z",
+      "iterations": 1,
+      "completedAt": "2026-05-31T10:10:00.983Z"
+    },
+    {
+      "id": "e623524a-9677-465e-bdb4-40713036302f",
+      "status": "completed",
+      "mode": "execute",
+      "tier": "free",
+      "startedAt": "2026-05-31T10:10:16.216Z",
+      "iterations": 1,
+      "completedAt": "2026-05-31T10:10:24.080Z"
+    },
+    {
+      "id": "9441ab8d-939c-46da-b8c3-e2db795175c1",
+      "status": "completed",
+      "mode": "execute",
+      "tier": "free",
+      "startedAt": "2026-05-31T10:10:32.643Z",
+      "iterations": 1,
+      "completedAt": "2026-05-31T10:10:36.644Z"
+    },
+    {
+      "id": "2d85003d-fa9a-41e5-ab4e-1c28695cf22c",
+      "status": "cancelled",
+      "mode": "execute",
+      "tier": "free",
+      "startedAt": "2026-05-31T10:10:50.034Z",
+      "iterations": 3,
+      "completedAt": "2026-05-31T10:22:30.580Z",
+      "error": "Server restarted before this run completed"
+    }
+  ],
+  "approvedScopes": [],
+  "auditEvents": [
+    {
+      "id": "7ffd19cc-f84f-45f8-976c-9379bd433435",
+      "timestamp": "2026-05-31T09:57:06.945Z",
+      "runId": "479400a7-afe2-42cf-a136-c0eb71b93b8f",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "hi"
+      }
+    },
+    {
+      "id": "135485ab-467d-4909-9b97-b35b0d557759",
+      "timestamp": "2026-05-31T09:59:38.225Z",
+      "runId": "40980d6e-2691-483e-9fa9-7c78121d767e",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "hi"
+      }
+    },
+    {
+      "id": "5132c79f-a809-4f23-bef2-633e0e3589ae",
+      "timestamp": "2026-05-31T10:00:45.559Z",
+      "runId": "11fb4f4d-8e0b-434b-94a0-d347e547715f",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "hi"
+      }
+    },
+    {
+      "id": "b29102cb-5de2-49da-8d39-3ef5da6be96a",
+      "timestamp": "2026-05-31T10:01:21.067Z",
+      "runId": "65b537aa-168b-4154-b72a-bc67dcaa0614",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "hi"
+      }
+    },
+    {
+      "id": "14f17660-b259-41da-bcae-b967fdbf6eb0",
+      "timestamp": "2026-05-31T10:03:07.939Z",
+      "runId": "23f5c614-3083-4762-a76a-12c553edf05d",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "hiiiii"
+      }
+    },
+    {
+      "id": "dc1711d9-7e92-4b0d-81db-c20018e20d47",
+      "timestamp": "2026-05-31T10:06:21.624Z",
+      "runId": "4cbb90f6-df86-4077-b3ae-749e4eb0ab1d",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "hi"
+      }
+    },
+    {
+      "id": "6e17edf3-a817-44d5-af5c-e1fce25c15b5",
+      "timestamp": "2026-05-31T10:06:43.022Z",
+      "runId": "33b4e39e-f300-4832-a68a-217bee400509",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "hi"
+      }
+    },
+    {
+      "id": "f7e0ec03-4557-4755-9bb0-74996e821226",
+      "timestamp": "2026-05-31T10:09:31.241Z",
+      "runId": "8ef6112f-ed83-4446-8be1-a8f80c3e2b83",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "hi"
+      }
+    },
+    {
+      "id": "9b55c94c-36cf-452a-8efb-43b9a0fe5e3d",
+      "timestamp": "2026-05-31T10:09:59.062Z",
+      "runId": "0766ea8d-f6c1-4f0d-86dd-4184e29c9e19",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "hi"
+      }
+    },
+    {
+      "id": "aa50adb4-872b-41aa-9dc9-6018bd58cb1b",
+      "timestamp": "2026-05-31T10:10:16.216Z",
+      "runId": "e623524a-9677-465e-bdb4-40713036302f",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "what all can you do mate ?"
+      }
+    },
+    {
+      "id": "99bc8ddf-7c30-438d-a411-b9007d80ea14",
+      "timestamp": "2026-05-31T10:10:32.645Z",
+      "runId": "9441ab8d-939c-46da-b8c3-e2db795175c1",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "what are your interactive abilities"
+      }
+    },
+    {
+      "id": "587fa74f-2cb9-465a-92e9-f92f2939003f",
+      "timestamp": "2026-05-31T10:10:50.034Z",
+      "runId": "2d85003d-fa9a-41e5-ab4e-1c28695cf22c",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "Insert Toolbox assets – search the catalog, let you pick an asset thumbnail, insert it under a chosen parent, and optionally strip out any embedded scripts.\nshow me this mate"
+      }
+    },
+    {
+      "id": "b7cd43ef-53a2-4eaa-a73d-7ee9632bd968",
+      "timestamp": "2026-05-31T10:10:54.008Z",
+      "runId": "2d85003d-fa9a-41e5-ab4e-1c28695cf22c",
+      "type": "tool_requested",
+      "actor": "model",
+      "summary": "roblox ask user (conversation)",
+      "details": {
+        "questions": [
+          {
+            "question": "What keyword or category would you like to search for in the Toolbox?",
+            "type": "text"
+          }
+        ]
+      },
+      "toolCallId": "call_5edf40add6c34382ab453238",
+      "toolName": "roblox_ask_user",
+      "risk": "read"
+    },
+    {
+      "id": "ffc089e1-cd02-4615-8cc8-e15fd6840471",
+      "timestamp": "2026-05-31T10:10:54.008Z",
+      "runId": "2d85003d-fa9a-41e5-ab4e-1c28695cf22c",
+      "type": "policy_decision",
+      "actor": "policy",
+      "summary": "Read-only operations are allowed.",
+      "details": {
+        "scope": "conversation",
+        "planStepIndex": null
+      },
+      "toolCallId": "call_5edf40add6c34382ab453238",
+      "toolName": "roblox_ask_user",
+      "risk": "read",
+      "decision": "allow"
+    },
+    {
+      "id": "a590a5f2-6f6e-47a2-bef2-53ff8369c264",
+      "timestamp": "2026-05-31T10:11:06.645Z",
+      "runId": "2d85003d-fa9a-41e5-ab4e-1c28695cf22c",
+      "type": "tool_outcome",
+      "actor": "tool",
+      "summary": "roblox_ask_user returned a result.",
+      "details": {
+        "answered": true,
+        "questions": [
+          {
+            "question": "What keyword or category would you like to search for in the Toolbox?",
+            "answer": "spaceship"
+          }
+        ]
+      },
+      "toolCallId": "call_5edf40add6c34382ab453238",
+      "toolName": "roblox_ask_user",
+      "risk": "read"
+    },
+    {
+      "id": "b7e6b76c-d5a3-4cf2-a699-b012e09ac3d8",
+      "timestamp": "2026-05-31T10:11:11.058Z",
+      "runId": "2d85003d-fa9a-41e5-ab4e-1c28695cf22c",
+      "type": "tool_requested",
+      "actor": "model",
+      "summary": "roblox toolbox search (creator-store:spaceship)",
+      "details": {
+        "expand": true,
+        "limit": 10,
+        "query": "spaceship",
+        "category": "Model"
+      },
+      "toolCallId": "call_e995e383a0124e5094808425",
+      "toolName": "roblox_toolbox_search",
+      "risk": "read"
+    },
+    {
+      "id": "ee1b9344-4ca6-40b1-b4ab-e920cc6be4be",
+      "timestamp": "2026-05-31T10:11:11.058Z",
+      "runId": "2d85003d-fa9a-41e5-ab4e-1c28695cf22c",
+      "type": "policy_decision",
+      "actor": "policy",
+      "summary": "Read-only operations are allowed.",
+      "details": {
+        "scope": "creator-store:spaceship",
+        "planStepIndex": null
+      },
+      "toolCallId": "call_e995e383a0124e5094808425",
+      "toolName": "roblox_toolbox_search",
+      "risk": "read",
+      "decision": "allow"
+    },
+    {
+      "id": "46e3ed97-795c-4924-98e3-3b7a6106b15d",
+      "timestamp": "2026-05-31T10:11:12.295Z",
+      "runId": "2d85003d-fa9a-41e5-ab4e-1c28695cf22c",
+      "type": "tool_outcome",
+      "actor": "tool",
+      "summary": "roblox_toolbox_search returned a result.",
+      "details": {
+        "query": "spaceship",
+        "expandedQueries": [
+          "spaceship"
+        ],
+        "count": 10,
+        "totalResults": 1000,
+        "nextPageCursor": "MV8xXzFfMTA=_9a51d0d39942f94b3a197149a8051824",
+        "pageSize": 10,
+        "results": [
+          {
+            "id": 10558420013,
+            "name": "Rocket spaceship (READ DESC)- Works- Official",
+            "description": "If you use this, you must give me credit in your game's description or else I will file a DMCA and you can be banned from roblox, or legal action can occur.\n\nThis is working 100% and its just like real rocket ships or space ships!!!!",
+            "creator": "Kenzie_7406",
+            "verifiedCreator": true,
+            "favoriteCount": 415,
+            "upVotes": 415,
+            "downVotes": 85,
+            "hasScripts": true,
+            "scriptCount": 3,
+            "thumbnailUrl": "https://tr.rbxcdn.com/180DAY-6b358e5c63aa81371d137f96fe637731/150/150/Model/Png/noFilter",
+            "query": "spaceship"
+          },
+          {
+            "id": 11134404981,
+            "name": "spaceship",
+            "description": "",
+            "creator": "hirobrien321",
+            "verifiedCreator": true,
+            "favoriteCount": 88,
+            "upVotes": 88,
+            "downVotes": 12,
+            "hasScripts": true,
+            "scriptCount": 2,
+            "thumbnailUrl": "https://tr.rbxcdn.com/180DAY-9b5791ab8f2736c3d05124adea112cbc/150/150/Model/Png/noFilter",
+            "query": "spaceship"
+          },
+          {
+            "id": 430247809,
+            "name": "Spaceship Meshpart",
+            "description": "i dunno how to put this in meshes yet.\r\n\r\ncomes with a texture.",
+            "creator": "JDLENL",
+            "verifiedCreator": true,
+            "favoriteCount": 30,
+            "upVotes": 30,
+            "downVotes": 20,
+            "hasScripts": false,
+            "scriptCount": 0,
+            "thumbnailUrl": "https://tr.rbxcdn.com/180DAY-4fe51fc1781bf14fe6a93c88285b3788/150/150/Model/Png/noFilter",
+            "query": "spaceship"
+          },
+          {
+            "id": 140284072262225,
+            "name": "Spaceship with turret",
+            "description": "",
+            "creator": "stxrbvrst7",
+            "verifiedCreator": true,
+            "favoriteCount": 0,
+            "upVotes": 0,
+            "downVotes": 0,
+            "hasScripts": true,
+            "scriptCount": 9,
+            "thumbnailUrl": "https://tr.rbxcdn.com/180DAY-86f87142f4f43844495f0021a04d5814/150/150/Model/Png/noFilter",
+            "query": "spaceship"
+          },
+          {
+            "id": 11627390900,
+            "name": "Spaceship",
+            "description": "",
+            "creator": "EvelienSterk",
+            "verifiedCreator": true,
+            "favoriteCount": 0,
+            "upVotes": 0,
+            "downVotes": 0,
+            "hasScripts": true,
+            "scriptCount": 5,
+            "thumbnailUrl": "https://tr.rbxcdn.com/180DAY-5084875211ecca08282e300481e1611b/150/150/Model/Png/noFilter",
+            "query": "spaceship"
+          },
+          {
+            "id": 115408582073866,
+            "name": "Spaceship Spawner Laser Detailed Star Spaceship",
+            "description": "",
+            "creator": "Xx_LegendDriftFusion",
+            "verifiedCreator": true,
+            "favoriteCount": 0,
+            "upVotes": 0,
+            "downVotes": 0,
+            "hasScripts": false,
+            "scriptCount": 0,
+            "thumbnailUrl": "https://tr.rbxcdn.com/180DAY-6446da8455ab9ea76c76507f7d2eff6a/150/150/Model/Png/noFilter",
+            "query": "spaceship"
+          },
+          {
+            "id": 76180737227917,
+            "name": "SpaceShip Vehicle Spaceship Speed Galaxy Alien Fly",
+            "description": "",
+            "creator": "GoldenADTwilightg153",
+            "verifiedCreator": true,
+            "favoriteCount": 0,
+            "upVotes": 0,
+            "downVotes": 0,
+            "hasScripts": true,
+            "scriptCount": 7,
+            "thumbnailUrl": "https://tr.rbxcdn.com/180DAY-8f73a400d7c4928f0856aecfe578612e/150/150/Model/Png/noFilter",
+            "query": "spaceship"
+          },
+          {
+            "id": 122324037961361,
+            "name": "🚀 Space Ship (Works) Spaceship Galaxy Star Wars",
+            "description": "",
+            "creator": "V0rtex4dHypera186662",
+            "verifiedCreator": true,
+            "favoriteCount": 0,
+            "upVotes": 0,
+            "downVotes": 0,
+            "hasScripts": true,
+            "scriptCount": 6,
+            "thumbnailUrl": "https://tr.rbxcdn.com/180DAY-5a0f8addc635c998297b2834f8c3ce20/150/150/Model/Png/noFilter",
+            "query": "spaceship"
+          },
+          {
+            "id": 125245019220487,
+            "name": "Sci Fi Spaceship",
+            "description": "Feel free to use in studio.",
+            "creator": "Fallowick",
+            "verifiedCreator": true,
+            "favoriteCount": 0,
+            "upVotes": 0,
+            "downVotes": 0,
+            "hasScripts": false,
+            "scriptCount": 0,
+            "thumbnailUrl": "https://tr.rbxcdn.com/180DAY-60804b13418fc8f7b0fdd685a7ec6b72/150/150/Model/Png/noFilter",
+            "query": "spaceship"
+          },
+          {
+            "id": 16239792438,
+            "name": "SpaceShip (Working!)",
+            "description": "its working acually!",
+            "creator": "haz3mn_DevL",
+            "verifiedCreator": true,
+            "favoriteCount": 70,
+            "upVotes": 70,
+            "downVotes": 430,
+            "hasScripts": false,
+            "scriptCount": 0,
+            "thumbnailUrl": "https://tr.rbxcdn.com/180DAY-51a2bc3ac3d3dbb01fd1bd190f3061ec/150/150/Model/Png/noFilter",
+            "query": "spaceship"
+          }
+        ],
+        "selectionQuestion": {
+          "question": "Which Creator Store asset should I prepare for safe insertion?",
+          "type": "single",
+          "options": [
+            {
+              "label": "Rocket spaceship (READ DESC)- Works- Official",
+              "value": "10558420013",
+              "imageUrl": "https://tr.rbxcdn.com/180DAY-6b358e5c63aa81371d137f96fe637731/150/150/Model/Png/noFilter",
+              "description": "Kenzie_7406 (verified) | 415 upvotes | contains scripts"
+            },
+            {
+              "label": "spaceship",
+              "value": "11134404981",
+              "imageUrl": "https://tr.rbxcdn.com/180DAY-9b5791ab8f2736c3d05124adea112cbc/150/150/Model/Png/noFilter",
+              "description": "hirobrien321 (verified) | 88 upvotes | contains scripts"
+            },
+            {
+              "label": "Spaceship Meshpart",
+              "value": "430247809",
+              "imageUrl": "https://tr.rbxcdn.com/180DAY-4fe51fc1781bf14fe6a93c88285b3788/150/150/Model/Png/noFilter",
+              "description": "JDLENL (verified) | 30 upvotes"
+            },
+            {
+              "label": "Spaceship with turret",
+              "value": "140284072262225",
+              "imageUrl": "https://tr.rbxcdn.com/180DAY-86f87142f4f43844495f0021a04d5814/150/150/Model/Png/noFilter",
+              "description": "stxrbvrst7 (verified) | 0 upvotes | contains scripts"
+            },
+            {
+              "label": "Spaceship",
+              "value": "11627390900",
+              "imageUrl": "https://tr.rbxcdn.com/180DAY-5084875211ecca08282e300481e1611b/150/150/Model/Png/noFilter",
+              "description": "EvelienSterk (verified) | 0 upvotes | contains scripts"
+            },
+            {
+              "label": "Spaceship Spawner Laser Detailed Star Spaceship",
+              "value": "115408582073866",
+              "imageUrl": "https://tr.rbxcdn.com/180DAY-6446da8455ab9ea76c76507f7d2eff6a/150/150/Model/Png/noFilter",
+              "description": "Xx_LegendDriftFusion (verified) | 0 upvotes"
+            },
+            {
+              "label": "SpaceShip Vehicle Spaceship Speed Galaxy Alien Fly",
+              "value": "76180737227917",
+              "imageUrl": "https://tr.rbxcdn.com/180DAY-8f73a400d7c4928f0856aecfe578612e/150/150/Model/Png/noFilter",
+              "description": "GoldenADTwilightg153 (verified) | 0 upvotes | contains scripts"
+            },
+            {
+              "label": "🚀 Space Ship (Works) Spaceship Galaxy Star Wars",
+              "value": "122324037961361",
+              "imageUrl": "https://tr.rbxcdn.com/180DAY-5a0f8addc635c998297b2834f8c3ce20/150/150/Model/Png/noFilter",
+              "description": "V0rtex4dHypera186662 (verified) | 0 upvotes | contains scripts"
+            },
+            {
+              "label": "Sci Fi Spaceship",
+              "value": "125245019220487",
+              "imageUrl": "https://tr.rbxcdn.com/180DAY-60804b13418fc8f7b0fdd685a7ec6b72/150/150/Model/Png/noFilter",
+              "description": "Fallowick (verified) | 0 upvotes"
+            },
+            {
+              "label": "SpaceShip (Working!)",
+              "value": "16239792438",
+              "imageUrl": "https://tr.rbxcdn.com/180DAY-51a2bc3ac3d3dbb01fd1bd190f3061ec/150/150/Model/Png/noFilter",
+              "description": "haz3mn_DevL (verified) | 70 upvotes"
+            },
+            {
+              "label": "Load more results",
+              "value": "__load_more__",
+              "imageUrl": null,
+              "description": "Fetch the next 10 matches"
+            },
+            {
+              "label": "Search again with a different query",
+              "value": "__search_again__",
+              "imageUrl": null,
+              "description": "Pick a refined keyword and run a fresh search"
+            }
+          ]
+        }
+      },
+      "toolCallId": "call_e995e383a0124e5094808425",
+      "toolName": "roblox_toolbox_search",
+      "risk": "read"
+    },
+    {
+      "id": "10afb2ec-dad9-4130-8224-55c67c9a485c",
+      "timestamp": "2026-05-31T10:11:25.782Z",
+      "runId": "2d85003d-fa9a-41e5-ab4e-1c28695cf22c",
+      "type": "tool_requested",
+      "actor": "model",
+      "summary": "roblox ask user (conversation)",
+      "details": {
+        "questions": [
+          {
+            "question": "Which Creator Store asset should I prepare for safe insertion?",
+            "type": "single",
+            "options": [
+              {
+                "label": "Rocket spaceship (READ DESC)- Works- Official",
+                "value": "10558420013",
+                "imageUrl": "https://tr.rbxcdn.com/180DAY-6b358e5c63aa81371d137f96fe637731/150/150/Model/Png/noFilter",
+                "description": "Kenzie_7406 (verified) | 415 upvotes | contains scripts"
+              },
+              {
+                "label": "spaceship",
+                "value": "11134404981",
+                "imageUrl": "https://tr.rbxcdn.com/180DAY-9b5791ab8f2736c3d05124adea112cbc/150/150/Model/Png/noFilter",
+                "description": "hirobrien321 (verified) | 88 upvotes | contains scripts"
+              },
+              {
+                "label": "Spaceship Meshpart",
+                "value": "430247809",
+                "imageUrl": "https://tr.rbxcdn.com/180DAY-4fe51fc1781bf14fe6a93c88285b3788/150/150/Model/Png/noFilter",
+                "description": "JDLENL (verified) | 30 upvotes"
+              },
+              {
+                "label": "Spaceship with turret",
+                "value": "140284072262225",
+                "imageUrl": "https://tr.rbxcdn.com/180DAY-86f87142f4f43844495f0021a04d5814/150/150/Model/Png/noFilter",
+                "description": "stxrbvrst7 (verified) | 0 upvotes | contains scripts"
+              },
+              {
+                "label": "Spaceship",
+                "value": "11627390900",
+                "imageUrl": "https://tr.rbxcdn.com/180DAY-5084875211ecca08282e300481e1611b/150/150/Model/Png/noFilter",
+                "description": "EvelienSterk (verified) | 0 upvotes | contains scripts"
+              },
+              {
+                "label": "Spaceship Spawner Laser Detailed Star Spaceship",
+                "value": "115408582073866",
+                "imageUrl": "https://tr.rbxcdn.com/180DAY-6446da8455ab9ea76c76507f7d2eff6a/150/150/Model/Png/noFilter",
+                "description": "Xx_LegendDriftFusion (verified) | 0 upvotes"
+              },
+              {
+                "label": "SpaceShip Vehicle Spaceship Speed Galaxy Alien Fly",
+                "value": "76180737227917",
+                "imageUrl": "https://tr.rbxcdn.com/180DAY-8f73a400d7c4928f0856aecfe578612e/150/150/Model/Png/noFilter",
+                "description": "GoldenADTwilightg153 (verified) | 0 upvotes | contains scripts"
+              },
+              {
+                "label": "🚀 Space Ship (Works) Spaceship Galaxy Star Wars",
+                "value": "122324037961361",
+                "imageUrl": "https://tr.rbxcdn.com/180DAY-5a0f8addc635c998297b2834f8c3ce20/150/150/Model/Png/noFilter",
+                "description": "V0rtex4dHypera186662 (verified) | 0 upvotes | contains scripts"
+              },
+              {
+                "label": "Sci Fi Spaceship",
+                "value": "125245019220487",
+                "imageUrl": "https://tr.rbxcdn.com/180DAY-60804b13418fc8f7b0fdd685a7ec6b72/150/150/Model/Png/noFilter",
+                "description": "Fallowick (verified) | 0 upvotes"
+              },
+              {
+                "label": "SpaceShip (Working!)",
+                "value": "16239792438",
+                "imageUrl": "https://tr.rbxcdn.com/180DAY-51a2bc3ac3d3dbb01fd1bd190f3061ec/150/150/Model/Png/noFilter",
+                "description": "haz3mn_DevL (verified) | 70 upvotes"
+              }
+            ]
+          }
+        ]
+      },
+      "toolCallId": "call_e9463f33966a49b3aea7f4ba",
+      "toolName": "roblox_ask_user",
+      "risk": "read"
+    },
+    {
+      "id": "f922084d-4b0b-4f94-b2f4-cd805b5656a2",
+      "timestamp": "2026-05-31T10:11:25.782Z",
+      "runId": "2d85003d-fa9a-41e5-ab4e-1c28695cf22c",
+      "type": "policy_decision",
+      "actor": "policy",
+      "summary": "Read-only operations are allowed.",
+      "details": {
+        "scope": "conversation",
+        "planStepIndex": null
+      },
+      "toolCallId": "call_e9463f33966a49b3aea7f4ba",
+      "toolName": "roblox_ask_user",
+      "risk": "read",
+      "decision": "allow"
+    },
+    {
+      "id": "a54d8df5-ee87-43b3-bb97-7dd25a8d71f6",
+      "timestamp": "2026-05-31T10:22:30.580Z",
+      "runId": "2d85003d-fa9a-41e5-ab4e-1c28695cf22c",
+      "type": "run_recovered",
+      "actor": "system",
+      "summary": "Run cancelled after server restart."
+    }
+  ],
+  "pendingApprovals": [],
+  "pendingInteractions": []
+}

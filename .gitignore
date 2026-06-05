@@ -38,7 +38,7 @@ yarn-error.log*
 
 # Test coverage
 coverage/
-.stud/
+.corpus/
 
 # Required application sources (override broad user-level lib/ ignores)
 !src/lib/

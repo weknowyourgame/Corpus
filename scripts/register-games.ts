@@ -33,7 +33,7 @@ async function existsInR2(key: string): Promise<boolean> {
 const pool   = new pg.Pool({ connectionString: databaseUrl });
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool) } as ConstructorParameters<typeof PrismaClient>[0]);
 
-const CONVERTED = join(homedir(), "stud", "games", "converted");
+const CONVERTED = join(homedir(), "corpus", "games", "converted");
 
 const NICHE_KEYWORDS: Record<string, string[]> = {
   "tower-defense": ["tower", "defense", "defend", "td", "wave", "turret"],

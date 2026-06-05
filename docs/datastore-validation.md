@@ -6,16 +6,16 @@ Use this guide to exercise the DataStore tools end-to-end **without touching pro
 
 ## 1. Prepare a sandbox universe
 
-1. In Studio, create or open a brand-new place. Publish it as a private experience named e.g. `Stud DataStore Sandbox`.
+1. In Studio, create or open a brand-new place. Publish it as a private experience named e.g. `Corpus DataStore Sandbox`.
 2. Note the **Universe ID** (Creator Dashboard → Game → `…` → Copy Universe ID).
 3. In **Game Settings → Security**, enable **Studio Access to API Services**.
 4. Inside the place, create a `Script` in `ServerScriptService` that seeds the test store:
    ```lua
    local DataStoreService = game:GetService("DataStoreService")
-   local store = DataStoreService:GetDataStore("StudSandbox")
+   local store = DataStoreService:GetDataStore("CorpusSandbox")
    store:SetAsync("hello", "world")
    store:SetAsync("counter", 0)
-   print("seeded StudSandbox")
+   print("seeded CorpusSandbox")
    ```
 5. Play-solo once so the writes flush. Stop playtest. The keys `hello` and `counter` now exist in the sandbox.
 
@@ -44,7 +44,7 @@ npm run dev:bridge
 
 If the values are missing you will see:
 
-> `[Stud Bridge] Open Cloud DataStore tools are disabled. Set ROBLOX_OPEN_CLOUD_API_KEY and ROBLOX_UNIVERSE_ID in .env to enable.`
+> `[Corpus Bridge] Open Cloud DataStore tools are disabled. Set ROBLOX_OPEN_CLOUD_API_KEY and ROBLOX_UNIVERSE_ID in .env to enable.`
 
 …and every DataStore tool will return `{ code: "open_cloud_not_configured" }` until the bridge is restarted with the keys set.
 
@@ -56,22 +56,22 @@ Open the chat UI and run the prompts below in sequence. The list at the top of t
 
 > `List my DataStore names.`
 
-Expect a `roblox_datastore__list_stores` call returning at least `["StudSandbox"]`.
+Expect a `roblox_datastore__list_stores` call returning at least `["CorpusSandbox"]`.
 
 ### 4.2 Read a key (read, no approval)
 
-> `Read the key "hello" from StudSandbox.`
+> `Read the key "hello" from CorpusSandbox.`
 
 Expect `value: "world"`, `bytes: 5`, no approval prompt.
 
 ### 4.3 Approve a development write (single approval)
 
-> `Write the value "alpha" to key "hello" in StudSandbox. Use environment=development.`
+> `Write the value "alpha" to key "hello" in CorpusSandbox. Use environment=development.`
 
 The approval card must show:
 
 * Operation `WRITE`, env badge `DEVELOPMENT`
-* Universe = sandbox id, store `StudSandbox`, scope `global`, key `hello`
+* Universe = sandbox id, store `CorpusSandbox`, scope `global`, key `hello`
 * Old value `world`, new value `alpha`
 * Rollback note: studio version history ~30 days
 
@@ -85,19 +85,19 @@ When the card appears, press **Deny**. Tool result must be `{ denied: true, … 
 
 ### 4.5 Delete (requires approval)
 
-> `Delete key "hello" from StudSandbox in development.`
+> `Delete key "hello" from CorpusSandbox in development.`
 
 Approve. Re-read the key and confirm `value: null`.
 
 ### 4.6 Increment (requires approval)
 
-> `Increment key "counter" in StudSandbox by 5 in development.`
+> `Increment key "counter" in CorpusSandbox by 5 in development.`
 
 Approve. Result returns the new numeric value. Re-read and confirm.
 
 ### 4.7 Elevated production confirmation
 
-> `Write the value "live" to key "hello" in StudSandbox with environment=production.`
+> `Write the value "live" to key "hello" in CorpusSandbox with environment=production.`
 
 The approval card must:
 
@@ -112,7 +112,7 @@ For this sandbox validation **press Deny**. We are confirming the elevated UI wo
 After the run, in another terminal:
 
 ```bash
-grep -F "$ROBLOX_OPEN_CLOUD_API_KEY" $(ls -1 ~/.stud/conversations/*/events.jsonl 2>/dev/null) 2>/dev/null && echo "LEAK" || echo "ok"
+grep -F "$ROBLOX_OPEN_CLOUD_API_KEY" $(ls -1 ~/.corpus/conversations/*/events.jsonl 2>/dev/null) 2>/dev/null && echo "LEAK" || echo "ok"
 ```
 
 (Adapt the path to wherever the conversation store persists; the in-memory store keeps nothing on disk.) The grep must report `ok`.

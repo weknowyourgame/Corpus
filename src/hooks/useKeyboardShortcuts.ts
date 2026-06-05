@@ -1,5 +1,5 @@
 /**
- * useKeyboardShortcuts - Global keyboard shortcuts for Stud
+ * useKeyboardShortcuts - Global keyboard shortcuts for Corpus
  */
 
 import { useEffect } from "react";

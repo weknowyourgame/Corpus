@@ -50,7 +50,7 @@ export function SettingsDialog({ children }: SettingsDialogProps) {
     <Dialog>
       <DialogTrigger asChild>
         {children || (
-          <button type="button" className="stud-icon-btn nav-button" aria-label="Settings">
+          <button type="button" className="corpus-icon-btn nav-button" aria-label="Settings">
             <Icon name="settings-gear" size="md" />
           </button>
         )}
@@ -59,7 +59,7 @@ export function SettingsDialog({ children }: SettingsDialogProps) {
         <DialogHeader>
           <DialogTitle>AI Tier</DialogTitle>
           <DialogDescription>
-            Choose your AI capability tier. Model access is managed by Stud.
+            Choose your AI capability tier. Model access is managed by Corpus.
           </DialogDescription>
         </DialogHeader>
 
@@ -75,7 +75,7 @@ export function SettingsDialog({ children }: SettingsDialogProps) {
         </div>
 
         <p className="text-xs text-muted-foreground pt-1">
-          Provider credentials are Stud-owned server configuration and are never entered in the browser.
+          Provider credentials are Corpus-owned server configuration and are never entered in the browser.
         </p>
 
         {user && (

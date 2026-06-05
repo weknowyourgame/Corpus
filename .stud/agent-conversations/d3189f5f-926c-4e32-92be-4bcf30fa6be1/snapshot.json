@@ -1,0 +1,155 @@
+{
+  "id": "d3189f5f-926c-4e32-92be-4bcf30fa6be1",
+  "studioSessionId": "O9VSNWNW",
+  "accessTokenHash": "8581edd5285f1cf5bd5e38efeeb0b8659ba1eefa0d8d88117e3bf62d7761ea64",
+  "createdAt": "2026-05-31T11:02:07.078Z",
+  "updatedAt": "2026-05-31T11:02:58.851Z",
+  "nextSequence": 19,
+  "messages": [
+    {
+      "role": "user",
+      "content": "hey dude"
+    },
+    {
+      "role": "assistant",
+      "content": "Hey! What can I help youbuild or modify in the studio today?",
+      "toolCalls": []
+    },
+    {
+      "role": "user",
+      "content": "read my file in codebase"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "call_316ce7b3d78043b69b5701be",
+          "name": "roblox_ask_user",
+          "input": {
+            "questions": [
+              {
+                "question": "Please provide the full path of the script you want to read (e.g., game.ServerScriptService.ShopSystem).",
+                "type": "single"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": "nah read everything"
+    },
+    {
+      "role": "assistant",
+      "content": "Sure thing! To read ascript I need its full path (e.g. `game.ServerScriptService.ShopSystem`).  \nIf you’d like to see the structure of everything in the project first, I can list all children recursively and then we can dive into any script you pick. Which approach works for you?",
+      "toolCalls": []
+    }
+  ],
+  "runs": [
+    {
+      "id": "471ff519-d2ba-4ec4-935e-09c4ccaa850a",
+      "status": "completed",
+      "mode": "execute",
+      "tier": "free",
+      "startedAt": "2026-05-31T11:02:14.087Z",
+      "iterations": 1,
+      "completedAt": "2026-05-31T11:02:17.915Z"
+    },
+    {
+      "id": "6b29da25-c2e5-4319-83d2-4eb37d8d174a",
+      "status": "cancelled",
+      "mode": "execute",
+      "tier": "free",
+      "startedAt": "2026-05-31T11:02:30.066Z",
+      "iterations": 1,
+      "completedAt": "2026-05-31T11:02:46.232Z"
+    },
+    {
+      "id": "1da0bc90-3688-4c53-96b3-775b7ebf4f68",
+      "status": "completed",
+      "mode": "execute",
+      "tier": "free",
+      "startedAt": "2026-05-31T11:02:48.310Z",
+      "iterations": 1,
+      "completedAt": "2026-05-31T11:02:58.716Z"
+    }
+  ],
+  "approvedScopes": [],
+  "auditEvents": [
+    {
+      "id": "6d19d70d-f4d7-45fb-9a9c-b6b59180bcd2",
+      "timestamp": "2026-05-31T11:02:14.104Z",
+      "runId": "471ff519-d2ba-4ec4-935e-09c4ccaa850a",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "hey dude"
+      }
+    },
+    {
+      "id": "c2a87c31-331e-4743-9acf-757e27137ab8",
+      "timestamp": "2026-05-31T11:02:30.066Z",
+      "runId": "6b29da25-c2e5-4319-83d2-4eb37d8d174a",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "read my file in codebase"
+      }
+    },
+    {
+      "id": "0177e297-0a9a-462c-8201-f93e7e897c7e",
+      "timestamp": "2026-05-31T11:02:34.518Z",
+      "runId": "6b29da25-c2e5-4319-83d2-4eb37d8d174a",
+      "type": "tool_requested",
+      "actor": "model",
+      "summary": "roblox ask user (conversation)",
+      "details": {
+        "questions": [
+          {
+            "question": "Please provide the full path of the script you want to read (e.g., game.ServerScriptService.ShopSystem).",
+            "type": "single"
+          }
+        ]
+      },
+      "toolCallId": "call_316ce7b3d78043b69b5701be",
+      "toolName": "roblox_ask_user",
+      "risk": "read"
+    },
+    {
+      "id": "884de6d0-b7b5-4c09-8890-5b07de4cf41f",
+      "timestamp": "2026-05-31T11:02:34.518Z",
+      "runId": "6b29da25-c2e5-4319-83d2-4eb37d8d174a",
+      "type": "policy_decision",
+      "actor": "policy",
+      "summary": "Read-only operations are allowed.",
+      "details": {
+        "scope": "conversation",
+        "planStepIndex": null
+      },
+      "toolCallId": "call_316ce7b3d78043b69b5701be",
+      "toolName": "roblox_ask_user",
+      "risk": "read",
+      "decision": "allow"
+    },
+    {
+      "id": "618a2ad2-6ec5-4816-a4aa-1b0ac3a3a13e",
+      "timestamp": "2026-05-31T11:02:48.310Z",
+      "runId": "1da0bc90-3688-4c53-96b3-775b7ebf4f68",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "nah read everything"
+      }
+    }
+  ],
+  "pendingApprovals": [],
+  "pendingInteractions": []
+}

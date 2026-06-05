@@ -104,7 +104,7 @@ const expansions = (raw: string) => {
 
 const STANDARD_HEADERS = {
   accept: "application/json",
-  "user-agent": "Stud/1.0 (+https://stud.dev)",
+  "user-agent": "Corpus/1.0 (+https://corpus.dev)",
 };
 
 const fetchJson = async <T>(fetcher: Fetcher, url: string, signal: AbortSignal): Promise<T | null> => {

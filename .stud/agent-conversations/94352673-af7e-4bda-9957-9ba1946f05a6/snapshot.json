@@ -1,0 +1,48 @@
+{
+  "id": "94352673-af7e-4bda-9957-9ba1946f05a6",
+  "studioSessionId": "DT6FPUGU",
+  "accessTokenHash": "9ddd73885ed062cd8cafbd6ac7f9c58917bcfab82d7cb73abacc7bac992197d5",
+  "createdAt": "2026-05-29T17:55:11.365Z",
+  "updatedAt": "2026-05-29T17:55:56.715Z",
+  "nextSequence": 7,
+  "messages": [
+    {
+      "role": "user",
+      "content": "# Roblox Game Idea: Sky Salvagers\n\nPlayers spawn on tiny floating islands in an endless sky.\n\nThe world is constantly generating drifting wreckage from ancient airships, floating cities, robots, castles, and mysterious civilizations.\n\nPlayers must:\n\n* Hook floating debris\n* Pull it to their island\n* Break it apart\n* Collect resources\n* Expand their island\n* Build machines\n* Unlock better tools\n* Explore dangerous sky zones\n\nCore Loop:\n\n1. Spot wreckage floating nearby.\n2. Use a Grapple Launcher to capture it.\n3. Reel it toward your island.\n4. Salvage valuable parts.\n5. Sell resources.\n6. Upgrade equipment.\n7. Reach rarer sky regions.\n\nResources:\n\nCommon:\n\n* Scrap Metal\n* Wood\n* Stone\n\nRare:\n\n* Energy Cores\n* Ancient Tech\n* Crystal Shards\n\nLegendary:\n\n* Sky Relics\n* Lost Artifacts\n* Celestial Fragments\n\nIsland Expansion:\n\nPlayers can:\n\n* Build larger platforms\n* Add storage\n* Add automated salvagers\n* Add resource processors\n* Build defenses\n\nAutomation:\n\nUnlock:\n\n* Auto Grapplers\n* Collection Drones\n* Sorting Machines\n* Resource Compressors\n* Cargo Airships\n\nProgression:\n\nStarter Zone:\n\n* Broken crates\n* Small debris\n\nCloud Zone:\n\n* Abandoned sky ships\n* Rare resources\n\nStorm Zone:\n\n* Dangerous lightning fields\n* Better loot\n\nAncient Zone:\n\n* Lost civilizations\n* Exclusive relics\n\nVoid Zone:\n\n* Endgame content\n* Mythic rewards\n\nMultiplayer Features:\n\n* Trading\n* Island visits\n* Guilds\n* Shared salvage expeditions\n* Leaderboards\n\nEvents:\n\nMeteor Shower\n\n* Rare resources spawn\n\nGhost Fleet\n\n* Haunted ships appear\n\nAncient Vault\n\n* Global boss event\n\nSky Leviathan\n\n* Massive flying creature carrying loot\n\nMonetization:\n\n* Cosmetic grapples\n* Island themes\n* Drone skins\n* Airship skins\n\nNever sell power.\n\nRetention Systems:\n\n* Daily quests\n* Weekly expeditions\n* Collection log\n* Artifact museum\n* Achievement system\n\nVisual Style:\n\n* Cozy floating islands\n* Bright skies\n* Cartoon aesthetic\n* Satisfying destruction\n* Physics-based debris\n\nTarget:\n\nEasy to learn in 30 seconds.\nHundreds of hours of progression.\nStrong social gameplay.\nStrong automation progression.\nSuitable for Roblox front page quality."
+    },
+    {
+      "role": "assistant",
+      "content": "What would you like to start buildingfirst for **Sky Salvagers**? (e.g., a starter script, a spawn system, a resource collector, etc.)",
+      "toolCalls": []
+    }
+  ],
+  "runs": [
+    {
+      "id": "996f77d9-c7a9-4e4b-bebf-be70fd3a43ef",
+      "status": "completed",
+      "mode": "execute",
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-nano-30b-a3b:free",
+      "startedAt": "2026-05-29T17:55:53.713Z",
+      "iterations": 1,
+      "completedAt": "2026-05-29T17:55:56.714Z"
+    }
+  ],
+  "approvedScopes": [],
+  "auditEvents": [
+    {
+      "id": "2879c921-a6de-476e-b62e-b37e7486dabc",
+      "timestamp": "2026-05-29T17:55:53.714Z",
+      "runId": "996f77d9-c7a9-4e4b-bebf-be70fd3a43ef",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "# Roblox Game Idea: Sky Salvagers\n\nPlayers spawn on tiny floating islands in an endless sky.\n\nThe world is constantly generating drifting wreckage from ancient airships, floating cities, robots, castles, and mysterious civilizations.\n\nPlayers must:\n\n* Hook floating debris\n* Pull it to their island\n* Break it apart\n* Collect resources\n* Expand their island\n* Build machines\n* Unlock better tools\n* Explore dangerous sky zones\n\nCore Loop:\n\n1. Spot wreckage floating nearby.\n2. Use a Grapple Launcher to capture it.\n3. Reel it toward your island.\n4. Salvage valuable parts.\n5. Sell resources.\n6. Upgrade equipment.\n7. Reach rarer sky regions.\n\nResources:\n\nCommon:\n\n* Scrap Metal\n* Wood\n* Stone\n\nRare:\n\n* Energy Cores\n* Ancient Tech\n* Crystal Shards\n\nLegendary:\n\n* Sky Relics\n* Lost Artifacts\n* Celestial Fragments\n\nIsland Expansion:\n\nPlayers can:\n\n* Build larger platforms\n* Add storage\n* Add automated salvagers\n* Add resource processors\n* Build defenses\n\nAutomation:\n\nUnlock:\n\n* Auto Grapplers\n* Collection Drones\n* Sorting Machines\n* Resource Compressors\n* Cargo Airships\n\nProgression:\n\nStarter Zone:\n\n* Broken crates\n* Small debris\n\nCloud Zone:\n\n* Abandoned sky ships\n* Rare resources\n\nStorm Zone:\n\n* Dangerous lightning fields\n* Better loot\n\nAncient Zone:\n\n* Lost civilizations\n* Exclusive relics\n\nVoid Zone:\n\n* Endgame content\n* Mythic rewards\n\nMultiplayer Features:\n\n* Trading\n* Island visits\n* Guilds\n* Shared salvage expeditions\n* Leaderboards\n\nEvents:\n\nMeteor Shower\n\n* Rare resources spawn\n\nGhost Fleet\n\n* Haunted ships appear\n\nAncient Vault\n\n* Global boss event\n\nSky Leviathan\n\n* Massive flying creature carrying loot\n\nMonetization:\n\n* Cosmetic grapples\n* Island themes\n* Drone skins\n* Airship skins\n\nNever sell power.\n\nRetention Systems:\n\n* Daily quests\n* Weekly expeditions\n* Collection log\n* Artifact museum\n* Achievement system\n\nVisual Style:\n\n* Cozy floating islands\n* Bright skies\n* Cartoon aesthetic\n* Satisfying destruction\n* Physics-based debris\n\nTarget:\n\nEasy to learn in 30 seconds.\nHundreds of hours of progression.\nStrong social gameplay.\nStrong automation progression.\nSuitable for Roblox front page quality."
+      }
+    }
+  ],
+  "pendingApprovals": [],
+  "pendingInteractions": []
+}

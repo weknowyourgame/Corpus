@@ -15,9 +15,9 @@ export function SessionCode({ className }: { className?: string }) {
   };
 
   return (
-    <div className={cn("stud-panel-soft", className)}>
-      <p className="text-sm" style={{ color: "var(--stud-muted)" }}>
-        Enter this code in the Stud plugin in Roblox Studio:
+    <div className={cn("corpus-panel-soft", className)}>
+      <p className="text-sm" style={{ color: "var(--corpus-muted)" }}>
+        Enter this code in the Corpus plugin in Roblox Studio:
       </p>
 
       {/* Code display */}
@@ -25,11 +25,11 @@ export function SessionCode({ className }: { className?: string }) {
         className={cn(
           "mt-3 flex items-center justify-between gap-3 rounded-lg px-4 py-3 transition-all duration-300"
         )}
-        style={{ background: "var(--stud-bg-secondary, rgba(0,0,0,0.04))" }}
+        style={{ background: "var(--corpus-bg-secondary, rgba(0,0,0,0.04))" }}
       >
         <span
           className="font-mono text-2xl tracking-[0.3em] font-bold select-all"
-          style={{ fontFamily: "var(--stud-tech)", color: "var(--stud-text)" }}
+          style={{ fontFamily: "var(--corpus-tech)", color: "var(--corpus-text)" }}
         >
           {code}
         </span>
@@ -38,7 +38,7 @@ export function SessionCode({ className }: { className?: string }) {
         </Button>
       </div>
 
-      <p className="mt-2 text-xs" style={{ color: "var(--stud-muted)" }}>
+      <p className="mt-2 text-xs" style={{ color: "var(--corpus-muted)" }}>
         This pairing code stays active while you work in this browser.
       </p>
     </div>

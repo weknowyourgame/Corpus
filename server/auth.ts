@@ -3,7 +3,7 @@ import type { NextFunction, Request, Response } from "express";
 import { Prisma } from "@prisma/client";
 import { getPrismaClient } from "./agent/prisma.ts";
 
-const SESSION_COOKIE = "stud_session";
+const SESSION_COOKIE = "corpus_session";
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const SESSION_TTL_MS = 30 * 24 * ONE_HOUR_MS;
 const LOGIN_TOKEN_TTL_MS = 15 * 60 * 1000;
@@ -17,7 +17,7 @@ export type CurrentUser = {
 };
 
 const hasDatabase = () => Boolean(process.env.DATABASE_URL);
-export const allowAnonymousAuth = () => process.env.STUD_ALLOW_ANONYMOUS === "true";
+export const allowAnonymousAuth = () => process.env.CORPUS_ALLOW_ANONYMOUS === "true";
 
 export const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
@@ -43,7 +43,7 @@ const isLocalOrigin = (origin?: string, host?: string) => {
 };
 
 const cookieOptions = () => {
-  const secure = process.env.STUD_COOKIE_SECURE === "true" || process.env.NODE_ENV === "production";
+  const secure = process.env.CORPUS_COOKIE_SECURE === "true" || process.env.NODE_ENV === "production";
   return [
     "HttpOnly",
     "Path=/",
@@ -54,7 +54,7 @@ const cookieOptions = () => {
 };
 
 const clearCookieOptions = () => {
-  const secure = process.env.STUD_COOKIE_SECURE === "true" || process.env.NODE_ENV === "production";
+  const secure = process.env.CORPUS_COOKIE_SECURE === "true" || process.env.NODE_ENV === "production";
   return [
     "HttpOnly",
     "Path=/",
@@ -223,7 +223,7 @@ async function exchangeGoogleCode(code: string, redirectUri: string) {
 
 async function sendLoginEmail(email: string, token: string) {
   const resendKey = process.env.RESEND_API_KEY;
-  const from = process.env.STUD_AUTH_EMAIL_FROM;
+  const from = process.env.CORPUS_AUTH_EMAIL_FROM;
   if (!resendKey || !from) return false;
 
   const response = await fetch("https://api.resend.com/emails", {
@@ -235,8 +235,8 @@ async function sendLoginEmail(email: string, token: string) {
     body: JSON.stringify({
       from,
       to: [email],
-      subject: "Your Stud login token",
-      text: `Use this Stud login token within 15 minutes:\n\n${token}\n`,
+      subject: "Your Corpus login token",
+      text: `Use this Corpus login token within 15 minutes:\n\n${token}\n`,
     }),
   });
 
@@ -288,11 +288,11 @@ export async function startLogin(req: Request, res: Response) {
     return;
   }
   const token = randomToken();
-  const echoToken = allowAnonymousAuth() || process.env.STUD_LOGIN_TOKEN_ECHO === "true";
-  const canSendEmail = Boolean(process.env.RESEND_API_KEY && process.env.STUD_AUTH_EMAIL_FROM);
+  const echoToken = allowAnonymousAuth() || process.env.CORPUS_LOGIN_TOKEN_ECHO === "true";
+  const canSendEmail = Boolean(process.env.RESEND_API_KEY && process.env.CORPUS_AUTH_EMAIL_FROM);
 
   if (!echoToken && !canSendEmail) {
-    res.status(503).json({ error: "Email login is not configured. Use Google sign-in or configure RESEND_API_KEY and STUD_AUTH_EMAIL_FROM." });
+    res.status(503).json({ error: "Email login is not configured. Use Google sign-in or configure RESEND_API_KEY and CORPUS_AUTH_EMAIL_FROM." });
     return;
   }
 

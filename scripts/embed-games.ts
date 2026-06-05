@@ -45,6 +45,10 @@ const bucket      = process.env.CLOUDFLARE_R2_BUCKET ?? "roblox-games";
 const embedModel  = process.env.CLOUDFLARE_WORKERS_AI_EMBED_MODEL ?? "@cf/baai/bge-base-en-v1.5";
 const indexPrefix = process.env.CLOUDFLARE_NICHE_INDEX_PREFIX ?? "roblox";
 const databaseUrl = process.env.DATABASE_URL!;
+const embedTimeoutMs = parseInt(process.env.CORPUS_EMBED_TIMEOUT_MS ?? "45000");
+const cloudflareTimeoutMs = parseInt(process.env.CORPUS_CLOUDFLARE_TIMEOUT_MS ?? "45000");
+const r2ReadConcurrency = parseInt(process.env.CORPUS_R2_READ_CONCURRENCY ?? "12");
+const r2WriteConcurrency = parseInt(process.env.CORPUS_R2_WRITE_CONCURRENCY ?? "1");
 
 if (!accountId || !apiToken || !databaseUrl) {
   console.error("Missing: CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN, DATABASE_URL");
@@ -59,47 +63,82 @@ const prisma = new PrismaClient({ adapter: new PrismaPg(pool) } as ConstructorPa
 const sleep  = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const encKey = (key: string) => key.split("/").map(encodeURIComponent).join("/");
 
+async function cfFetch(url: string, init: RequestInit = {}, timeoutMs = cloudflareTimeoutMs): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function runPool<T>(items: T[], limit: number, worker: (item: T, index: number) => Promise<void>): Promise<void> {
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      await worker(items[index], index);
+    }
+  });
+  await Promise.all(workers);
+}
+
 // ── Cloudflare helpers ────────────────────────────────────────────────────────
 
 async function r2Get(key: string): Promise<string | null> {
-  const res = await fetch(`${R2}/${encKey(key)}`, {
+  const res = await cfFetch(`${R2}/${encKey(key)}`, {
     headers: { Authorization: `Bearer ${apiToken}` },
   });
   return res.ok ? res.text() : null;
 }
 
-async function r2Put(key: string, body: string): Promise<void> {
-  const res = await fetch(`${R2}/${encKey(key)}`, {
-    method: "PUT",
-    headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "text/plain; charset=utf-8" },
-    body,
-  });
-  if (!res.ok) throw new Error(`R2 put ${key}: ${res.status} ${await res.text()}`);
+async function r2Put(key: string, body: string, retries = 8): Promise<void> {
+  let last = "";
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const res = await cfFetch(`${R2}/${encKey(key)}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "text/plain; charset=utf-8" },
+      body,
+    });
+    if (res.ok) return;
+    last = `${res.status} ${await res.text()}`;
+    if (res.status === 429 || res.status >= 500) {
+      await sleep(5_000 * attempt);
+      continue;
+    }
+    throw new Error(`R2 put ${key}: ${last}`);
+  }
+  throw new Error(`R2 put ${key}: failed after ${retries} attempts; last=${last}`);
 }
 
 async function r2Delete(key: string): Promise<void> {
-  await fetch(`${R2}/${encKey(key)}`, {
+  await cfFetch(`${R2}/${encKey(key)}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${apiToken}` },
   }).catch(() => undefined);
 }
 
 async function embedText(text: string): Promise<number[]> {
-  const res = await fetch(`${CF}/ai/run/${embedModel}`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
-  });
-  if (!res.ok) throw new Error(`Embed: ${res.status} ${await res.text()}`);
-  const json = await res.json() as { result: { data: number[][] } };
-  return json.result.data[0];
+  try {
+    const res = await cfFetch(`${CF}/ai/run/${embedModel}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    }, embedTimeoutMs);
+    if (!res.ok) throw new Error(`Embed: ${res.status} ${await res.text()}`);
+    const json = await res.json() as { result: { data: number[][] } };
+    return json.result.data[0];
+  } catch (err) {
+    throw new Error(`Embed timed out or failed after ${embedTimeoutMs}ms: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }
 
 async function vectorizeUpsert(indexName: string, vectors: VectorRow[]): Promise<void> {
   if (!vectors.length) return;
 
   const ndjson = vectors.map((v) => JSON.stringify({ id: v.id, values: v.values, metadata: v.metadata })).join("\n");
-  const res = await fetch(`${CF}/vectorize/v2/indexes/${indexName}/upsert`, {
+  const res = await cfFetch(`${CF}/vectorize/v2/indexes/${indexName}/upsert`, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/x-ndjson" },
     body: ndjson,
@@ -111,7 +150,7 @@ async function vectorizeUpsert(indexName: string, vectors: VectorRow[]): Promise
       throw new Error(`Vectorize auth failed for ${indexName}: ${body}`);
     }
 
-    const createRes = await fetch(`${CF}/vectorize/v2/indexes`, {
+    const createRes = await cfFetch(`${CF}/vectorize/v2/indexes`, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ name: indexName, config: { dimensions: 768, metric: "cosine" } }),
@@ -130,7 +169,7 @@ async function vectorizeUpsert(indexName: string, vectors: VectorRow[]): Promise
 
 async function vectorizeDelete(indexName: string, ids: string[]): Promise<void> {
   if (!ids.length) return;
-  await fetch(`${CF}/vectorize/v2/indexes/${indexName}/delete_by_ids`, {
+  await cfFetch(`${CF}/vectorize/v2/indexes/${indexName}/delete_by_ids`, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({ ids }),
@@ -169,7 +208,7 @@ type LocalMeta = Partial<GameMeta> & {
   quality?: number;
 };
 
-const CONVERTED = join(homedir(), "stud", "games", "converted");
+const CONVERTED = join(homedir(), "corpus", "games", "converted");
 
 function unique(values: string[], limit = Infinity): string[] {
   return [...new Set(values.filter(Boolean))].slice(0, limit);
@@ -322,15 +361,22 @@ async function prepareGame(game: GameRow): Promise<PreparedGame> {
   if (!manifestRaw) throw new Error("manifest.json not in R2");
   const manifest: string[] = JSON.parse(manifestRaw);
 
-  const rawFiles: { path: string; source: string }[] = [];
-  for (const filePath of manifest) {
+  const rawFiles = new Array<{ path: string; source: string } | undefined>(manifest.length);
+  let fetchedCount = 0;
+  await runPool(manifest, r2ReadConcurrency, async (filePath, index) => {
     const source = await r2Get(`${game.r2Prefix}${filePath}`);
-    if (source) rawFiles.push({ path: filePath, source });
+    if (source) rawFiles[index] = { path: filePath, source };
+    fetchedCount++;
+    if (fetchedCount === 1 || fetchedCount % 25 === 0 || fetchedCount === manifest.length) {
+      console.log(`   Fetching R2 ${game.slug}: ${fetchedCount}/${manifest.length}`);
+    }
     await sleep(30);
-  }
-  if (!rawFiles.length) throw new Error("no script files in R2");
+  });
 
-  const files = toScriptFiles(rawFiles);
+  const existingRawFiles = rawFiles.filter((file): file is { path: string; source: string } => Boolean(file));
+  if (!existingRawFiles.length) throw new Error("no script files in R2");
+
+  const files = toScriptFiles(existingRawFiles);
   const localMeta = readLocalMeta(game.slug);
   const services = unique(files.flatMap((f) => f.services));
   const folders = unique(files.map((f) => folderName(f.filePath)));
@@ -404,7 +450,10 @@ async function embedGame(game: GameRow): Promise<EmbedResult> {
 
   // Embed everything BEFORE writing anything (pure computation phase)
   const vectors: VectorRow[] = [];
-  for (const chunk of newChunks) {
+  for (const [index, chunk] of newChunks.entries()) {
+    if (index === 0 || (index + 1) % 10 === 0 || index + 1 === newChunks.length) {
+      console.log(`   Embedding ${slug}: ${index + 1}/${newChunks.length}`);
+    }
     const values = await embedText(chunk.embedText);
     vectors.push({
       id: chunk.id, values,
@@ -420,10 +469,15 @@ async function embedGame(game: GameRow): Promise<EmbedResult> {
 
   try {
     // 2a. Upload chunk content to R2
-    for (const chunk of newChunks) {
+    let uploadedCount = 0;
+    await runPool(newChunks, r2WriteConcurrency, async (chunk) => {
       await r2Put(chunk.r2Path, chunk.content);
       uploadedR2Keys.push(chunk.r2Path);
-    }
+      uploadedCount++;
+      if (uploadedCount === 1 || uploadedCount % 10 === 0 || uploadedCount === newChunks.length) {
+        console.log(`   Uploaded R2 chunks ${slug}: ${uploadedCount}/${newChunks.length}`);
+      }
+    });
 
     // 2b. Upsert vectors to Vectorize
     await vectorizeUpsert(indexName, vectors);

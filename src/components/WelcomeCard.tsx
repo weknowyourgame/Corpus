@@ -79,7 +79,7 @@ export function WelcomeCard({ className, compact = false }: WelcomeCardProps) {
           <LogoMark className="w-8 h-8" />
         </div>
         <div>
-          <h2 className="text-lg font-heading">Welcome to <span className="font-logo">Stud</span></h2>
+          <h2 className="text-lg font-heading">Welcome to <span className="font-logo">Corpus</span></h2>
           <p className="text-sm text-muted-foreground">
             Your AI assistant for Roblox Studio
           </p>

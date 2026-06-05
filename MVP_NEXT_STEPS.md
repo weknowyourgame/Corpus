@@ -1,16 +1,16 @@
-# Stud MVP Next Steps
+# Corpus MVP Next Steps
 
-This document is the product-ready MVP build plan for Stud.
+This document is the product-ready MVP build plan for Corpus.
 
-MVP means a Roblox developer can install Stud, connect Roblox Studio, ask for a safe script or instance change, approve risky actions, see what happened, and recover when something breaks.
+MVP means a Roblox developer can install Corpus, connect Roblox Studio, ask for a safe script or instance change, approve risky actions, see what happened, and recover when something breaks.
 
 ## MVP Architecture Decision
 
 For MVP, commit to one primary runtime path:
 
 ```txt
-Hosted Stud web/server
-  -> Stud Roblox Studio plugin (`stud-bridge.server.lua`)
+Hosted Corpus web/server
+  -> Corpus Roblox Studio plugin (`corpus-bridge.server.lua`)
   -> token-authenticated long polling
   -> AI agent tool calls
   -> live Roblox Studio changes
@@ -29,7 +29,7 @@ Defer or treat as legacy/reference:
 ### 1. Stable Install And Connect Flow
 
 - Web app exposes the plugin download clearly.
-- Studio plugin accepts a Stud token and connects.
+- Studio plugin accepts a Corpus token and connects.
 - UI shows connected/disconnected with accurate wording.
 - Reconnect works after Studio, plugin, browser, or server restart.
 - Remove confusing "official MCP" labels unless that transport is truly wired.
@@ -44,7 +44,7 @@ Acceptance checks:
 Prompt to run:
 
 ```txt
-Read CODEBASE.md first. Implement the MVP connection polish for Stud. Treat the Stud Roblox Studio polling plugin as the only active MVP transport. Remove or hide misleading "official MCP" UI wording unless it is backed by active server support. Add/adjust UI copy so users can clearly see: server reachable, plugin connected, last poll time if available, token/session invalid, and waiting for Studio. Keep changes scoped, update tests where useful, and update CODEBASE.md after the run.
+Read CODEBASE.md first. Implement the MVP connection polish for Corpus. Treat the Corpus Roblox Studio polling plugin as the only active MVP transport. Remove or hide misleading "official MCP" UI wording unless it is backed by active server support. Add/adjust UI copy so users can clearly see: server reachable, plugin connected, last poll time if available, token/session invalid, and waiting for Studio. Keep changes scoped, update tests where useful, and update CODEBASE.md after the run.
 ```
 
 ### 2. Basic Chat Agent End-To-End
@@ -100,7 +100,7 @@ Acceptance checks:
 Prompt to run:
 
 ```txt
-Read CODEBASE.md first. Verify and harden only the MVP Roblox Studio tools: get_selection, list_children, search_instances, read_script, write_script, edit_script, create_instance, set_property, and delete_instance. Check server/agent/tools.ts, server/agent/studio-transport.ts, and studio-plugin/stud-bridge.server.lua for naming/schema mismatches. Add smoke tests or unit tests around schema/routing where practical. Update CODEBASE.md after the run.
+Read CODEBASE.md first. Verify and harden only the MVP Roblox Studio tools: get_selection, list_children, search_instances, read_script, write_script, edit_script, create_instance, set_property, and delete_instance. Check server/agent/tools.ts, server/agent/studio-transport.ts, and studio-plugin/corpus-bridge.server.lua for naming/schema mismatches. Add smoke tests or unit tests around schema/routing where practical. Update CODEBASE.md after the run.
 ```
 
 ### 4. Safe Script Editing
@@ -121,7 +121,7 @@ Acceptance checks:
 Prompt to run:
 
 ```txt
-Read CODEBASE.md first. Make script editing MVP-safe. Inspect server/agent/tools.ts, conflict/revision tracking, MutationDiff/DiffView UI, and the Stud Studio plugin write/edit handlers. Ensure read-before-write, conflict reporting, undo waypoint metadata, and visible diff/result display work together. Keep the existing architecture. Add focused tests for conflict/edit behavior. Update CODEBASE.md after the run.
+Read CODEBASE.md first. Make script editing MVP-safe. Inspect server/agent/tools.ts, conflict/revision tracking, MutationDiff/DiffView UI, and the Corpus Studio plugin write/edit handlers. Ensure read-before-write, conflict reporting, undo waypoint metadata, and visible diff/result display work together. Keep the existing architecture. Add focused tests for conflict/edit behavior. Update CODEBASE.md after the run.
 ```
 
 ### 5. Approval Gates
@@ -172,7 +172,7 @@ The first-run path should be:
 
 1. Install/download plugin.
 2. Open Roblox Studio.
-3. Paste/connect Stud token.
+3. Paste/connect Corpus token.
 4. Configure model/API key.
 5. Run a harmless Studio test command.
 6. Start chatting.
@@ -227,7 +227,7 @@ Acceptance checks:
 
 - Refresh after a completed run does not erase the conversation.
 - Failed run still shows what failed.
-- User can inspect what Stud changed during the session.
+- User can inspect what Corpus changed during the session.
 
 Prompt to run:
 
@@ -269,7 +269,7 @@ Read CODEBASE.md first. Create a production deployment pass for the MVP. Documen
 
 - `prisma/schema.prisma` defines core app tables (`agent_conversations`, `agent_events`, `studio_tokens`) plus corpus tables (`games`, `chunks`).
 - `server/agent/store.ts` defaults to Postgres for agent conversations/events when `DATABASE_URL` exists.
-- `STUD_AGENT_STORE=file` keeps the old `.stud/agent-conversations` fallback; `STUD_AGENT_STORE=memory` is for tests/dev-only sessions.
+- `CORPUS_AGENT_STORE=file` keeps the old `.corpus/agent-conversations` fallback; `CORPUS_AGENT_STORE=memory` is for tests/dev-only sessions.
 - Studio plugin tokens are stored in `studio_tokens` when `DATABASE_URL` exists, with the old `server/studio-tokens.json` behavior only used as a no-DB local fallback.
 - Postgres now backs core conversation/run/event/audit persistence. R2/Vectorize are still optional and only needed for corpus retrieval.
 
@@ -279,7 +279,7 @@ For MVP, keep database scope conservative:
 
 - Core Studio agent loop should use Postgres in production.
 - Core Studio agent loop should still work with corpus disabled.
-- If Postgres is unavailable in local dev, use `STUD_AGENT_STORE=file`.
+- If Postgres is unavailable in local dev, use `CORPUS_AGENT_STORE=file`.
 - Do not make Vectorize/R2 required for basic chat and Studio edits.
 - Add migrations only when a real product feature needs relational storage.
 
@@ -333,7 +333,7 @@ Expected:
 Prompt:
 
 ```txt
-Create a Script in ServerScriptService named StudHello that prints hello when the game starts.
+Create a Script in ServerScriptService named CorpusHello that prints hello when the game starts.
 ```
 
 Expected:
@@ -348,7 +348,7 @@ Expected:
 Prompt:
 
 ```txt
-Change StudHello's print message to "Stud is connected".
+Change CorpusHello's print message to "Corpus is connected".
 ```
 
 Expected:
@@ -363,7 +363,7 @@ Expected:
 Prompt:
 
 ```txt
-Delete StudHello.
+Delete CorpusHello.
 ```
 
 Expected:

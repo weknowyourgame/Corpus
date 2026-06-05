@@ -1,12 +1,12 @@
-// Plugin installation management for stud-bridge
+// Plugin installation management for corpus-bridge
 // Handles checking if plugin is installed and installing it to Roblox Plugins folder
 
 use std::fs;
 use std::path::PathBuf;
 
 // Embed the plugin source directly in the binary
-const PLUGIN_SOURCE: &str = include_str!("../../studio-plugin/stud-bridge.server.lua");
-const PLUGIN_FILENAME: &str = "stud-bridge.server.lua";
+const PLUGIN_SOURCE: &str = include_str!("../../studio-plugin/corpus-bridge.server.lua");
+const PLUGIN_FILENAME: &str = "corpus-bridge.server.lua";
 
 /// Check if Roblox Studio is installed on the system
 #[tauri::command]
@@ -129,7 +129,7 @@ fn get_plugins_folder() -> Option<PathBuf> {
     None
 }
 
-/// Check if the stud-bridge plugin is installed
+/// Check if the corpus-bridge plugin is installed
 #[tauri::command]
 pub fn check_plugin_installed() -> Result<PluginStatus, String> {
     let plugins_folder = get_plugins_folder()
@@ -165,7 +165,7 @@ pub fn check_plugin_installed() -> Result<PluginStatus, String> {
     }
 }
 
-/// Install the stud-bridge plugin to the Roblox Plugins folder
+/// Install the corpus-bridge plugin to the Roblox Plugins folder
 #[tauri::command]
 pub fn install_plugin() -> Result<InstallResult, String> {
     let plugins_folder = get_plugins_folder()

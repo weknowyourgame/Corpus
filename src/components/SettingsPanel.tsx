@@ -36,7 +36,7 @@ export function SettingsPanel({ trigger }: SettingsPanelProps) {
         <SheetHeader>
           <SheetTitle className="font-heading">Settings</SheetTitle>
           <SheetDescription>
-            Configure <span className="font-logo">Stud</span> to your preferences
+            Configure <span className="font-logo">Corpus</span> to your preferences
           </SheetDescription>
         </SheetHeader>
 
@@ -53,7 +53,7 @@ export function SettingsPanel({ trigger }: SettingsPanelProps) {
 
           <TabsContent value="tier" className="mt-4 space-y-3">
             <p className="text-xs text-muted-foreground">
-              Model access is managed by Stud. Users choose a tier, not provider credentials.
+              Model access is managed by Corpus. Users choose a tier, not provider credentials.
             </p>
             {ALL_TIERS.map((tier: Tier) => (
               <button

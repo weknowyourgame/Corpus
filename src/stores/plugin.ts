@@ -61,7 +61,7 @@ export const usePluginStore = create<PluginState>()((set) => ({
     return {
       success: false,
       path: folder,
-      message: `Download the plugin, then copy stud-bridge.server.lua to: ${folder}`,
+      message: `Download the plugin, then copy corpus-bridge.server.lua to: ${folder}`,
     };
   },
 

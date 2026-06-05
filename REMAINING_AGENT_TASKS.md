@@ -129,7 +129,7 @@ Read CODEBASE.md, server/agent/mcp-server.ts, server/agent/routes.ts, src/compon
 Improve the MCP management experience without adding production/deployment tasks.
 
 Requirements:
-1. Keep `STUD_MCP_SERVERS=name:url` as the server-side source of truth.
+1. Keep `CORPUS_MCP_SERVERS=name:url` as the server-side source of truth.
 2. Add a richer MCP status response from `GET /agent/mcp/status`:
    - configured raw count
    - connected count

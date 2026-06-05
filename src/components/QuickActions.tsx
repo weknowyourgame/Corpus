@@ -129,7 +129,7 @@ export function ChatActions({ onClear, onExport, disabled, className }: ChatActi
             <Button
               variant="ghost"
               size="icon"
-              className="stud-icon-btn h-8 w-8 text-destructive hover:text-destructive"
+              className="corpus-icon-btn h-8 w-8 text-destructive hover:text-destructive"
               onClick={onClear}
               disabled={disabled}
               aria-label="Clear chat"

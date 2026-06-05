@@ -32,7 +32,7 @@ if (!accountId || !apiToken) {
   process.exit(1);
 }
 
-const CONVERTED_DIR = join(homedir(), "stud", "games", "converted");
+const CONVERTED_DIR = join(homedir(), "corpus", "games", "converted");
 const gameDir = join(CONVERTED_DIR, slug);
 const rawDir = join(gameDir, "raw");
 const manifestPath = join(gameDir, "manifest.json");

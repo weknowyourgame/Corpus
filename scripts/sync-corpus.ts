@@ -1,5 +1,5 @@
 /**
- * sync-corpus.ts — Single source of truth: local ~/stud/games/converted/
+ * sync-corpus.ts — Single source of truth: local ~/corpus/games/converted/
  *
  * For each local game, determines its state and acts accordingly:
  *   Neither in R2 nor Postgres  → upload ALL to R2, then insert Postgres
@@ -39,7 +39,7 @@ if (!databaseUrl)            { console.error("✗ Missing DATABASE_URL"); proces
 const R2 = `https://api.cloudflare.com/client/v4/accounts/${accountId}/r2/buckets/${bucket}/objects`;
 const pool   = new pg.Pool({ connectionString: databaseUrl });
 const prisma = new PrismaClient({ adapter: new PrismaPg(pool) } as ConstructorParameters<typeof PrismaClient>[0]);
-const CONVERTED = join(homedir(), "stud", "games", "converted");
+const CONVERTED = join(homedir(), "corpus", "games", "converted");
 
 // ── Semaphore ─────────────────────────────────────────────────────────────────
 

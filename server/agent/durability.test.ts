@@ -38,7 +38,7 @@ const fileSize = async (path: string) => {
 };
 
 const tempStoreDir = () => {
-  const root = mkdtempSync(join(tmpdir(), "stud-durability-"));
+  const root = mkdtempSync(join(tmpdir(), "corpus-durability-"));
   return { root, cleanup: () => rm(root, { recursive: true, force: true }) };
 };
 

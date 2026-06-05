@@ -12,7 +12,7 @@ const iconFor = (status: TaskUpdate["status"]) => {
 export function TaskProgress({ tasks }: { tasks: TaskUpdate[] }) {
   if (!tasks.length) return null;
   return (
-    <div className="stud-panel-soft mx-auto w-full max-w-2xl space-y-2 p-3">
+    <div className="corpus-panel-soft mx-auto w-full max-w-2xl space-y-2 p-3">
       {tasks.map((task) => (
         <div key={task.taskId} className="flex items-start gap-2 text-sm">
           <span className="mt-0.5">{iconFor(task.status)}</span>
@@ -20,7 +20,7 @@ export function TaskProgress({ tasks }: { tasks: TaskUpdate[] }) {
             <span className={cn("block truncate", task.status === "completed" && "text-muted-foreground line-through")}>
               {task.title}
             </span>
-            {task.note && <span className="block truncate text-xs" style={{ color: "var(--stud-muted)" }}>{task.note}</span>}
+            {task.note && <span className="block truncate text-xs" style={{ color: "var(--corpus-muted)" }}>{task.note}</span>}
           </span>
         </div>
       ))}

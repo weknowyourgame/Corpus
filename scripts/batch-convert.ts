@@ -1,5 +1,5 @@
 /**
- * Batch converts all .rbxl files in ~/stud/games/ to ~/stud/games/converted/
+ * Batch converts all .rbxl files in ~/corpus/games/ to ~/corpus/games/converted/
  * Pure Bun TypeScript — no Lune, no external tools, no interaction needed.
  *
  * Usage: bun run scripts/batch-convert.ts
@@ -168,7 +168,7 @@ function extractScripts(buf: Buffer): Map<string, string> {
 
 // ── Batch runner ─────────────────────────────────────────────────────────────
 
-const GAMES_DIR = join(homedir(), "stud", "games");
+const GAMES_DIR = join(homedir(), "corpus", "games");
 const CONVERTED = join(GAMES_DIR, "converted");
 
 const ensure = (p: string) => { if (!existsSync(p)) mkdirSync(p, { recursive: true }); };

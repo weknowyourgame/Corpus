@@ -51,7 +51,7 @@ function Badge({
 }) {
   const Comp = asButton ? "button" : "span";
   return (
-    <Comp type={asButton ? "button" : undefined} className={cn("stud-route-pill", active && "is-live", warning && "is-warning")}>
+    <Comp type={asButton ? "button" : undefined} className={cn("corpus-route-pill", active && "is-live", warning && "is-warning")}>
       {icon}
       {label}
     </Comp>
@@ -89,7 +89,7 @@ export function ConnectionBadges({
   const showMcp = mcpStatus.configuredCount > 0 || mcpStatus.connectedCount > 0 || hasMcpErrors;
 
   const envSnippet = mcpStatus.servers.length > 0
-    ? `STUD_MCP_SERVERS=${mcpStatus.servers.map((s) => `${s.name}:${s.url}`).join(",")}`
+    ? `CORPUS_MCP_SERVERS=${mcpStatus.servers.map((s) => `${s.name}:${s.url}`).join(",")}`
     : "";
 
   const handleCopy = () => {
@@ -111,7 +111,7 @@ export function ConnectionBadges({
   }));
 
   return (
-    <div className={cn("stud-route-row", className)} aria-label="Connection routes">
+    <div className={cn("corpus-route-row", className)} aria-label="Connection routes">
       <Badge label={bridge ? "Bridge online" : "Bridge offline"} active={bridge} icon={<Server />} />
       <Badge label={studio ? "Studio connected" : "Studio waiting"} active={studio} icon={<Plug />} />
       {showMcp && (
@@ -129,13 +129,13 @@ export function ConnectionBadges({
             <DialogHeader>
               <DialogTitle>MCP servers</DialogTitle>
               <DialogDescription>
-                External MCP tools configured with STUD_MCP_SERVERS load when the bridge starts.
+                External MCP tools configured with CORPUS_MCP_SERVERS load when the bridge starts.
               </DialogDescription>
             </DialogHeader>
 
           {/* Summary counts + refresh */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs" style={{ color: "var(--stud-muted)" }}>
+            <div className="flex items-center gap-2 text-xs" style={{ color: "var(--corpus-muted)" }}>
               <span>{mcpStatus.configuredCount} configured</span>
               <span className="opacity-40">·</span>
               <span>{mcpStatus.connectedCount} connected</span>
@@ -154,14 +154,14 @@ export function ConnectionBadges({
               title="Refresh MCP status"
               className="rounded p-1 hover:bg-accent disabled:opacity-50"
             >
-              <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} style={{ color: "var(--stud-muted)" }} />
+              <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} style={{ color: "var(--corpus-muted)" }} />
             </button>
           </div>
 
           {/* Tool search */}
           {mcpStatus.totalToolCount > 0 && (
             <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5" style={{ color: "var(--stud-muted)" }} />
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5" style={{ color: "var(--corpus-muted)" }} />
               <input
                 placeholder="Filter tools…"
                 value={searchQuery}
@@ -173,8 +173,8 @@ export function ConnectionBadges({
 
           <div className="max-h-72 space-y-3 overflow-y-auto">
             {mcpStatus.servers.length === 0 ? (
-              <div className="stud-panel-soft p-3 text-sm" style={{ color: "var(--stud-muted)" }}>
-                No external MCP servers configured. Add entries like <code>docs:https://mcp.example.com/mcp</code> to <code>STUD_MCP_SERVERS</code>.
+              <div className="corpus-panel-soft p-3 text-sm" style={{ color: "var(--corpus-muted)" }}>
+                No external MCP servers configured. Add entries like <code>docs:https://mcp.example.com/mcp</code> to <code>CORPUS_MCP_SERVERS</code>.
               </div>
             ) : (
               filteredServers.map((server) => (
@@ -182,14 +182,14 @@ export function ConnectionBadges({
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="font-medium">{server.name}</p>
-                      <p className="truncate text-xs" style={{ color: "var(--stud-muted)" }}>{server.url}</p>
+                      <p className="truncate text-xs" style={{ color: "var(--corpus-muted)" }}>{server.url}</p>
                     </div>
                     <span className={cn("status-pill", server.connected && "is-live")}>
                       <span style={{ background: server.connected ? "#2f9c63" : "#d28c2f" }} />
                       {server.connected ? "Connected" : "Error"}
                     </span>
                   </div>
-                  <p className="mt-2 text-xs" style={{ color: "var(--stud-muted)" }}>
+                  <p className="mt-2 text-xs" style={{ color: "var(--corpus-muted)" }}>
                     {searchQuery && server.filteredTools.length !== server.tools.length
                       ? `${server.filteredTools.length} of ${server.tools.length} tool${server.tools.length !== 1 ? "s" : ""} match`
                       : `${server.tools.length} tool${server.tools.length !== 1 ? "s" : ""}`}
@@ -197,7 +197,7 @@ export function ConnectionBadges({
                   {server.filteredTools.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1">
                       {server.filteredTools.map((tool) => (
-                        <span key={tool} className="stud-suggestion-chip text-[11px] py-1">
+                        <span key={tool} className="corpus-suggestion-chip text-[11px] py-1">
                           {tool.replace(`mcp__${server.name}__`, "") || tool}
                         </span>
                       ))}
@@ -217,23 +217,23 @@ export function ConnectionBadges({
           {envSnippet && (
             <div className="rounded-md border p-3 text-xs">
               <div className="mb-1.5 flex items-center justify-between">
-                <span className="font-medium" style={{ color: "var(--stud-muted)" }}>Config snippet</span>
+                <span className="font-medium" style={{ color: "var(--corpus-muted)" }}>Config snippet</span>
                 <button
                   onClick={handleCopy}
                   className="flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-accent"
-                  style={{ color: "var(--stud-muted)" }}
+                  style={{ color: "var(--corpus-muted)" }}
                 >
                   {copied ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
                   <span>{copied ? "Copied" : "Copy"}</span>
                 </button>
               </div>
-              <code className="block break-all font-mono text-[11px]" style={{ color: "var(--stud-muted)" }}>
+              <code className="block break-all font-mono text-[11px]" style={{ color: "var(--corpus-muted)" }}>
                 {envSnippet}
               </code>
             </div>
           )}
 
-          <p className="text-xs" style={{ color: "var(--stud-muted)" }}>
+          <p className="text-xs" style={{ color: "var(--corpus-muted)" }}>
             Authentication is handled by the upstream MCP URL or gateway configuration; restart the bridge after changing server entries.
           </p>
           </DialogContent>

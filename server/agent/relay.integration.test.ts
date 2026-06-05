@@ -27,8 +27,8 @@ describe("Studio relay operation delivery", () => {
       env: {
         ...process.env,
         PORT: String(port),
-        STUD_INTERNAL_RELAY_TOKEN: "test-relay-token",
-        STUD_STUDIO_TRANSPORT: "plugin",
+        CORPUS_INTERNAL_RELAY_TOKEN: "test-relay-token",
+        CORPUS_STUDIO_TRANSPORT: "plugin",
       },
       stdio: "ignore",
     });
@@ -44,51 +44,51 @@ describe("Studio relay operation delivery", () => {
       headers: { Authorization: `Bearer ${created.accessToken}` },
     })).status).toBe(200);
 
-    expect((await fetch(`${base}/stud/sessions/ABCDEF12/request`, {
+    expect((await fetch(`${base}/corpus/sessions/ABCDEF12/request`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ path: "/instance/create", body: "{}", operationId: "bypass" }),
     })).status).toBe(403);
 
-    const pending = fetch(`${base}/stud/sessions/ABCDEF12/request`, {
+    const pending = fetch(`${base}/corpus/sessions/ABCDEF12/request`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Stud-Agent-Relay": "test-relay-token" },
+      headers: { "Content-Type": "application/json", "X-Corpus-Agent-Relay": "test-relay-token" },
       body: JSON.stringify({ path: "/instance/create", body: "{}", operationId: "mutation-1" }),
     });
     const delivery = await waitFor(async () => {
-      const body = await (await fetch(`${base}/stud/sessions/ABCDEF12/poll`)).json() as { id: string | null };
+      const body = await (await fetch(`${base}/corpus/sessions/ABCDEF12/poll`)).json() as { id: string | null };
       return body.id ? body : undefined;
     });
-    await fetch(`${base}/stud/sessions/ABCDEF12/respond`, {
+    await fetch(`${base}/corpus/sessions/ABCDEF12/respond`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: delivery.id, response: { status: 200, body: "{\"created\":\"Part\"}" } }),
     });
     expect(await (await pending).json()).toEqual({ created: "Part" });
 
-    const replay = await fetch(`${base}/stud/sessions/ABCDEF12/request`, {
+    const replay = await fetch(`${base}/corpus/sessions/ABCDEF12/request`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Stud-Agent-Relay": "test-relay-token" },
+      headers: { "Content-Type": "application/json", "X-Corpus-Agent-Relay": "test-relay-token" },
       body: JSON.stringify({ path: "/instance/create", body: "{}", operationId: "mutation-1" }),
     });
     expect(await replay.json()).toEqual({ created: "Part" });
-    expect(await (await fetch(`${base}/stud/sessions/ABCDEF12/poll`)).json()).toMatchObject({ id: null });
+    expect(await (await fetch(`${base}/corpus/sessions/ABCDEF12/poll`)).json()).toMatchObject({ id: null });
 
     const controller = new AbortController();
-    const aborted = fetch(`${base}/stud/sessions/ABCDEF12/request`, {
+    const aborted = fetch(`${base}/corpus/sessions/ABCDEF12/request`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Stud-Agent-Relay": "test-relay-token" },
+      headers: { "Content-Type": "application/json", "X-Corpus-Agent-Relay": "test-relay-token" },
       body: JSON.stringify({ path: "/instance/create", body: "{}", operationId: "cancel-me" }),
       signal: controller.signal,
     }).catch(() => undefined);
     await waitFor(async () => {
-      const body = await (await fetch(`${base}/stud/sessions/ABCDEF12/poll`)).json() as { id: string | null };
+      const body = await (await fetch(`${base}/corpus/sessions/ABCDEF12/poll`)).json() as { id: string | null };
       return body.id ? true : undefined;
     });
     controller.abort();
     await aborted;
     await waitFor(async () => {
-      const body = await (await fetch(`${base}/stud/sessions/ABCDEF12/poll`)).json() as { id: string | null };
+      const body = await (await fetch(`${base}/corpus/sessions/ABCDEF12/poll`)).json() as { id: string | null };
       return body.id === null ? true : undefined;
     });
   });

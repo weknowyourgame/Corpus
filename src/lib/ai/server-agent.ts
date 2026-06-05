@@ -77,9 +77,9 @@ export type ContextCompacted = {
   iteration: number;
 };
 
-const conversationKey = (sessionId: string) => `stud_agent_conversation_${sessionId}`;
-const bootstrapKey = import.meta.env.VITE_STUD_AGENT_API_KEY as string | undefined;
-const devToken = () => localStorage.getItem("stud_dev_mode_token") || "";
+const conversationKey = (sessionId: string) => `corpus_agent_conversation_${sessionId}`;
+const bootstrapKey = import.meta.env.VITE_CORPUS_AGENT_API_KEY as string | undefined;
+const devToken = () => localStorage.getItem("corpus_dev_mode_token") || "";
 
 const request = async (path: string, init?: RequestInit, token?: string) => {
   const headers = new Headers(init?.headers);
@@ -87,7 +87,7 @@ const request = async (path: string, init?: RequestInit, token?: string) => {
   const credential = token ?? bootstrapKey;
   if (credential) headers.set("Authorization", `Bearer ${credential}`);
   const dev = devToken();
-  if (dev) headers.set("X-Stud-Dev-Token", dev);
+  if (dev) headers.set("X-Corpus-Dev-Token", dev);
   return fetch(bridgeUrl(path), { ...init, headers, credentials: "include" });
 };
 

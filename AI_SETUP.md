@@ -1,4 +1,4 @@
-# Stud AI Setup
+# Corpus AI Setup
 
 ## How it works
 

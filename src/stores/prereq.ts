@@ -37,9 +37,9 @@ const initialChecks: PrereqCheck[] = [
     status: "pending",
   },
   {
-    id: "stud-plugin",
-    name: "Stud Plugin",
-    description: "The stud-bridge plugin must be installed in Studio",
+    id: "corpus-plugin",
+    name: "Corpus Plugin",
+    description: "The corpus-bridge plugin must be installed in Studio",
     status: "pending",
   },
   {
@@ -80,9 +80,9 @@ export const usePrereqStore = create<PrereqStore>((set, get) => ({
     });
     set({ checks: [...checks] });
 
-    updateCheck("stud-plugin", { status: "checking" });
+    updateCheck("corpus-plugin", { status: "checking" });
     set({ checks: [...checks] });
-    updateCheck("stud-plugin", {
+    updateCheck("corpus-plugin", {
       status: "warning",
       message: "Download and install the plugin from the connection screen",
       action: { label: "Download Plugin", handler: "install-plugin" },

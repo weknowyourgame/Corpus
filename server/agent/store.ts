@@ -44,7 +44,7 @@ const snapshotShape = (conversation: Conversation) => {
  * natural way to detect a crashed run on bootstrap.
  */
 export class DevelopmentConversationStore implements ConversationStore {
-  constructor(private readonly dir = join(process.cwd(), ".stud", "agent-conversations")) {}
+  constructor(private readonly dir = join(process.cwd(), ".corpus", "agent-conversations")) {}
 
   private conversationDir(id: string) {
     return join(this.dir, id);

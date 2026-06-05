@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "stud",
+      "name": "corpus",
       "dependencies": {
         "@ai-sdk/anthropic": "^3.0.30",
         "@ai-sdk/openai": "^3.0.22",

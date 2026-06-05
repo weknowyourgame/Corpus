@@ -59,7 +59,7 @@ export class McpServer {
             id,
             result: {
               protocolVersion: PROTOCOL_VERSION,
-              serverInfo: { name: "stud", version: "0.1.0" },
+              serverInfo: { name: "corpus", version: "0.1.0" },
               capabilities: { tools: {} },
             },
           };
@@ -215,7 +215,7 @@ export class ExternalMcpRegistry implements AgentToolRegistry {
   }
 
   private async loadFromEnv() {
-    const config = process.env.STUD_MCP_SERVERS ?? "";
+    const config = process.env.CORPUS_MCP_SERVERS ?? "";
     const entries = config.split(",")
       .map((entry) => entry.trim())
       .filter(Boolean)
@@ -235,7 +235,7 @@ export class ExternalMcpRegistry implements AgentToolRegistry {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 8_000);
         try {
-          await rpc(entry.url, { jsonrpc: "2.0", id: "init", method: "initialize", params: { protocolVersion: PROTOCOL_VERSION, capabilities: {}, clientInfo: { name: "stud", version: "0.1.0" } } }, controller.signal).catch(() => undefined);
+          await rpc(entry.url, { jsonrpc: "2.0", id: "init", method: "initialize", params: { protocolVersion: PROTOCOL_VERSION, capabilities: {}, clientInfo: { name: "corpus", version: "0.1.0" } } }, controller.signal).catch(() => undefined);
           const list = await rpc(entry.url, { jsonrpc: "2.0", id: "tools", method: "tools/list", params: {} }, controller.signal);
           const rawTools = ((list.result as { tools?: unknown[] } | undefined)?.tools ?? []) as Array<Record<string, unknown>>;
           for (const raw of rawTools) {

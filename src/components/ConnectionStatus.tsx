@@ -96,7 +96,7 @@ export function ConnectionStatus({
   const transportLabel = transport === "studio_plugin" ? "Studio plugin" : null;
   const transportTitle =
     transport === "studio_plugin"
-      ? "Your browser talks to the bridge; the Stud Studio plugin polls the bridge and executes commands in Roblox Studio"
+      ? "Your browser talks to the bridge; the Corpus Studio plugin polls the bridge and executes commands in Roblox Studio"
       : "Not connected";
 
   return (

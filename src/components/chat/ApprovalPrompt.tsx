@@ -28,9 +28,9 @@ const isDataStoreApproval = (approval: ApprovalRequest): boolean =>
   approval.toolName.startsWith("roblox_datastore__");
 
 const renderValue = (value: string | null | undefined, bytes?: number) => {
-  if (value === null || value === undefined) return <span className="stud-approval-empty">empty</span>;
+  if (value === null || value === undefined) return <span className="corpus-approval-empty">empty</span>;
   return (
-    <code className="stud-approval-code">
+    <code className="corpus-approval-code">
       {value}
       {typeof bytes === "number" && bytes > 0 && (
         <span className="ml-2">({bytes} bytes)</span>
@@ -42,7 +42,7 @@ const renderValue = (value: string | null | undefined, bytes?: number) => {
 function DataStorePreviewCard({ preview }: { preview: DataStorePreview }) {
   if (preview.error) {
     return (
-      <div className="stud-approval-preview is-error">
+      <div className="corpus-approval-preview is-error">
         <p className="font-medium">DataStore unavailable</p>
         <p>{preview.error}</p>
         {preview.code === "open_cloud_not_configured" && (
@@ -55,17 +55,17 @@ function DataStorePreviewCard({ preview }: { preview: DataStorePreview }) {
     );
   }
   return (
-    <div className="stud-approval-preview">
-      <div className="stud-approval-preview-head">
+    <div className="corpus-approval-preview">
+      <div className="corpus-approval-preview-head">
         <Database className="h-3.5 w-3.5" />
         <span className="font-medium uppercase tracking-wide">{preview.operation ?? "datastore"}</span>
         {preview.environment && (
-          <span className={cn("stud-approval-env", `is-${preview.environment}`)}>
+          <span className={cn("corpus-approval-env", `is-${preview.environment}`)}>
             {preview.environment}
           </span>
         )}
       </div>
-      <div className="stud-approval-kv">
+      <div className="corpus-approval-kv">
         {preview.universe && <><span>Universe</span><code>{preview.universe}</code></>}
         {preview.store && <><span>Store</span><code>{preview.store}</code></>}
         {preview.scope && <><span>Scope</span><code>{preview.scope}</code></>}
@@ -85,7 +85,7 @@ function DataStorePreviewCard({ preview }: { preview: DataStorePreview }) {
         </div>
       )}
       {preview.rollback && (
-        <p className="stud-approval-rollback">
+        <p className="corpus-approval-rollback">
           <span className="font-medium">Rollback:</span> {preview.rollback}
         </p>
       )}
@@ -114,27 +114,27 @@ export function ApprovalPrompt({
   return (
     <div
       className={cn(
-        "stud-approval-card",
+        "corpus-approval-card",
         elevated && "is-elevated",
         highRisk && !elevated && "is-risk"
       )}
     >
-      <div className="stud-approval-head">
+      <div className="corpus-approval-head">
         <Icon className="h-4 w-4" />
         <span className="text-sm font-medium">
           {elevated ? "PRODUCTION approval required" : `Approval required: ${approval.risk.replace(/_/g, " ")}`}
         </span>
       </div>
-      <p className="stud-approval-summary">{approval.summary}</p>
-      <p className="stud-approval-scope">Scope: {approval.scope}</p>
+      <p className="corpus-approval-summary">{approval.summary}</p>
+      <p className="corpus-approval-scope">Scope: {approval.scope}</p>
       {!highRisk && approval.scopeDescription && (
-        <p className="stud-approval-scope" style={{ opacity: 0.7 }}>
+        <p className="corpus-approval-scope" style={{ opacity: 0.7 }}>
           Will remember: {approval.scopeDescription}
         </p>
       )}
       {dsPreview && <DataStorePreviewCard preview={dsPreview} />}
       {!dsPreview && preview && (
-        <div className="stud-approval-preview">
+        <div className="corpus-approval-preview">
           <p className="font-medium">Asset safety preview</p>
           <p>{scriptCount} script(s), {String(preview.riskyDescendantCount ?? 0)} risky descendant(s) detected.</p>
           {(scripts.length > 0 || risky.length > 0) && (
@@ -152,7 +152,7 @@ export function ApprovalPrompt({
           )}
         </div>
       )}
-      <div className="stud-approval-actions">
+      <div className="corpus-approval-actions">
         {approval.allowStripScripts && (
           <Button size="sm" onClick={() => onDecision("insert_without_scripts")}>
             Insert without scripts

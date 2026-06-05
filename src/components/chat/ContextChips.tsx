@@ -55,7 +55,7 @@ export function ContextChips({
           <button
             key={chip.id}
             type="button"
-            className={cn("stud-action-chip flex items-center gap-1.5 shrink-0", isActive && "is-active")}
+            className={cn("corpus-action-chip flex items-center gap-1.5 shrink-0", isActive && "is-active")}
             onClick={() => onChipClick(chip.id)}
             disabled={disabled}
             title={chip.description}

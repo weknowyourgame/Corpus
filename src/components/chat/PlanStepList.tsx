@@ -12,10 +12,10 @@ export function PlanStepList({
   consumedStepIndices?: number[];
 }) {
   return (
-    <div className="stud-panel-soft space-y-3 p-4">
+    <div className="corpus-panel-soft space-y-3 p-4">
       <div>
         <p className="text-sm font-medium">Proposed plan</p>
-        {summary && <p className="text-xs" style={{ color: "var(--stud-muted)" }}>{summary}</p>}
+        {summary && <p className="text-xs" style={{ color: "var(--corpus-muted)" }}>{summary}</p>}
       </div>
       <div className="space-y-2">
         {steps.map((step, idx) => {
@@ -31,8 +31,8 @@ export function PlanStepList({
                   <p className="truncate text-sm font-medium">{step.title || step.summary || "Plan step"}</p>
                   {step.risk !== "read" && <ShieldAlert className="h-3.5 w-3.5 text-amber-600" />}
                 </div>
-                <p className="text-xs" style={{ color: "var(--stud-muted)" }}>{step.description || step.summary}</p>
-                <p className="mt-1 truncate text-[11px]" style={{ color: "var(--stud-muted)" }}>
+                <p className="text-xs" style={{ color: "var(--corpus-muted)" }}>{step.description || step.summary}</p>
+                <p className="mt-1 truncate text-[11px]" style={{ color: "var(--corpus-muted)" }}>
                   {(step.toolNames?.length ? step.toolNames : step.toolName ? [step.toolName] : []).join(", ")} · {step.scope}
                 </p>
               </div>

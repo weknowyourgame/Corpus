@@ -1,5 +1,5 @@
 /**
- * Stud Bridge Server — Web ↔ Roblox Studio plugin relay
+ * Corpus Bridge Server — Web ↔ Roblox Studio plugin relay
  *
  * Roblox Studio can only make outgoing HTTP requests. This server queues
  * requests from the web app and delivers them to the plugin via polling.
@@ -48,9 +48,9 @@ try {
 const assertProductionConfig = () => {
   if (process.env.NODE_ENV !== "production") return;
   const failures = [];
-  if (process.env.STUD_ALLOW_ANONYMOUS === "true") failures.push("STUD_ALLOW_ANONYMOUS must be false in production");
-  if (process.env.STUD_DEV_MODE_ENABLED === "true") failures.push("STUD_DEV_MODE_ENABLED must be false in production");
-  if (process.env.STUD_COOKIE_SECURE !== "true") failures.push("STUD_COOKIE_SECURE must be true in production");
+  if (process.env.CORPUS_ALLOW_ANONYMOUS === "true") failures.push("CORPUS_ALLOW_ANONYMOUS must be false in production");
+  if (process.env.CORPUS_DEV_MODE_ENABLED === "true") failures.push("CORPUS_DEV_MODE_ENABLED must be false in production");
+  if (process.env.CORPUS_COOKIE_SECURE !== "true") failures.push("CORPUS_COOKIE_SECURE must be true in production");
   if (!process.env.DATABASE_URL) failures.push("DATABASE_URL is required in production");
   if (failures.length) {
     throw new Error(`Unsafe production config:\n- ${failures.join("\n- ")}`);
@@ -85,7 +85,7 @@ const loadTokens = async () => {
     for (const row of rows) {
       studioTokens.set(row.tokenHash, { createdAt: row.createdAt.getTime(), sessionId: row.sessionId, userId: row.userId });
     }
-    if (studioTokens.size) console.log(`[Stud] Loaded ${studioTokens.size} studio token(s) from Postgres`);
+    if (studioTokens.size) console.log(`[Corpus] Loaded ${studioTokens.size} studio token(s) from Postgres`);
     return;
   }
   try {
@@ -94,7 +94,7 @@ const loadTokens = async () => {
       const hash = /^[a-f0-9]{64}$/i.test(key) ? key : digestToken(key);
       studioTokens.set(hash, entry);
     }
-    if (studioTokens.size) console.log(`[Stud] Loaded ${studioTokens.size} studio token(s)`);
+    if (studioTokens.size) console.log(`[Corpus] Loaded ${studioTokens.size} studio token(s)`);
   } catch {
     // File doesn't exist yet — fine on first run
   }
@@ -141,7 +141,7 @@ const bearer = (req) => {
  * Sends 401 and returns null on failure.
  */
 const requireToken = (req, res) => {
-  const token = (bearer(req) || req.header("X-Stud-Token") || "").trim();
+  const token = (bearer(req) || req.header("X-Corpus-Token") || "").trim();
   if (!token) {
     res.status(401).json({ error: "Missing Studio token" });
     return null;
@@ -149,7 +149,7 @@ const requireToken = (req, res) => {
   const hash = digestToken(token);
   const entry = studioTokens.get(hash);
   if (!entry) {
-    res.status(401).json({ error: "Token not recognised. Generate a new one at stud.com." });
+    res.status(401).json({ error: "Token not recognised. Generate a new one at corpus.com." });
     return null;
   }
   return { token, hash, entry };
@@ -242,7 +242,7 @@ const relayStudioRequest = (sessionId, tool, args, signal, operationId) => {
   if (!session) return Promise.reject(new Error("Invalid Studio session"));
   cleanupSession(session);
   if (!isStudioConnected(session)) {
-    return Promise.reject(new Error("Roblox Studio is not connected. Open Studio and connect the Stud plugin."));
+    return Promise.reject(new Error("Roblox Studio is not connected. Open Studio and connect the Corpus plugin."));
   }
   if (operationId && session.completed.has(operationId)) {
     return Promise.resolve(session.completed.get(operationId).result);
@@ -297,7 +297,7 @@ const agentTools = new RobloxStudioMcpGateway(composedRelay);
 const openCloudClient = new OpenCloudClient();
 if (!openCloudClient.configured) {
   console.warn(
-    "[Stud Bridge] Open Cloud DataStore tools are disabled. Set ROBLOX_OPEN_CLOUD_API_KEY and ROBLOX_UNIVERSE_ID in .env to enable.",
+    "[Corpus Bridge] Open Cloud DataStore tools are disabled. Set ROBLOX_OPEN_CLOUD_API_KEY and ROBLOX_UNIVERSE_ID in .env to enable.",
   );
 }
 const datastoreTools = createDataStoreTools(openCloudClient);
@@ -354,8 +354,8 @@ class FinalToolRegistry {
 const allTools = new FinalToolRegistry(combinedTools, subagentTool);
 
 const createConversationStore = () => {
-  if (process.env.STUD_AGENT_STORE === "memory") return new MemoryConversationStore();
-  if (process.env.STUD_AGENT_STORE === "file") return new DevelopmentConversationStore();
+  if (process.env.CORPUS_AGENT_STORE === "memory") return new MemoryConversationStore();
+  if (process.env.CORPUS_AGENT_STORE === "file") return new DevelopmentConversationStore();
   if (process.env.DATABASE_URL) return new PostgresConversationStore();
   return new DevelopmentConversationStore();
 };
@@ -415,7 +415,7 @@ const buildStudioStatus = (session) => {
 
 /** Generate a new studio token. Pass { oldToken } in the body to revoke the previous one. */
 app.post("/auth/studio-token/generate", authMiddleware, async (req, res) => {
-  const allowAnonymous = process.env.STUD_ALLOW_ANONYMOUS === "true";
+  const allowAnonymous = process.env.CORPUS_ALLOW_ANONYMOUS === "true";
   const userId = req.currentUser?.id ?? null;
   if (!allowAnonymous && !userId) {
     res.status(401).json({ error: "Sign in to generate a Studio token" });
@@ -472,8 +472,8 @@ const handleStudioPoll = (req, res) => {
 
   const { sessionId } = auth.entry;
   const session = getSession(sessionId);
-  const pluginVersion = typeof req.query.pluginVersion === "string" ? req.query.pluginVersion : req.header("X-Stud-Plugin-Version");
-  const capabilities = String(req.query.capabilities ?? req.header("X-Stud-Capabilities") ?? "")
+  const pluginVersion = typeof req.query.pluginVersion === "string" ? req.query.pluginVersion : req.header("X-Corpus-Plugin-Version");
+  const capabilities = String(req.query.capabilities ?? req.header("X-Corpus-Capabilities") ?? "")
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
@@ -564,8 +564,8 @@ app.post("/studio/request", async (req, res) => {
 
 app.get("/studio/poll", handleStudioPoll);
 app.post("/studio/respond", handleStudioRespond);
-app.get("/stud/token/poll", handleStudioPoll);
-app.post("/stud/token/respond", handleStudioRespond);
+app.get("/corpus/token/poll", handleStudioPoll);
+app.post("/corpus/token/respond", handleStudioRespond);
 
 /** Token-based status — web app polls this to see if Studio is connected */
 const handleStudioStatus = (req, res) => {
@@ -579,13 +579,13 @@ const handleStudioStatus = (req, res) => {
 };
 
 app.get("/studio/status", handleStudioStatus);
-app.get("/stud/token/status", handleStudioStatus);
+app.get("/corpus/token/status", handleStudioStatus);
 
 const mcpHandler = createMcpRequestHandler(allTools, composedRelay);
 
 app.get("/mcp/info", (_req, res) => {
   res.json({
-    name: "Stud",
+    name: "Corpus",
     description: "Cloud MCP server for Roblox Studio",
     tools: buildMcpToolsList(allTools).map((tool) => tool.name),
   });
@@ -629,7 +629,7 @@ app.get("/api/proxy", async (req, res) => {
     const upstream = await fetch(target, {
       headers: {
         Accept: "application/json",
-        "User-Agent": "Stud/1.0",
+        "User-Agent": "Corpus/1.0",
       },
     });
     const text = await upstream.text();
@@ -719,11 +719,11 @@ app.get("/health", (_req, res) => {
 
 
 const server = app.listen(PORT, () => {
-  console.log(`[Stud Bridge] http://localhost:${PORT}`);
-  console.log("[Stud Bridge] Waiting for web app and Studio plugin...");
+  console.log(`[Corpus Bridge] http://localhost:${PORT}`);
+  console.log("[Corpus Bridge] Waiting for web app and Studio plugin...");
 });
 server.on("error", (err) => {
-  console.error("[Stud Bridge] server error:", err);
+  console.error("[Corpus Bridge] server error:", err);
   process.exit(1);
 });
 // Under Bun, the node:http server from app.listen() does not reliably hold the

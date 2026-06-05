@@ -44,7 +44,7 @@ if (!databaseUrl) {
 const pool    = new pg.Pool({ connectionString: databaseUrl });
 const prisma  = new PrismaClient({ adapter: new PrismaPg(pool) } as ConstructorParameters<typeof PrismaClient>[0]);
 
-const CONVERTED = join(homedir(), "stud", "games", "converted");
+const CONVERTED = join(homedir(), "corpus", "games", "converted");
 const R2_BASE   = `https://api.cloudflare.com/client/v4/accounts/${accountId}/r2/buckets/${bucket}/objects`;
 
 // ── Semaphore — caps concurrent in-flight requests ────────────────────────────

@@ -23,8 +23,8 @@ interface OpenRouterModel {
 
 async function fetchModels(): Promise<OpenRouterModel[]> {
   const headers = new Headers();
-  const devToken = localStorage.getItem("stud_dev_mode_token") || "";
-  if (devToken) headers.set("X-Stud-Dev-Token", devToken);
+  const devToken = localStorage.getItem("corpus_dev_mode_token") || "";
+  if (devToken) headers.set("X-Corpus-Dev-Token", devToken);
   const res = await fetch(bridgeUrl("/agent/models"), { headers, credentials: "include" });
   if (!res.ok) return [];
   const data = await res.json() as { models: OpenRouterModel[] };
@@ -74,7 +74,7 @@ export function ModelSelector({ className, disabled, allowDevMode = false }: Mod
         <Button
           variant="outline"
           size="sm"
-          className={cn("stud-model-trigger gap-1.5 px-2.5 h-9 text-xs", devMode && "border-amber-400/60 text-amber-600", className)}
+          className={cn("corpus-model-trigger gap-1.5 px-2.5 h-9 text-xs", devMode && "border-amber-400/60 text-amber-600", className)}
           aria-label={`Choose ${devMode ? "model" : "tier"}. Current: ${currentLabel}`}
         >
           {devMode && <Terminal className="w-3 h-3 opacity-70" />}
@@ -85,7 +85,7 @@ export function ModelSelector({ className, disabled, allowDevMode = false }: Mod
 
       <PopoverContent
         align="end"
-        className="stud-popover w-72 p-0"
+        className="corpus-popover w-72 p-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         {allowDevMode && (
@@ -142,7 +142,7 @@ export function ModelSelector({ className, disabled, allowDevMode = false }: Mod
                   onClick={() => { setDevModel(m.id); setOpen(false); setSearch(""); }}
                   data-selected={devModel === m.id}
                   className={cn(
-                    "stud-model-row w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-colors",
+                    "corpus-model-row w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left transition-colors",
                     devModel === m.id && "is-selected"
                   )}
                 >
@@ -169,7 +169,7 @@ export function ModelSelector({ className, disabled, allowDevMode = false }: Mod
                 onClick={() => { setTier(tier); setOpen(false); }}
                 data-selected={selectedTier === tier}
                 className={cn(
-                  "stud-model-row w-full flex items-center gap-2 px-2.5 py-2.5 rounded-lg text-left transition-colors",
+                  "corpus-model-row w-full flex items-center gap-2 px-2.5 py-2.5 rounded-lg text-left transition-colors",
                   selectedTier === tier && "is-selected"
                 )}
               >

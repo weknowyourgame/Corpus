@@ -1,6 +1,6 @@
 /**
  * ╔══════════════════════════════════════════════════════╗
- * ║              STUD AI MODEL CONFIGURATION             ║
+ * ║              CORPUS AI MODEL CONFIGURATION             ║
  * ║                                                      ║
  * ║  All model choices live here. Change a model?        ║
  * ║  Edit this file only. Nothing else needs to change.  ║

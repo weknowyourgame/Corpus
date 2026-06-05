@@ -47,7 +47,7 @@ export const useStudioTokenStore = create<StudioTokenState>()(
           fetch(bridgeUrl("/auth/studio-token/revoke"), {
             method: "POST",
             credentials: "include",
-            headers: { "X-Stud-Token": token },
+            headers: { "X-Corpus-Token": token },
           }).catch(() => {});
         }
         set({ token: null, sessionId: null, error: null });
@@ -58,7 +58,7 @@ export const useStudioTokenStore = create<StudioTokenState>()(
         if (!token) return false;
         try {
           const res = await fetch(bridgeUrl("/auth/studio-token/validate"), {
-            headers: { "X-Stud-Token": token },
+            headers: { "X-Corpus-Token": token },
             signal: AbortSignal.timeout(2000),
           });
           if (!res.ok) return false;
@@ -70,7 +70,7 @@ export const useStudioTokenStore = create<StudioTokenState>()(
       },
     }),
     {
-      name: "stud-studio-token",
+      name: "corpus-studio-token",
       partialize: (s) => ({ token: s.token, sessionId: s.sessionId }),
       onRehydrateStorage: () => (state) => {
         if (state?.sessionId) setSessionId(state.sessionId);

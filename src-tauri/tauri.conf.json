@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Stud",
+  "productName": "Corpus",
   "version": "0.1.0",
-  "identifier": "com.shauryagupta.stud",
+  "identifier": "com.shauryagupta.corpus",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1430",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Stud",
+        "title": "Corpus",
         "label": "main",
         "width": 1100,
         "height": 750,

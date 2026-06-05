@@ -166,9 +166,9 @@ export function ToolCall({ name, input, output, status, error, className }: Tool
     pending: { icon: <Loader variant="circular" size="sm" />, label: "Waiting", color: "text-muted-foreground", bgColor: "bg-muted/50" },
     running: { icon: <Loader variant="circular" size="sm" />, label: "Running", color: "text-primary", bgColor: "bg-primary/5" },
     waiting: { icon: <HelpCircle className="h-4 w-4" />, label: "Waiting", color: "text-amber-600", bgColor: "bg-amber-50" },
-    complete: { icon: <Check className="h-4 w-4" />, label: "Done", color: "text-emerald-600", bgColor: "stud-tool-success" },
-    error: { icon: <X className="h-4 w-4" />, label: "Failed", color: "text-red-600", bgColor: "stud-tool-error" },
-    denied: { icon: <ShieldX className="h-4 w-4" />, label: "Denied", color: "text-amber-700", bgColor: "stud-tool-denied" },
+    complete: { icon: <Check className="h-4 w-4" />, label: "Done", color: "text-emerald-600", bgColor: "corpus-tool-success" },
+    error: { icon: <X className="h-4 w-4" />, label: "Failed", color: "text-red-600", bgColor: "corpus-tool-error" },
+    denied: { icon: <ShieldX className="h-4 w-4" />, label: "Denied", color: "text-amber-700", bgColor: "corpus-tool-denied" },
   }[status];
   const summary = status === "complete" ? summarizeTool(name, toolInput, output) : null;
   const SummaryIcon = summary?.icon ?? Wrench;
@@ -179,10 +179,10 @@ export function ToolCall({ name, input, output, status, error, className }: Tool
   const showDiff = status === "complete" && hasScriptDiff(name, toolInput, output);
 
   return (
-    <div className={cn("stud-tool-call rounded-xl border transition-all", statusConfig.bgColor, className)}>
+    <div className={cn("corpus-tool-call rounded-xl border transition-all", statusConfig.bgColor, className)}>
       <button
         onClick={() => setExpanded((value) => !value)}
-        className="stud-tool-call-header flex w-full items-center gap-3 px-4 py-3 text-left"
+        className="corpus-tool-call-header flex w-full items-center gap-3 px-4 py-3 text-left"
       >
         <span className="text-muted-foreground">
           {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -203,7 +203,7 @@ export function ToolCall({ name, input, output, status, error, className }: Tool
       </button>
 
       {expanded && (
-        <div className="stud-tool-call-body space-y-3 px-4 pb-4 pt-0">
+        <div className="corpus-tool-call-body space-y-3 px-4 pb-4 pt-0">
           {showDiff && (
             <DiffView
               oldCode={before}
@@ -240,7 +240,7 @@ function SourcePreview({ source, meta }: { source: string; meta: string }) {
     <div className="overflow-hidden rounded-lg border bg-background">
       <div className="flex items-center gap-2 border-b bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
         <span className="flex-1">{meta}</span>
-        <button type="button" className="stud-icon-btn h-7 w-7" title="Copy source" onClick={() => void navigator.clipboard?.writeText(source)}>
+        <button type="button" className="corpus-icon-btn h-7 w-7" title="Copy source" onClick={() => void navigator.clipboard?.writeText(source)}>
           <Copy className="h-3.5 w-3.5" />
         </button>
         {lines.length > preview.length && (
@@ -271,7 +271,7 @@ function JsonBlock({ title, value }: { title: string; value: unknown }) {
   return (
     <div className="space-y-1">
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
-      <pre className="stud-tool-code max-h-64 overflow-auto rounded-lg border bg-muted/30 p-3 text-xs">
+      <pre className="corpus-tool-code max-h-64 overflow-auto rounded-lg border bg-muted/30 p-3 text-xs">
         {typeof value === "string" ? value : JSON.stringify(value, null, 2)}
       </pre>
     </div>

@@ -1,0 +1,14 @@
+{
+  "id": "71c5aa1a-56cd-439a-ab99-a6a6dfc8c5f4",
+  "studioSessionId": "TEST1234",
+  "accessTokenHash": "886604b3812333e77a6aca5c34b97f37de0dcee7ab0cac2c57b7f4055bdeab40",
+  "createdAt": "2026-05-27T15:54:48.304Z",
+  "updatedAt": "2026-05-27T15:54:48.306Z",
+  "nextSequence": 1,
+  "messages": [],
+  "runs": [],
+  "approvedScopes": [],
+  "auditEvents": [],
+  "pendingApprovals": [],
+  "pendingInteractions": []
+}

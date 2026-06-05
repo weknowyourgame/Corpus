@@ -5,7 +5,7 @@ import Home from "@/pages/Home";
 
 function App() {
   return (
-    <div className="stud-page stud-body">
+    <div className="corpus-page corpus-body">
       <TooltipProvider>
         <PrereqWizard />
         <Home />

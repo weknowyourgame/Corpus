@@ -24,7 +24,7 @@ function ChatContainerRoot({
 }: ChatContainerRootProps) {
   return (
     <StickToBottom
-      className={cn("stud-chat-container-root flex flex-col overflow-y-auto", className)}
+      className={cn("corpus-chat-container-root flex flex-col overflow-y-auto", className)}
       resize="smooth"
       initial="instant"
       role="log"
@@ -42,7 +42,7 @@ function ChatContainerContent({
 }: ChatContainerContentProps) {
   return (
     <StickToBottom.Content
-      className={cn("stud-chat-container-content flex w-full flex-col", className)}
+      className={cn("corpus-chat-container-content flex w-full flex-col", className)}
       {...props}
     >
       {children}

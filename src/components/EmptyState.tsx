@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { StudLogo } from "@/stud-ui";
+import { CorpusLogo } from "@/corpus-ui";
 
 const CAPABILITIES = [
   "Write Luau scripts",
@@ -52,22 +52,22 @@ export function EmptyState({ className }: { className?: string }) {
 
   return (
     <div className={cn("flex flex-col items-center text-center py-10", className)}>
-      <StudLogo large className="mb-6" />
-      <h2 className="stud-display-title" style={{ fontSize: "2rem" }}>
+      <CorpusLogo large className="mb-6" />
+      <h2 className="corpus-display-title" style={{ fontSize: "2rem" }}>
         What would you like to build?
       </h2>
-      <p className="stud-display-subtitle max-w-md">
-        Stud can help you create, modify, and debug your Roblox game with AI-powered assistance.
+      <p className="corpus-display-subtitle max-w-md">
+        Corpus can help you create, modify, and debug your Roblox game with AI-powered assistance.
       </p>
       <div className="flex flex-wrap justify-center gap-2 mt-8">
         {CAPABILITIES.map((cap) => (
-          <span key={cap} className="stud-suggestion-chip">
+          <span key={cap} className="corpus-suggestion-chip">
             {cap}
           </span>
         ))}
       </div>
-      <div className="stud-panel-soft mt-8 max-w-sm w-full text-left">
-        <p className="text-xs uppercase tracking-wider" style={{ color: "var(--stud-muted)", fontFamily: "var(--stud-tech)" }}>
+      <div className="corpus-panel-soft mt-8 max-w-sm w-full text-left">
+        <p className="text-xs uppercase tracking-wider" style={{ color: "var(--corpus-muted)", fontFamily: "var(--corpus-tech)" }}>
           Try asking
         </p>
         <p className="mt-2 text-[15px] min-h-[1.5rem]">

@@ -57,19 +57,19 @@ const rateLimitConfigSchema = z.object({
 });
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 const devModeAllowed = (req: Request) => {
-  if (process.env.STUD_DEV_MODE_ENABLED !== "true") return false;
-  const token = process.env.STUD_DEV_MODE_TOKEN;
+  if (process.env.CORPUS_DEV_MODE_ENABLED !== "true") return false;
+  const token = process.env.CORPUS_DEV_MODE_TOKEN;
   if (!token) return true;
-  return req.header("x-stud-dev-token")?.trim() === token.trim();
+  return req.header("x-corpus-dev-token")?.trim() === token.trim();
 };
 // Full access: server env gates whether the client can enable it at all.
-// STUD_FULL_ACCESS_ENABLED=true → allowed on this server.
-// STUD_FULL_ACCESS_TOKEN (optional) → client must send X-Stud-Full-Access-Token header.
+// CORPUS_FULL_ACCESS_ENABLED=true → allowed on this server.
+// CORPUS_FULL_ACCESS_TOKEN (optional) → client must send X-Corpus-Full-Access-Token header.
 const fullAccessAllowed = (req: Request) => {
-  if (process.env.STUD_FULL_ACCESS_ENABLED !== "true") return false;
-  const requiredToken = process.env.STUD_FULL_ACCESS_TOKEN;
+  if (process.env.CORPUS_FULL_ACCESS_ENABLED !== "true") return false;
+  const requiredToken = process.env.CORPUS_FULL_ACCESS_TOKEN;
   if (!requiredToken) return true;
-  return req.header("x-stud-full-access-token") === requiredToken;
+  return req.header("x-corpus-full-access-token") === requiredToken;
 };
 const publicConversation = (conversation: Conversation) => {
   const { accessTokenHash: _token, ...safe } = conversation;
@@ -284,8 +284,8 @@ export function createAgentRouter(
       const upstream = await fetch("https://openrouter.ai/api/v1/models?supported_parameters=tools", {
         headers: {
           Authorization: `Bearer ${key}`,
-          "HTTP-Referer": "https://stud.dev",
-          "X-OpenRouter-Title": "Stud",
+          "HTTP-Referer": "https://corpus.dev",
+          "X-OpenRouter-Title": "Corpus",
         },
       });
       if (!upstream.ok) {
@@ -520,7 +520,7 @@ export function createAgentRouter(
     }
     const orKey = process.env.OPENROUTER_API_KEY;
     if (!orKey) {
-      res.json({ improved: prompt, error: "Stud model access is unavailable on this server" });
+      res.json({ improved: prompt, error: "Corpus model access is unavailable on this server" });
       return;
     }
     try {
@@ -528,7 +528,7 @@ export function createAgentRouter(
       const timeout = setTimeout(() => controller.abort(), 20_000);
       const improved = await generateUtilityText({
         profileId: "summarizer",
-        system: "You are a prompt improvement assistant for Stud, an AI agent for Roblox Studio. Improve the user's rough prompt to be clearer and more effective. Return ONLY the improved prompt text, no preamble.",
+        system: "You are a prompt improvement assistant for Corpus, an AI agent for Roblox Studio. Improve the user's rough prompt to be clearer and more effective. Return ONLY the improved prompt text, no preamble.",
         user: prompt,
         signal: controller.signal,
         temperature: 0.2,

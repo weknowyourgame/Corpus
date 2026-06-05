@@ -1,4 +1,4 @@
-# Stud — Roadmap, Fix Prompts & Claude Code Integration
+# Corpus — Roadmap, Fix Prompts & Claude Code Integration
 
 Everything in one place: what to fix right now, prompts to do it, and how to pull every
 useful pattern from `claude-code/` into the Roblox agent.
@@ -43,9 +43,9 @@ of the data gap.
 
 ### 4. Production is not ready
 
-`.env` has `STUD_ALLOW_ANONYMOUS=true` and `NODE_ENV=development`. Anonymous mode bypasses
-auth entirely. Before going live: set `STUD_ALLOW_ANONYMOUS=false`, `NODE_ENV=production`,
-`STUD_COOKIE_SECURE=true`, and point Google OAuth redirect URI at the real domain.
+`.env` has `CORPUS_ALLOW_ANONYMOUS=true` and `NODE_ENV=development`. Anonymous mode bypasses
+auth entirely. Before going live: set `CORPUS_ALLOW_ANONYMOUS=false`, `NODE_ENV=production`,
+`CORPUS_COOKIE_SECURE=true`, and point Google OAuth redirect URI at the real domain.
 
 ---
 
@@ -225,17 +225,17 @@ If Vectorize returns 0 — Fix 2 or Fix 4 is the blocker.
 
 ## Part 3 — Claude Code Integration Prompts
 
-Everything in `claude-code/` that maps onto Stud. One section per feature, each with a
+Everything in `claude-code/` that maps onto Corpus. One section per feature, each with a
 self-contained prompt. Read the source path listed before pasting the prompt.
 
 **Master prompt — paste this first in every session:**
 
 ```
-You are implementing features from Claude Code (the reference at claude-code/) into Stud,
+You are implementing features from Claude Code (the reference at claude-code/) into Corpus,
 a Roblox Studio AI agent. Server lives in server/agent/, frontend in src/. Read CODEBASE.md
 before starting. Follow every convention in CLAUDE.md.
 When I say "implement X from claude-code/", read the reference source, understand the
-pattern, then adapt it to Stud's architecture (Express + TypeScript server, React + Zustand
+pattern, then adapt it to Corpus's architecture (Express + TypeScript server, React + Zustand
 frontend, Roblox Studio plugin bridge). Never copy-paste wholesale — adapt.
 ```
 
@@ -245,7 +245,7 @@ frontend, Roblox Studio plugin bridge). Never copy-paste wholesale — adapt.
 
 **Source:** `claude-code/native-ts/color-diff/index.ts`
 
-Word-level and line-level diff with color highlighting. Stud already has `structured-diff.ts`
+Word-level and line-level diff with color highlighting. Corpus already has `structured-diff.ts`
 with hunks and line numbers but `MutationDiff.tsx` still renders raw before/after strings.
 
 **Prompt:**
@@ -266,7 +266,7 @@ MutationDiff.tsx and tool-call.tsx are not using it. Wire it up:
    afterSource, use the word-level wordRanges from StructuredDiffLine to highlight changed
    words inline (not just line-level).
 
-3. Use Tailwind classes that match the existing stud-panel/stud-soft color tokens.
+3. Use Tailwind classes that match the existing corpus-panel/corpus-soft color tokens.
 
 Do not create any new files. Only update MutationDiff.tsx and tool-call.tsx.
 ```
@@ -282,7 +282,7 @@ Do not create any new files. Only update MutationDiff.tsx and tool-call.tsx.
 
 **Prompt:**
 ```
-In Stud, fullAccess mode already exists in the backend (policy.ts auto-approves all
+In Corpus, fullAccess mode already exists in the backend (policy.ts auto-approves all
 mutations when run.fullAccess is true) and in src/stores/settings.ts (fullAccess: boolean).
 But there is no UI to toggle it.
 
@@ -308,7 +308,7 @@ That is all. The backend already handles everything else.
 **Source:** `claude-code/tools/AgentTool/runAgent.ts`,
 `claude-code/tools/AgentTool/built-in/`
 
-Claude Code spawns focused specialist agents with scoped tools and handoff prompts. Stud's
+Claude Code spawns focused specialist agents with scoped tools and handoff prompts. Corpus's
 `subagent.ts` exists but is a thin wrapper without proper isolation.
 
 **Prompt:**
@@ -347,14 +347,14 @@ Keep existing tool registration in tools.ts.
 **Source:** `claude-code/tools/EnterPlanModeTool/`,
 `claude-code/tools/ExitPlanModeTool/`
 
-Stud has plan mode but it outputs free text. Claude Code uses structured step objects that
+Corpus has plan mode but it outputs free text. Claude Code uses structured step objects that
 map directly to UI affordances.
 
 **Prompt:**
 ```
 Read claude-code/tools/EnterPlanModeTool/ and claude-code/tools/ExitPlanModeTool/.
 
-Improve Stud's plan mode in server/agent/plan.ts:
+Improve Corpus's plan mode in server/agent/plan.ts:
 
 1. Change plan output from free text to a structured Zod-validated JSON schema:
    {
@@ -401,7 +401,7 @@ Read claude-code/services/SessionMemory/sessionMemory.ts,
 claude-code/services/extractMemories/extractMemories.ts,
 and claude-code/services/extractMemories/prompts.ts.
 
-Add session memory to Stud:
+Add session memory to Corpus:
 
 1. Add server/agent/memory.ts:
    - extractMemories(messages, runText, signal): calls the LLM with a short extraction
@@ -412,10 +412,10 @@ Add session memory to Stud:
 
 2. In server/agent/system-prompt.ts add injectMemories(memories): appends to the system
    prompt as:
-   <stud_memory>
+   <corpus_memory>
    [project] This game uses DataStore v2 with retry wrappers.
    [pattern] User prefers ModuleScript over Script for shared logic.
-   </stud_memory>
+   </corpus_memory>
 
 3. In runtime.ts execute() iteration 1: call loadMemories() alongside buildRagContext().
 
@@ -439,12 +439,12 @@ checklist during long runs.
 ```
 Read claude-code/tools/TaskCreateTool/TaskCreateTool.ts and claude-code/tasks/types.ts.
 
-Add task tracking to Stud:
+Add task tracking to Corpus:
 
 1. Add three tools to server/agent/tools.ts:
-   - stud_task_create: { title, description? } → returns taskId
-   - stud_task_update: { taskId, status: "pending"|"in_progress"|"completed"|"blocked", note? }
-   - stud_task_list: no args → returns task list for this run
+   - corpus_task_create: { title, description? } → returns taskId
+   - corpus_task_update: { taskId, status: "pending"|"in_progress"|"completed"|"blocked", note? }
+   - corpus_task_list: no args → returns task list for this run
 
 2. Tasks live in ActiveRun.tasks: Map<string, Task> — no DB persistence needed.
 
@@ -458,8 +458,8 @@ Add task tracking to Stud:
 6. Add src/components/chat/TaskProgress.tsx: compact checklist with status icons.
    Show it in Home.tsx during streaming, above the streaming loader.
 
-7. In system-prompt.ts tell the model to use stud_task_create at the start of complex
-   multi-step operations and stud_task_update as each step completes.
+7. In system-prompt.ts tell the model to use corpus_task_create at the start of complex
+   multi-step operations and corpus_task_update as each step completes.
 ```
 
 ---
@@ -475,7 +475,7 @@ Summarizes old turns when approaching the context limit so long runs don't fail.
 ```
 Read claude-code/services/compact/compact.ts and claude-code/services/compact/prompt.ts.
 
-Add context auto-compaction to Stud:
+Add context auto-compaction to Corpus:
 
 1. Add server/agent/compact.ts:
    - estimateTokens(messages): sum of char counts / 4
@@ -543,10 +543,10 @@ Creates a rollback point before the run starts. One click undoes everything the 
 ```
 Read claude-code/tools/EnterWorktreeTool/ and claude-code/tools/ExitWorktreeTool/.
 
-Implement run-level isolation for Stud using Studio change history:
+Implement run-level isolation for Corpus using Studio change history:
 
 1. In runtime.ts execute() iteration 1, call the Studio plugin via:
-   execute_luau: `game:GetService("ChangeHistoryService"):SetWaypoint("Stud:run-start")`
+   execute_luau: `game:GetService("ChangeHistoryService"):SetWaypoint("Corpus:run-start")`
    Store the waypointName in ActiveRun. This happens automatically, no user approval needed.
 
 2. Add POST /agent/conversations/:id/runs/:runId/restore in routes.ts.
@@ -571,7 +571,7 @@ Shows per-run token count and estimated USD cost at the end of each run.
 ```
 Read claude-code/costHook.ts and claude-code/cost-tracker.ts.
 
-Add per-run cost tracking to Stud:
+Add per-run cost tracking to Corpus:
 
 1. In server/agent/drivers.ts, have ModelDriver.generate() return:
    { text, toolCalls, usage: { inputTokens: number, outputTokens: number } }
@@ -584,7 +584,7 @@ Add per-run cost tracking to Stud:
 3. Add inputTokens and outputTokens to AgentEventData for run_completed in types.ts.
 
 4. Add src/lib/ai/cost.ts with estimateCost(model, inputTokens, outputTokens): number
-   using hardcoded per-million-token prices for Stud's models.
+   using hardcoded per-million-token prices for Corpus's models.
 
 5. In server-agent.ts read usage from run_completed and call
    callbacks.onCostEstimate({ inputTokens, outputTokens, estimatedUsd }).
@@ -607,13 +607,13 @@ Full MCP server management — discover tools, handle auth, classify risk per to
 ```
 Read claude-code/services/mcp/client.ts, MCPConnectionManager.tsx, and claude-code/tools/MCPTool/.
 
-Upgrade Stud's MCP integration:
+Upgrade Corpus's MCP integration:
 
 1. In server/agent/mcp-server.ts, expose each MCP tool as a first-class AgentTool
    dynamically built from the MCP server's tools/list response (same pattern as
    RobloxStudioMcpGateway but from live tool list).
 
-2. Add MCP server config: STUD_MCP_SERVERS=name1:url1,name2:url2 in .env.
+2. Add MCP server config: CORPUS_MCP_SERVERS=name1:url1,name2:url2 in .env.
    Load each server's tools on startup and add to allTools in server/index.js.
 
 3. Add GET /agent/mcp/status in routes.ts: returns connected servers, their tools,
@@ -639,7 +639,7 @@ Full vim keybindings for the text input.
 ```
 Read claude-code/vim/ (all files).
 
-Add optional vim mode to Stud's composer:
+Add optional vim mode to Corpus's composer:
 
 1. Add src/lib/vim.ts: minimal vim state machine from claude-code/vim/.
    Modes: insert | normal | visual.
@@ -648,7 +648,7 @@ Add optional vim mode to Stud's composer:
 
 2. In src/stores/settings.ts add vimMode: boolean (default false, persisted).
 
-3. In StudComposer, if vimMode is true, attach the vim key handler to the textarea.
+3. In CorpusComposer, if vimMode is true, attach the vim key handler to the textarea.
    Show current mode (INSERT / NORMAL / VISUAL) in small text at the bottom-right.
 
 4. Add vim toggle in SettingsDialog.tsx under "Editor preferences".

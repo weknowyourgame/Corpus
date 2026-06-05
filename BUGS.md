@@ -14,7 +14,7 @@
 }
 Error
 
-user_stud-bridge.server.lua.Script:816: invalid use of '%' in replacement string
+user_corpus-bridge.server.lua.Script:816: invalid use of '%' in replacement string
 
 Write script wont work
 

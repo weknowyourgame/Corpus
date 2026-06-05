@@ -28,7 +28,7 @@ const OPENROUTER_DIRECT = "https://openrouter.ai/api/v1/chat/completions";
 function resolveUrlAndHeaders(): { url: string; headers: Record<string, string> } {
   const orKey = process.env.OPENROUTER_API_KEY;
   if (!orKey) {
-    throw new Error("Stud model access is unavailable on this server");
+    throw new Error("Corpus model access is unavailable on this server");
   }
 
   const gatewayBase = (process.env.AI_GATEWAY_URL ?? "").replace(/\/$/, "");
@@ -38,8 +38,8 @@ function resolveUrlAndHeaders(): { url: string; headers: Record<string, string> 
     // OpenRouter key always goes here — CF gateway forwards it to OpenRouter
     Authorization: `Bearer ${orKey}`,
     "Content-Type": "application/json",
-    "HTTP-Referer": "https://stud.dev",
-    "X-OpenRouter-Title": "Stud",
+    "HTTP-Referer": "https://corpus.dev",
+    "X-OpenRouter-Title": "Corpus",
   };
 
   if (gatewayBase) {

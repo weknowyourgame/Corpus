@@ -26,7 +26,7 @@ export async function extractMemories(
     profileId: "summarizer",
     signal,
     system: [
-      "Extract durable facts for Stud, a Roblox Studio AI agent.",
+      "Extract durable facts for Corpus, a Roblox Studio AI agent.",
       "Return only JSON: [{\"key\":\"...\",\"value\":\"...\",\"category\":\"project|preference|pattern\"}].",
       "Keep facts that will help future runs: project architecture, user preferences, reusable implementation patterns.",
       "Ignore transient chatter, tool progress, and facts already too vague to act on.",
@@ -103,8 +103,8 @@ export async function loadMemories(conversationId: string): Promise<AgentMemory[
 export function formatMemories(memories: AgentMemory[]): string | undefined {
   if (!memories.length) return undefined;
   return [
-    "<stud_memory>",
+    "<corpus_memory>",
     ...memories.map((memory) => `[${memory.category}] ${memory.value}`),
-    "</stud_memory>",
+    "</corpus_memory>",
   ].join("\n");
 }

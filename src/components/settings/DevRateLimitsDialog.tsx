@@ -27,8 +27,8 @@ const defaultConfig: RateLimitConfig = {
 
 const devHeaders = () => {
   const headers = new Headers({ "Content-Type": "application/json" });
-  const token = localStorage.getItem("stud_dev_mode_token") || "";
-  if (token) headers.set("X-Stud-Dev-Token", token);
+  const token = localStorage.getItem("corpus_dev_mode_token") || "";
+  if (token) headers.set("X-Corpus-Dev-Token", token);
   return headers;
 };
 
@@ -122,7 +122,7 @@ export function DevRateLimitsDialog({ className }: { className?: string }) {
   }, [open]);
 
   const unlock = () => {
-    localStorage.setItem("stud_dev_mode_token", unlockToken.trim());
+    localStorage.setItem("corpus_dev_mode_token", unlockToken.trim());
     load();
   };
 
@@ -162,7 +162,7 @@ export function DevRateLimitsDialog({ className }: { className?: string }) {
       <DialogTrigger asChild>
         <button
           type="button"
-          className={cn("stud-icon-btn nav-button", className)}
+          className={cn("corpus-icon-btn nav-button", className)}
           aria-label="Dev rate limits"
           title="Dev rate limits"
         >
@@ -185,13 +185,13 @@ export function DevRateLimitsDialog({ className }: { className?: string }) {
             <div className="rounded-lg border border-amber-300/70 bg-amber-500/5 p-3">
               <p className="text-sm font-medium">Dev rate limits are locked</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Enter the server's STUD_DEV_MODE_TOKEN to unlock runtime rate-limit controls in this browser.
+                Enter the server's CORPUS_DEV_MODE_TOKEN to unlock runtime rate-limit controls in this browser.
               </p>
               <div className="mt-3 flex gap-2">
                 <Input
                   value={unlockToken}
                   onChange={(event) => setUnlockToken(event.target.value)}
-                  placeholder="STUD_DEV_MODE_TOKEN"
+                  placeholder="CORPUS_DEV_MODE_TOKEN"
                   className="h-9 font-mono text-sm"
                 />
                 <Button type="button" onClick={unlock} disabled={!unlockToken.trim()}>

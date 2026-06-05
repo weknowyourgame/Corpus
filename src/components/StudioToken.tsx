@@ -27,9 +27,9 @@ export function StudioToken({ className }: { className?: string }) {
   };
 
   return (
-    <div className={cn("stud-panel-soft space-y-4", className)}>
+    <div className={cn("corpus-panel-soft space-y-4", className)}>
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium" style={{ color: "var(--stud-text)" }}>
+        <p className="text-sm font-medium" style={{ color: "var(--corpus-text)" }}>
           Studio Token
         </p>
         {token && (
@@ -51,8 +51,8 @@ export function StudioToken({ className }: { className?: string }) {
         )}
       </div>
 
-      <p className="text-xs" style={{ color: "var(--stud-muted)" }}>
-        Paste this token into the Stud plugin in Roblox Studio. No session code needed — it connects automatically.
+      <p className="text-xs" style={{ color: "var(--corpus-muted)" }}>
+        Paste this token into the Corpus plugin in Roblox Studio. No session code needed — it connects automatically.
       </p>
 
       {token ? (
@@ -60,11 +60,11 @@ export function StudioToken({ className }: { className?: string }) {
           {/* Token string */}
           <div
             className="flex items-start gap-2 rounded-lg px-3 py-2.5"
-            style={{ background: "var(--stud-bg-secondary, rgba(0,0,0,0.04))" }}
+            style={{ background: "var(--corpus-bg-secondary, rgba(0,0,0,0.04))" }}
           >
             <code
               className="flex-1 text-xs break-all font-mono select-all leading-relaxed"
-              style={{ color: "var(--stud-text)" }}
+              style={{ color: "var(--corpus-text)" }}
             >
               {token}
             </code>
@@ -87,7 +87,7 @@ export function StudioToken({ className }: { className?: string }) {
           {/* QR code */}
           <div
             className="flex justify-center p-4 rounded-lg"
-            style={{ background: "var(--stud-bg-secondary, rgba(0,0,0,0.04))" }}
+            style={{ background: "var(--corpus-bg-secondary, rgba(0,0,0,0.04))" }}
           >
             <QRCode value={token} size={128} level="M" />
           </div>

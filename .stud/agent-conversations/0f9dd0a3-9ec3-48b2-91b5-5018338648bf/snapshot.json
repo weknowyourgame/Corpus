@@ -1,0 +1,581 @@
+{
+  "id": "0f9dd0a3-9ec3-48b2-91b5-5018338648bf",
+  "studioSessionId": "DT6FPUGU",
+  "accessTokenHash": "190fba1318416f753e754bae0f21f12122ec9745ce54b63483b312aa1a1e0ab5",
+  "createdAt": "2026-05-29T16:53:09.835Z",
+  "updatedAt": "2026-05-29T16:56:31.693Z",
+  "nextSequence": 28,
+  "messages": [
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": "Hello! How can I help you with your Roblox Studio project today?",
+      "toolCalls": []
+    },
+    {
+      "role": "user",
+      "content": "are you connected to my studio ?"
+    },
+    {
+      "role": "assistant",
+      "content": "Yes—I’m connected to yourRoblox Studio session and can read or modify objects, scripts, and properties using the Studio tools. Let me know what you’d like to work on!",
+      "toolCalls": []
+    },
+    {
+      "role": "user",
+      "content": "see what all is in their and tell me"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "call_5831d30d899f498d81433794",
+          "name": "mcp__roblox_studio__list_children",
+          "input": {
+            "path": "game.Workspace",
+            "recursive": true
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "toolCallId": "call_5831d30d899f498d81433794",
+      "toolName": "mcp__roblox_studio__list_children",
+      "output": {
+        "error": "Request timed out waiting for Studio response"
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "call_61d392445c0044d2b2988a12",
+          "name": "mcp__roblox_studio__list_children",
+          "input": {
+            "path": "game.Workspace",
+            "recursive": false
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "toolCallId": "call_61d392445c0044d2b2988a12",
+      "toolName": "mcp__roblox_studio__list_children",
+      "output": {
+        "error": "Request timed out waiting for Studio response"
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "call_0399bf2058aa4df6bc04fdce",
+          "name": "mcp__roblox_studio__get_live_context",
+          "input": {
+            "path": "game.Workspace"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "toolCallId": "call_0399bf2058aa4df6bc04fdce",
+      "toolName": "mcp__roblox_studio__get_live_context",
+      "output": {
+        "selection": {
+          "error": "Request timed out waiting for Studio response"
+        },
+        "instanceContext": {
+          "path": "game.Workspace",
+          "children": {
+            "error": "Request timed out waiting for Studio response"
+          }
+        }
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "call_c88a4435ccb9485387cba0b4",
+          "name": "mcp__roblox_studio__get_selection",
+          "input": {}
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "toolCallId": "call_c88a4435ccb9485387cba0b4",
+      "toolName": "mcp__roblox_studio__get_selection",
+      "output": {
+        "error": "Request timed out waiting for Studio response"
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "call_b42c61cac4ca44d0992cc735",
+          "name": "mcp__roblox_studio__list_children",
+          "input": {
+            "path": "game.Players",
+            "recursive": false
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "toolCallId": "call_b42c61cac4ca44d0992cc735",
+      "toolName": "mcp__roblox_studio__list_children",
+      "output": {
+        "error": "Request timed out waiting for Studio response"
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "call_1cab5ddfdefb45c28f8f6221",
+          "name": "mcp__roblox_studio__get_live_context",
+          "input": {
+            "path": "game"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "toolCallId": "call_1cab5ddfdefb45c28f8f6221",
+      "toolName": "mcp__roblox_studio__get_live_context",
+      "output": {
+        "selection": {
+          "error": "Request timed out waiting for Studio response"
+        },
+        "instanceContext": {
+          "path": "game",
+          "children": {
+            "error": "Request timed out waiting for Studio response"
+          }
+        }
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+        {
+          "id": "call_216d308a76df426588178ebf",
+          "name": "mcp__roblox_studio__execute_luau",
+          "input": {
+            "code": "print(\"Testing Studio connectivity\")"
+          }
+        }
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "id": "bfbf8cfd-3af5-4c16-ad27-2d11ef6e9b42",
+      "status": "completed",
+      "mode": "execute",
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-nano-30b-a3b:free",
+      "startedAt": "2026-05-29T16:53:12.842Z",
+      "iterations": 1,
+      "completedAt": "2026-05-29T16:53:14.524Z"
+    },
+    {
+      "id": "01423d79-9045-4503-8742-d7ed2bf6c163",
+      "status": "completed",
+      "mode": "execute",
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-nano-30b-a3b:free",
+      "startedAt": "2026-05-29T16:53:22.838Z",
+      "iterations": 1,
+      "completedAt": "2026-05-29T16:53:26.378Z"
+    },
+    {
+      "id": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "status": "cancelled",
+      "mode": "execute",
+      "provider": "openrouter",
+      "model": "nvidia/nemotron-3-nano-30b-a3b:free",
+      "startedAt": "2026-05-29T16:53:37.291Z",
+      "iterations": 7,
+      "completedAt": "2026-05-29T16:56:31.688Z",
+      "error": "Server restarted before this run completed"
+    }
+  ],
+  "approvedScopes": [],
+  "auditEvents": [
+    {
+      "id": "4a457c45-4740-40b3-9f08-4dfc5b2c00ff",
+      "timestamp": "2026-05-29T16:53:12.842Z",
+      "runId": "bfbf8cfd-3af5-4c16-ad27-2d11ef6e9b42",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "hi"
+      }
+    },
+    {
+      "id": "bb48938b-f6b1-4823-aa35-f7ae4e9e961e",
+      "timestamp": "2026-05-29T16:53:22.838Z",
+      "runId": "01423d79-9045-4503-8742-d7ed2bf6c163",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "are you connected to my studio ?"
+      }
+    },
+    {
+      "id": "e83aebce-0a86-48ea-add0-9ad40675d293",
+      "timestamp": "2026-05-29T16:53:37.291Z",
+      "runId": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "type": "prompt",
+      "actor": "user",
+      "summary": "Prompt received in execute mode.",
+      "details": {
+        "mode": "execute",
+        "message": "see what all is in their and tell me"
+      }
+    },
+    {
+      "id": "1b6464df-b7e6-4bd1-8515-efe4c4b87959",
+      "timestamp": "2026-05-29T16:53:42.683Z",
+      "runId": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "type": "tool_requested",
+      "actor": "model",
+      "summary": "list children (game.Workspace)",
+      "details": {
+        "path": "game.Workspace",
+        "recursive": true
+      },
+      "toolCallId": "call_5831d30d899f498d81433794",
+      "toolName": "mcp__roblox_studio__list_children",
+      "risk": "read"
+    },
+    {
+      "id": "f0ec9f93-951a-4f1f-976c-8a3b69e356f2",
+      "timestamp": "2026-05-29T16:53:42.683Z",
+      "runId": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "type": "policy_decision",
+      "actor": "policy",
+      "summary": "Read-only operations are allowed.",
+      "details": {
+        "scope": "game.Workspace",
+        "planStepIndex": null
+      },
+      "toolCallId": "call_5831d30d899f498d81433794",
+      "toolName": "mcp__roblox_studio__list_children",
+      "risk": "read",
+      "decision": "allow"
+    },
+    {
+      "id": "71031c81-7a7c-4920-95c7-fdddfbce6e2a",
+      "timestamp": "2026-05-29T16:53:57.720Z",
+      "runId": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "type": "tool_outcome",
+      "actor": "tool",
+      "summary": "mcp__roblox_studio__list_children returned a result.",
+      "details": {
+        "error": "Request timed out waiting for Studio response"
+      },
+      "toolCallId": "call_5831d30d899f498d81433794",
+      "toolName": "mcp__roblox_studio__list_children",
+      "risk": "read"
+    },
+    {
+      "id": "ea481031-2564-47bd-b1c7-80764bdcfe9d",
+      "timestamp": "2026-05-29T16:54:02.096Z",
+      "runId": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "type": "tool_requested",
+      "actor": "model",
+      "summary": "list children (game.Workspace)",
+      "details": {
+        "path": "game.Workspace",
+        "recursive": false
+      },
+      "toolCallId": "call_61d392445c0044d2b2988a12",
+      "toolName": "mcp__roblox_studio__list_children",
+      "risk": "read"
+    },
+    {
+      "id": "d3b29c7e-0497-4437-9baa-b181fc1299d5",
+      "timestamp": "2026-05-29T16:54:02.096Z",
+      "runId": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "type": "policy_decision",
+      "actor": "policy",
+      "summary": "Read-only operations are allowed.",
+      "details": {
+        "scope": "game.Workspace",
+        "planStepIndex": null
+      },
+      "toolCallId": "call_61d392445c0044d2b2988a12",
+      "toolName": "mcp__roblox_studio__list_children",
+      "risk": "read",
+      "decision": "allow"
+    },
+    {
+      "id": "d422f7ca-9957-4398-ad84-cd1e14102777",
+      "timestamp": "2026-05-29T16:54:17.128Z",
+      "runId": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "type": "tool_outcome",
+      "actor": "tool",
+      "summary": "mcp__roblox_studio__list_children returned a result.",
+      "details": {
+        "error": "Request timed out waiting for Studio response"
+      },
+      "toolCallId": "call_61d392445c0044d2b2988a12",
+      "toolName": "mcp__roblox_studio__list_children",
+      "risk": "read"
+    },
+    {
+      "id": "d4af2c93-c774-40a2-aa2c-6e0c2f4f5dde",
+      "timestamp": "2026-05-29T16:54:19.925Z",
+      "runId": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "type": "tool_requested",
+      "actor": "model",
+      "summary": "get live context (studio.live-context)",
+      "details": {
+        "path": "game.Workspace"
+      },
+      "toolCallId": "call_0399bf2058aa4df6bc04fdce",
+      "toolName": "mcp__roblox_studio__get_live_context",
+      "risk": "read"
+    },
+    {
+      "id": "1d9bd933-d5ba-44f0-afae-3492bf22c3ca",
+      "timestamp": "2026-05-29T16:54:19.925Z",
+      "runId": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "type": "policy_decision",
+      "actor": "policy",
+      "summary": "Read-only operations are allowed.",
+      "details": {
+        "scope": "studio.live-context",
+        "planStepIndex": null
+      },
+      "toolCallId": "call_0399bf2058aa4df6bc04fdce",
+      "toolName": "mcp__roblox_studio__get_live_context",
+      "risk": "read",
+      "decision": "allow"
+    },
+    {
+      "id": "585b76ac-2207-4797-bba7-1910b70107d6",
+      "timestamp": "2026-05-29T16:54:49.980Z",
+      "runId": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "type": "tool_outcome",
+      "actor": "tool",
+      "summary": "mcp__roblox_studio__get_live_context returned a result.",
+      "details": {
+        "selection": {
+          "error": "Request timed out waiting for Studio response"
+        },
+        "instanceContext": {
+          "path": "game.Workspace",
+          "children": {
+            "error": "Request timed out waiting for Studio response"
+          }
+        }
+      },
+      "toolCallId": "call_0399bf2058aa4df6bc04fdce",
+      "toolName": "mcp__roblox_studio__get_live_context",
+      "risk": "read"
+    },
+    {
+      "id": "24d42d59-450b-48c2-bb71-2875f8a4d3f6",
+      "timestamp": "2026-05-29T16:54:53.742Z",
+      "runId": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "type": "tool_requested",
+      "actor": "model",
+      "summary": "get selection (studio.selection)",
+      "details": {},
+      "toolCallId": "call_c88a4435ccb9485387cba0b4",
+      "toolName": "mcp__roblox_studio__get_selection",
+      "risk": "read"
+    },
+    {
+      "id": "49b4c0ba-ef95-4ff9-9c70-f30704895bb9",
+      "timestamp": "2026-05-29T16:54:53.742Z",
+      "runId": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "type": "policy_decision",
+      "actor": "policy",
+      "summary": "Read-only operations are allowed.",
+      "details": {
+        "scope": "studio.selection",
+        "planStepIndex": null
+      },
+      "toolCallId": "call_c88a4435ccb9485387cba0b4",
+      "toolName": "mcp__roblox_studio__get_selection",
+      "risk": "read",
+      "decision": "allow"
+    },
+    {
+      "id": "57dd6921-034e-4682-b1ef-0ea723199d94",
+      "timestamp": "2026-05-29T16:55:08.758Z",
+      "runId": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "type": "tool_outcome",
+      "actor": "tool",
+      "summary": "mcp__roblox_studio__get_selection returned a result.",
+      "details": {
+        "error": "Request timed out waiting for Studio response"
+      },
+      "toolCallId": "call_c88a4435ccb9485387cba0b4",
+      "toolName": "mcp__roblox_studio__get_selection",
+      "risk": "read"
+    },
+    {
+      "id": "6e2b07ee-87ec-4499-90b0-992b5d52c72a",
+      "timestamp": "2026-05-29T16:55:11.004Z",
+      "runId": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "type": "tool_requested",
+      "actor": "model",
+      "summary": "list children (game.Players)",
+      "details": {
+        "path": "game.Players",
+        "recursive": false
+      },
+      "toolCallId": "call_b42c61cac4ca44d0992cc735",
+      "toolName": "mcp__roblox_studio__list_children",
+      "risk": "read"
+    },
+    {
+      "id": "11625e94-f49c-4677-a175-d263fcf4c380",
+      "timestamp": "2026-05-29T16:55:11.004Z",
+      "runId": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "type": "policy_decision",
+      "actor": "policy",
+      "summary": "Read-only operations are allowed.",
+      "details": {
+        "scope": "game.Players",
+        "planStepIndex": null
+      },
+      "toolCallId": "call_b42c61cac4ca44d0992cc735",
+      "toolName": "mcp__roblox_studio__list_children",
+      "risk": "read",
+      "decision": "allow"
+    },
+    {
+      "id": "2e0956f5-a215-42b6-813f-101de4e5c270",
+      "timestamp": "2026-05-29T16:55:26.014Z",
+      "runId": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "type": "tool_outcome",
+      "actor": "tool",
+      "summary": "mcp__roblox_studio__list_children returned a result.",
+      "details": {
+        "error": "Request timed out waiting for Studio response"
+      },
+      "toolCallId": "call_b42c61cac4ca44d0992cc735",
+      "toolName": "mcp__roblox_studio__list_children",
+      "risk": "read"
+    },
+    {
+      "id": "fa64fa2f-75c2-4f76-861b-90278c4ed042",
+      "timestamp": "2026-05-29T16:55:27.743Z",
+      "runId": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "type": "tool_requested",
+      "actor": "model",
+      "summary": "get live context (studio.live-context)",
+      "details": {
+        "path": "game"
+      },
+      "toolCallId": "call_1cab5ddfdefb45c28f8f6221",
+      "toolName": "mcp__roblox_studio__get_live_context",
+      "risk": "read"
+    },
+    {
+      "id": "5f929436-fb52-401d-8461-15d11d62804c",
+      "timestamp": "2026-05-29T16:55:27.743Z",
+      "runId": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "type": "policy_decision",
+      "actor": "policy",
+      "summary": "Read-only operations are allowed.",
+      "details": {
+        "scope": "studio.live-context",
+        "planStepIndex": null
+      },
+      "toolCallId": "call_1cab5ddfdefb45c28f8f6221",
+      "toolName": "mcp__roblox_studio__get_live_context",
+      "risk": "read",
+      "decision": "allow"
+    },
+    {
+      "id": "2edf2ea6-d535-464e-bae4-683e4c4a5a6c",
+      "timestamp": "2026-05-29T16:55:57.768Z",
+      "runId": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "type": "tool_outcome",
+      "actor": "tool",
+      "summary": "mcp__roblox_studio__get_live_context returned a result.",
+      "details": {
+        "selection": {
+          "error": "Request timed out waiting for Studio response"
+        },
+        "instanceContext": {
+          "path": "game",
+          "children": {
+            "error": "Request timed out waiting for Studio response"
+          }
+        }
+      },
+      "toolCallId": "call_1cab5ddfdefb45c28f8f6221",
+      "toolName": "mcp__roblox_studio__get_live_context",
+      "risk": "read"
+    },
+    {
+      "id": "190a9615-2914-4dca-8b7b-6c2ae136fe29",
+      "timestamp": "2026-05-29T16:56:03.782Z",
+      "runId": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "type": "tool_requested",
+      "actor": "model",
+      "summary": "execute luau (runtime-code)",
+      "details": {
+        "code": "print(\"Testing Studio connectivity\")"
+      },
+      "toolCallId": "call_216d308a76df426588178ebf",
+      "toolName": "mcp__roblox_studio__execute_luau",
+      "risk": "runtime_code"
+    },
+    {
+      "id": "8a5b74c1-a7d3-4583-89e3-81f2be982af4",
+      "timestamp": "2026-05-29T16:56:03.782Z",
+      "runId": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "type": "policy_decision",
+      "actor": "policy",
+      "summary": "This is a high-risk change and requires explicit approval.",
+      "details": {
+        "scope": "runtime-code",
+        "planStepIndex": null
+      },
+      "toolCallId": "call_216d308a76df426588178ebf",
+      "toolName": "mcp__roblox_studio__execute_luau",
+      "risk": "runtime_code",
+      "decision": "ask"
+    },
+    {
+      "id": "bb9f5228-8661-4c37-be13-8a3019713439",
+      "timestamp": "2026-05-29T16:56:31.688Z",
+      "runId": "99a7a917-cda5-4dea-93e6-fa09ec0621c5",
+      "type": "run_recovered",
+      "actor": "system",
+      "summary": "Run cancelled after server restart."
+    }
+  ],
+  "pendingApprovals": [],
+  "pendingInteractions": []
+}

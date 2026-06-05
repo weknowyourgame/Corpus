@@ -50,7 +50,7 @@ const surfaceStudioError = (result: JsonValue, toolName?: string): JsonValue => 
 // Normalize a Roblox path: bare service names like "ReplicatedStorage" become
 // "game.ReplicatedStorage" so the plugin's getInstanceFromPath always gets a
 // fully-qualified path starting with "game".
-const normalizePath = (raw: string): string => {
+export const normalizePath = (raw: string): string => {
   if (!raw || raw === "game") return "game";
   // Normalize separators: convert all forward slashes to dots
   const dotted = raw.replace(/\//g, ".");
@@ -321,7 +321,7 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
             return {
               ...result as Record<string, unknown>,
               transactionId: context.operationId,
-              undoWaypoint: "Stud: write_script",
+              undoWaypoint: "Corpus: write_script",
               beforeSource: created ? "" : beforeSource,
               afterSource: parsed.source,
               revisionBefore,
@@ -364,7 +364,7 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
               return {
                 ...result as Record<string, unknown>,
                 transactionId: context.operationId,
-                undoWaypoint: "Stud: edit_script",
+                undoWaypoint: "Corpus: edit_script",
                 beforeSource,
                 afterSource,
                 revisionBefore: beforeSource ? createHash("sha256").update(beforeSource).digest("hex").slice(0, 12) : undefined,
@@ -374,7 +374,7 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
             return {
               ...result as Record<string, unknown>,
               transactionId: context.operationId,
-              undoWaypoint: "Stud: edit_script",
+              undoWaypoint: "Corpus: edit_script",
               ...(beforeSource !== undefined ? { beforeSource } : {}),
             } as unknown as JsonValue;
           },
@@ -524,7 +524,7 @@ export class RobloxStudioMcpGateway implements AgentToolRegistry {
 export function createTaskTools(): AgentTool[] {
   return [
     {
-      name: "stud_task_create",
+      name: "corpus_task_create",
       description: "Create a visible run-scoped task for complex multi-step work. Use this at the start of substantial operations.",
       transport: "server",
       risk: "read",
@@ -544,7 +544,7 @@ export function createTaskTools(): AgentTool[] {
       },
     },
     {
-      name: "stud_task_update",
+      name: "corpus_task_update",
       description: "Update a run-scoped task status as work progresses.",
       transport: "server",
       risk: "read",
@@ -567,7 +567,7 @@ export function createTaskTools(): AgentTool[] {
       },
     },
     {
-      name: "stud_task_list",
+      name: "corpus_task_list",
       description: "List the current run's task checklist.",
       transport: "server",
       risk: "read",

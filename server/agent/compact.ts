@@ -24,7 +24,7 @@ export async function compactMessages(messages: AgentMessage[], signal: AbortSig
     profileId: "summarizer",
     signal,
     system: [
-      "Compact an old Stud agent conversation for a Roblox Studio project.",
+      "Compact an old Corpus agent conversation for a Roblox Studio project.",
       "Preserve user goals, decisions, created/edited script paths, approved scopes, important tool results, errors, and current plan state.",
       "Write concise plain text. Do not invent facts.",
     ].join("\n"),
@@ -34,7 +34,7 @@ export async function compactMessages(messages: AgentMessage[], signal: AbortSig
   return [
     {
       role: "assistant",
-      content: `<stud_compacted_context>\n${summary || "Earlier conversation compacted."}\n</stud_compacted_context>`,
+      content: `<corpus_compacted_context>\n${summary || "Earlier conversation compacted."}\n</corpus_compacted_context>`,
       toolCalls: [],
     },
     ...tail,

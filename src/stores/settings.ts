@@ -121,7 +121,7 @@ export const useSettingsStore = create<SettingsState>()(
       },
     }),
     {
-      name: "stud-settings",
+      name: "corpus-settings",
       version: 5,
       migrate: () => ({
         selectedTier: "pro" as Tier,
