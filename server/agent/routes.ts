@@ -2,11 +2,13 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { Router, type NextFunction, type Request, type Response } from "express";
 import { z } from "zod";
 import type { AgentRuntime } from "./runtime.ts";
-import { RateLimiter } from "./rate-limit.ts";
+import { getRateLimitConfig, loadRateLimitConfig, RateLimiter, resetSavedRateLimitConfig, saveRateLimitConfig } from "./rate-limit.ts";
 import type { Conversation } from "./types.ts";
 import type { CurrentUser } from "../auth.ts";
 import { getPrismaClient } from "./prisma.ts";
 import { generateSuggestions } from "./suggestions.ts";
+import { generateUtilityText } from "./utility-llm.ts";
+import { getDevModelOverrides, listModelProfiles, loadDevModelOverrides, saveDevModelOverrides, type ModelOverrides } from "./ai-config.ts";
 
 const rateLimiter = new RateLimiter();
 
@@ -41,12 +43,24 @@ const suggestionsSchema = z.object({
   lastText: z.string().default(""),
   toolNames: z.array(z.string()).default([]),
 });
+const modelOverridesSchema = z.object({
+  overrides: z.record(z.string(), z.string().trim()).default({}),
+});
+const rateLimitConfigSchema = z.object({
+  maxConcurrentRuns: z.number().int().min(1).max(50).optional(),
+  rpm: z.object({
+    free: z.number().int().min(1).max(10_000).optional(),
+    pro: z.number().int().min(1).max(10_000).optional(),
+    hyper: z.number().int().min(1).max(10_000).optional(),
+    super: z.number().int().min(1).max(10_000).optional(),
+  }).optional(),
+});
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 const devModeAllowed = (req: Request) => {
   if (process.env.STUD_DEV_MODE_ENABLED !== "true") return false;
   const token = process.env.STUD_DEV_MODE_TOKEN;
   if (!token) return true;
-  return req.header("x-stud-dev-token") === token;
+  return req.header("x-stud-dev-token")?.trim() === token.trim();
 };
 // Full access: server env gates whether the client can enable it at all.
 // STUD_FULL_ACCESS_ENABLED=true → allowed on this server.
@@ -72,7 +86,19 @@ export function createAgentRouter(
   mcpStatus?: () => unknown,
 ) {
   const router = Router();
-  router.use(auth.requireUser);
+  void loadDevModelOverrides().catch((error) => console.warn("[dev-config] could not load model overrides", error));
+  void loadRateLimitConfig().catch((error) => console.warn("[dev-config] could not load rate limits", error));
+  router.use((req: AuthRequest, res, next) => {
+    const devTokenUnlocked =
+      req.path === "/config" ||
+      req.path === "/models" ||
+      req.path.startsWith("/dev/");
+    if (devTokenUnlocked && devModeAllowed(req)) {
+      next();
+      return;
+    }
+    auth.requireUser(req, res, next);
+  });
 
   const bearer = (req: Request) => {
     const header = req.header("authorization") ?? "";
@@ -182,6 +208,65 @@ export function createAgentRouter(
       fullAccessAllowed: fullAccessAllowed(req),
       tiers: ["free", "pro", "hyper", "super"],
     });
+  });
+
+  router.get("/dev/model-config", async (req, res) => {
+    if (!devModeAllowed(req)) {
+      res.status(403).json({ error: "Dev mode is not unlocked" });
+      return;
+    }
+    await loadDevModelOverrides();
+    res.json({
+      profiles: listModelProfiles(),
+      overrides: getDevModelOverrides(),
+    });
+  });
+
+  router.patch("/dev/model-config", async (req, res) => {
+    if (!devModeAllowed(req)) {
+      res.status(403).json({ error: "Dev mode is not unlocked" });
+      return;
+    }
+    const parsed = modelOverridesSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const overrides = await saveDevModelOverrides(parsed.data.overrides as ModelOverrides);
+    res.json({
+      profiles: listModelProfiles(),
+      overrides,
+    });
+  });
+
+  router.get("/dev/rate-limits", async (req, res) => {
+    if (!devModeAllowed(req)) {
+      res.status(403).json({ error: "Dev mode is not unlocked" });
+      return;
+    }
+    await loadRateLimitConfig();
+    res.json({ config: getRateLimitConfig() });
+  });
+
+  router.patch("/dev/rate-limits", async (req, res) => {
+    if (!devModeAllowed(req)) {
+      res.status(403).json({ error: "Dev mode is not unlocked" });
+      return;
+    }
+    const parsed = rateLimitConfigSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    res.json({ config: await saveRateLimitConfig(parsed.data) });
+  });
+
+  router.post("/dev/rate-limits/reset", async (req, res) => {
+    if (!devModeAllowed(req)) {
+      res.status(403).json({ error: "Dev mode is not unlocked" });
+      return;
+    }
+    res.json({ config: await resetSavedRateLimitConfig() });
   });
 
   router.get("/models", async (req, res) => {
@@ -438,42 +523,20 @@ export function createAgentRouter(
       res.json({ improved: prompt, error: "Stud model access is unavailable on this server" });
       return;
     }
-    const gatewayBase = (process.env.AI_GATEWAY_URL ?? "").replace(/\/$/, "");
-    const cfToken = process.env.CLOUDFLARE_API_TOKEN;
-    const url = gatewayBase
-      ? `${gatewayBase}/openrouter/chat/completions`
-      : "https://openrouter.ai/api/v1/chat/completions";
     try {
-      const upstream = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${orKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://stud.dev",
-          "X-OpenRouter-Title": "Stud",
-          ...(gatewayBase && cfToken ? { "cf-aig-authorization": `Bearer ${cfToken}` } : {}),
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash-lite-preview-06-17",
-          messages: [
-            {
-              role: "system",
-              content: "You are a prompt improvement assistant for Stud, an AI agent for Roblox Studio. Improve the user's rough prompt to be clearer and more effective. Return ONLY the improved prompt text, no preamble.",
-            },
-            { role: "user", content: prompt },
-          ],
-          max_tokens: 500,
-        }),
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20_000);
+      const improved = await generateUtilityText({
+        profileId: "summarizer",
+        system: "You are a prompt improvement assistant for Stud, an AI agent for Roblox Studio. Improve the user's rough prompt to be clearer and more effective. Return ONLY the improved prompt text, no preamble.",
+        user: prompt,
+        signal: controller.signal,
+        temperature: 0.2,
       });
-      if (!upstream.ok) {
-        res.json({ improved: prompt, error: "Upstream error" });
-        return;
-      }
-      const data = await upstream.json() as { choices?: Array<{ message?: { content?: string } }> };
-      const improved = data.choices?.[0]?.message?.content?.trim() ?? prompt;
-      res.json({ improved });
-    } catch {
-      res.json({ improved: prompt, error: "Request failed" });
+      clearTimeout(timeout);
+      res.json({ improved: improved || prompt });
+    } catch (error) {
+      res.json({ improved: prompt, error: error instanceof Error ? error.message : "Request failed" });
     }
   });
 

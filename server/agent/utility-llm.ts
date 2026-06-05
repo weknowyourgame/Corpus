@@ -1,4 +1,4 @@
-import { aiConfig, type ProfileId } from "./ai-config.ts";
+import { resolveProfileConfig, type ProfileId } from "./ai-config.ts";
 import type { AgentMessage } from "./types.ts";
 
 const OPENROUTER_DIRECT = "https://openrouter.ai/api/v1/chat/completions";
@@ -49,7 +49,7 @@ export async function generateUtilityText({
   temperature?: number;
 }): Promise<string> {
   const { url, headers } = resolveUrlAndHeaders();
-  const model = aiConfig.profiles[profileId].primary.model;
+  const model = resolveProfileConfig(profileId).primary.model;
   const response = await fetch(url, {
     method: "POST",
     headers,

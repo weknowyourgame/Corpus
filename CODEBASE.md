@@ -77,6 +77,7 @@ stud/
 │       ├── toolbox.ts          # Roblox toolbox search / asset insert
 │       ├── open-cloud.ts       # Open Cloud API wrappers
 │       ├── datastore-tools.ts  # DataStore tools (read/write via Open Cloud)
+│       ├── app-config.ts       # DB-backed runtime app/dev config
 │       ├── rate-limit.ts       # Per-user rate limiting
 │       ├── mcp-server.ts       # MCP server adapter for Studio relay
 │       ├── studio-transport.ts # HTTP transport to Studio plugin
@@ -114,6 +115,10 @@ All global state lives in `src/stores/`. Stores use `zustand` with `immer`-style
 | Prerequisites | `prereq.ts` | End-user onboarding checks only: Roblox Studio, Stud plugin, bridge server, and Studio connection. Server-side model access is not shown as a prerequisite. |
 | Studio Token | `studio-token.ts` | Studio access token for Open Cloud |
 
+Connection screen:
+
+- `Home.tsx` shows `StudioToken` on the Roblox Studio connection screen because users need that token/QR to pair the Studio plugin. The screen intentionally avoids the extra bridge/MCP route badges and noisy plugin-status badge in this onboarding view.
+
 ### AI Client Layer (`src/lib/ai/`)
 
 - **`server-agent.ts`** — The main client for the server-side agent. Calls `POST /agent/conversations/:id/runs` and streams SSE events back to the chat UI. Maps `text_delta`, `tool_call`, `tool_result`, `run_completed`, `approval_pending`, `interaction_requested` events into Zustand chat state.
@@ -121,6 +126,8 @@ All global state lives in `src/stores/`. Stores use `zustand` with `immer`-style
 - **`gateway-client.ts`** — Server-side gateway helper for Stud-owned model credentials and hosted/Cloudflare gateway paths.
 - **`profiles.ts`** — AI personality / instruction profiles per provider.
 - **`types.ts`** — Shared AI message and tool call types.
+- **Dev model config UI** — `components/settings/DevModelConfigDialog.tsx` is shown only when `/agent/config` reports `devModeAllowed: true`. It edits model overrides through `GET/PATCH /agent/dev/model-config` for every server profile (`planner-*`, `coder-*`, `classifier`, `summarizer`, `title-generator`, `embeddings`). Overrides are saved in `app_config` under `dev.modelOverrides`, hydrated into bridge memory, and survive restarts. If `STUD_DEV_MODE_TOKEN` is required and missing, the dialog shows an unlock input that stores trimmed `localStorage.stud_dev_mode_token` and surfaces exact 401/403 server errors.
+- **Dev rate-limit UI** — `components/settings/DevRateLimitsDialog.tsx` is shown beside the dev model config button when dev mode is allowed. It edits runtime max-concurrent-run and per-tier RPM limits through `GET/PATCH/POST /agent/dev/rate-limits`; values are saved in `app_config` under `dev.rateLimits`, hydrated into bridge memory, and survive restarts. Token locking uses the same `localStorage.stud_dev_mode_token` unlock flow and exact error reporting.
 
 ### Bridge Client (`src/lib/bridge/`)
 
@@ -176,6 +183,8 @@ Express server on port 3001. Responsibilities:
 5. **OAuth** — Handles Google OAuth redirect flows.
 5. **Codex proxy** — Proxies requests to Stud-owned hosted model infrastructure when enabled server-side.
 6. **Open Cloud** — Exposes endpoints that wrap Roblox Open Cloud APIs.
+
+**Process keep-alive (Bun):** `app.listen()` is captured into `server`; an explicit `setInterval(() => {}, 1<<30)` keeps the event loop alive because under Bun the node:http server handle does not reliably hold the loop open — without it the bridge exits cleanly (code 0) right after binding once startup async work settles (consistently when launched via `concurrently`/`npm run dev`). `server.on("error")` surfaces bind failures (e.g. `EADDRINUSE`) and exits 1 instead of silently mis-binding.
 
 ---
 
@@ -393,6 +402,7 @@ Core app persistence:
 - **`AppUser` / `users`** — product user records, including optional email/profile fields and a dev-only anonymous flag.
 - **`UserSettings` / `user_settings`** — persisted app/model settings per user.
 - **`ProviderCredential` / `provider_credentials`** — inactive scaffold only for MVP; no routes or UI use it, and users do not enter provider API keys.
+- **`AppConfig` / `app_config`** — generic DB-backed app configuration table (`key`, `value` JSON). Used by internal dev controls for model overrides (`dev.modelOverrides`) and rate limits (`dev.rateLimits`).
 
 ### Studio Token Ownership
 
@@ -429,8 +439,11 @@ Every `agent_conversations` row carries a `user_id` (FK → `users.id`). Ownersh
 - `/agent/*` requires a resolved current user by default; unauthenticated requests return 401 unless `STUD_ALLOW_ANONYMOUS=true` on local/dev hosts.
 - Studio tokens generated from the web app are stored hashed and now persist `user_id` when a logged-in user creates them.
 - Dev mode/model override is disabled unless `STUD_DEV_MODE_ENABLED=true` (server-side only; never set in public deployments).
-- If `STUD_DEV_MODE_TOKEN` is set on the server, routes require the matching `X-Stud-Dev-Token` header before exposing the model list or accepting `devModel`. The token is sent from the browser via `localStorage.getItem("stud_dev_mode_token")` only — it is never baked into the JS bundle (`VITE_STUD_DEV_MODE_TOKEN` is intentionally removed).
+- If `STUD_DEV_MODE_TOKEN` is set on the server, dev routes require the matching `X-Stud-Dev-Token` header before exposing the model list or accepting `devModel`. Token comparison trims browser and server values. The token is sent from the browser via `localStorage.getItem("stud_dev_mode_token")` only — it is never baked into the JS bundle (`VITE_STUD_DEV_MODE_TOKEN` is intentionally removed).
+- Dev-token-unlocked `/agent/config`, `/agent/models`, and `/agent/dev/*` can be reached without a normal auth cookie so local internal controls still work when auth is being debugged.
 - The header dev-mode toggle is only rendered when `/agent/config` returns `devModeAllowed: true`; turning it off clears the selected dev model and returns to normal tier routing.
+- Dev model config: `GET/PATCH /agent/dev/model-config` uses the same dev-mode gate and lets the running bridge override all model profiles, including memory/suggestions/compaction (`summarizer`) and title generation. Server model resolution goes through `resolveProfileConfig()` so utility LLMs and gateway driver calls honor overrides. Overrides are persisted by `server/agent/app-config.ts` in `app_config.dev.modelOverrides` and hydrated into memory on bridge startup / dev-config reads. The dialog includes an unlock field for `STUD_DEV_MODE_TOKEN`.
+- Dev rate limits: `GET/PATCH /agent/dev/rate-limits` and `POST /agent/dev/rate-limits/reset` use the same dev-mode gate. `server/agent/rate-limit.ts` keeps runtime config for `maxConcurrentRuns` plus `free/pro/hyper/super` RPM values; defaults are 2 concurrent runs and 5/20/10/10 runs per minute. Values are persisted by `server/agent/app-config.ts` in `app_config.dev.rateLimits` and hydrated into memory on bridge startup / dev-config reads.
 - Production default: `STUD_DEV_MODE_ENABLED` unset or `false` → `/agent/config` returns `devModeAllowed: false` → toggle hidden, dev model list returns `[]`, any `devModel` field in a run request is rejected 403.
 
 Auth routes and env:
@@ -441,6 +454,7 @@ Auth routes and env:
 - `GET /auth/me` — returns current user, 401 when logged out and anonymous dev bypass is not enabled.
 - **Login UX** — `LoginScreen` in `Home.tsx`: email field is disabled only after email-token start succeeds; when start/verify fails the error is shown and the user stays on the correct step. The main product UI requires a real non-anonymous user; anonymous local-dev auth does not bypass the visible login screen.
 - **Google OAuth** — `/auth/login/start` prefers server-side `GOOGLE_REDIRECT_URI` and returns that URI to the browser so login verification uses the same exact callback. `GOOGLE_REDIRECT_URI` must exactly match an Authorized redirect URI in Google Cloud Console.
+- **User creation** — login normalizes email to lowercase and uses find/create with `P2002` recovery instead of Prisma `upsert`, avoiding crashes when the unique `users.email` index is hit during repeated or racing login attempts.
 - **User badge** — `UserBadge` in `StudAppHeader.tsx` shows avatar (or initial) + truncated display name / email for non-anonymous users. Clicking signs out via `useAuthStore().logout()`.
 - Env: `DATABASE_URL`, `STUD_ALLOW_ANONYMOUS`, `STUD_LOGIN_TOKEN_ECHO`, `RESEND_API_KEY`, `STUD_AUTH_EMAIL_FROM`, `STUD_COOKIE_SECURE`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`.
 
@@ -691,7 +705,7 @@ Next.js 16.2.6 (App Router) marketing landing page for Stud. Deployed to Cloudfl
 - Production hardening: bridge startup rejects unsafe production config (`STUD_ALLOW_ANONYMOUS=true`, dev mode enabled, insecure cookies, or missing database); `.env.example` documents production-safe flags and MCP server config.
 - Corpus debug: `GET /corpus/debug` runs a fixed "tycoon dropper income system" retrieval and returns corpus readiness/config plus the retrieval result.
 - Corpus ops run: `sync-corpus.ts` synced 439 R2-only games into Postgres with 18 already done; `embed-games.ts --games=all` was started and stopped after slow progress, leaving Postgres at 896 games / 76 ingested / 820 pending / 1,756 chunks.
-- MCP management UI: `ConnectionBadges` MCP pill opens a dialog with: summary counts (configured/connected/tools + last-loaded time), tool search/filter input, per-server connection state + full tool chip list, copyable `STUD_MCP_SERVERS=…` env snippet, and a refresh button that re-fetches `GET /agent/mcp/status` without restarting.
+- MCP management UI: `ConnectionBadges` hides MCP entirely when no external MCP servers are configured. When MCP servers exist or error, the MCP pill opens a dialog with summary counts (configured/connected/tools + last-loaded time), tool search/filter input, per-server connection state + full tool chip list, copyable `STUD_MCP_SERVERS=…` env snippet, and a refresh button that re-fetches `GET /agent/mcp/status` without restarting.
 - MCP status endpoint `GET /agent/mcp/status` now returns `{ configuredCount, connectedCount, totalToolCount, lastLoadedAt, servers[] }` — richer than the previous `{ servers[] }` shape. `ExternalMcpRegistry.status()` computes all counts and records `loadedAt` after `loadFromEnv()` completes.
 - Follow-up task file: `REMAINING_AGENT_TASKS.md` lists only non-production remaining work with copy-paste prompts for corpus embedding/resume/verification, MCP management polish, and tests.
 - Corpus retrieval verified (Task 3): `/corpus/status` → `enabled: true, ready: true, pendingGames: 820`; pipeline is end-to-end functional (embed → Vectorize → Postgres → R2 → chunk injection). Ingested niche distribution: general(53), social(8), fps(3), simulator(3), rpg(2), horror(2), battle-royale(2), racing(1), tower-defense(1), obby(1), tycoon(1).

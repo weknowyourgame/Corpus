@@ -1,8 +1,74 @@
 import type { AgentTier } from "./types.ts";
+import { getAppConfigValue, setAppConfigValue } from "./app-config.ts";
 
-export const MAX_CONCURRENT_RUNS = 2;
+export type RateLimitConfig = {
+  maxConcurrentRuns: number;
+  rpm: Record<AgentTier, number>;
+};
 
-const TIER_RPM: Record<AgentTier, number> = {
+export type RateLimitConfigInput = {
+  maxConcurrentRuns?: number;
+  rpm?: Partial<Record<AgentTier, number>>;
+};
+
+const DEFAULT_RATE_LIMIT_CONFIG: RateLimitConfig = {
+  maxConcurrentRuns: 2,
+  rpm: {
+    free: 5,
+    pro: 20,
+    hyper: 10,
+    super: 10,
+  },
+};
+
+let rateLimitConfig: RateLimitConfig = structuredClone(DEFAULT_RATE_LIMIT_CONFIG);
+const RATE_LIMIT_CONFIG_KEY = "dev.rateLimits";
+
+export function getRateLimitConfig(): RateLimitConfig {
+  return structuredClone(rateLimitConfig);
+}
+
+export function setRateLimitConfig(config: RateLimitConfigInput): RateLimitConfig {
+  rateLimitConfig = {
+    maxConcurrentRuns: Math.max(1, Math.min(50, Math.floor(config.maxConcurrentRuns ?? rateLimitConfig.maxConcurrentRuns))),
+    rpm: {
+      free: normalizeRpm(config.rpm?.free, rateLimitConfig.rpm.free),
+      pro: normalizeRpm(config.rpm?.pro, rateLimitConfig.rpm.pro),
+      hyper: normalizeRpm(config.rpm?.hyper, rateLimitConfig.rpm.hyper),
+      super: normalizeRpm(config.rpm?.super, rateLimitConfig.rpm.super),
+    },
+  };
+  return getRateLimitConfig();
+}
+
+export async function loadRateLimitConfig(): Promise<RateLimitConfig> {
+  const saved = await getAppConfigValue<RateLimitConfigInput>(RATE_LIMIT_CONFIG_KEY);
+  if (saved) setRateLimitConfig(saved);
+  return getRateLimitConfig();
+}
+
+export async function saveRateLimitConfig(config: RateLimitConfigInput): Promise<RateLimitConfig> {
+  const next = setRateLimitConfig(config);
+  await setAppConfigValue(RATE_LIMIT_CONFIG_KEY, next);
+  return next;
+}
+
+export function resetRateLimitConfig(): RateLimitConfig {
+  rateLimitConfig = structuredClone(DEFAULT_RATE_LIMIT_CONFIG);
+  return getRateLimitConfig();
+}
+
+export async function resetSavedRateLimitConfig(): Promise<RateLimitConfig> {
+  const next = resetRateLimitConfig();
+  await setAppConfigValue(RATE_LIMIT_CONFIG_KEY, next);
+  return next;
+}
+
+function normalizeRpm(value: number | undefined, fallback: number): number {
+  return Math.max(1, Math.min(10_000, Math.floor(value ?? fallback)));
+}
+
+export const TIER_RPM: Record<AgentTier, number> = {
   free: 5,
   pro: 20,
   hyper: 10,
@@ -15,9 +81,10 @@ export class RateLimiter {
   private readonly waitQueue: Array<() => void> = [];
 
   async acquire(conversationId: string, tier: AgentTier): Promise<void> {
-    const rpm = TIER_RPM[tier] ?? 20;
+    const config = getRateLimitConfig();
+    const rpm = config.rpm[tier] ?? 20;
     await this.waitForToken(conversationId, rpm);
-    await this.waitForSlot();
+    await this.waitForSlot(config.maxConcurrentRuns);
     this.concurrentCount += 1;
   }
 
@@ -55,8 +122,8 @@ export class RateLimiter {
     }
   }
 
-  private waitForSlot(): Promise<void> {
-    if (this.concurrentCount < MAX_CONCURRENT_RUNS) return Promise.resolve();
+  private waitForSlot(maxConcurrentRuns: number): Promise<void> {
+    if (this.concurrentCount < maxConcurrentRuns) return Promise.resolve();
     return new Promise<void>((resolve) => {
       this.waitQueue.push(resolve);
     });

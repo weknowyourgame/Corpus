@@ -23,6 +23,8 @@
  * "workers-ai-bge"  → uses Cloudflare Workers AI for embeddings (not OpenRouter)
  */
 
+import { getAppConfigValue, setAppConfigValue } from "./app-config.ts";
+
 // ────────────────────────────────────────────────
 //  TYPES  (no need to change these)
 // ────────────────────────────────────────────────
@@ -36,6 +38,7 @@ export type ProfileId =
 export interface ModelSpec { model: string }
 export interface ProfileConfig { primary: ModelSpec; fallbacks?: string[] }
 export interface TierConfig { planner: ProfileId; coder: ProfileId }
+export type ModelOverrides = Partial<Record<ProfileId, string>>;
 
 // ────────────────────────────────────────────────
 //  TIER → PROFILE MAPPING
@@ -70,13 +73,56 @@ const profiles: Record<ProfileId, ProfileConfig> = {
 
   // ── UTILITY PROFILES (internal tasks, not user-facing) ───────────────────
   "classifier":      { primary: { model: "deepseek/deepseek-v3" } },                         // cheap routing decisions
-  "summarizer":      { primary: { model: "google/gemini-2.5-flash-lite-preview-06-17" } },   // conversation compression
-  "title-generator": { primary: { model: "google/gemini-2.5-flash-lite-preview-06-17" } },   // chat title generation
+  "summarizer":      { primary: { model: "deepseek/deepseek-v3" } },                         // conversation compression
+  "title-generator": { primary: { model: "deepseek/deepseek-v3" } },                         // chat title generation
   "embeddings":      { primary: { model: "workers-ai-bge" } },                               // RAG / semantic search
 
 };
 
 export const aiConfig = { tiers, profiles } as const;
+
+let devModelOverrides: ModelOverrides = {};
+const DEV_MODEL_OVERRIDES_KEY = "dev.modelOverrides";
+
+export function getDevModelOverrides(): ModelOverrides {
+  return { ...devModelOverrides };
+}
+
+export function setDevModelOverrides(overrides: ModelOverrides): ModelOverrides {
+  devModelOverrides = Object.fromEntries(
+    Object.entries(overrides)
+      .map(([profileId, model]) => [profileId, model.trim()])
+      .filter(([profileId, model]) => profileId in profiles && Boolean(model))
+  ) as ModelOverrides;
+  return getDevModelOverrides();
+}
+
+export async function loadDevModelOverrides(): Promise<ModelOverrides> {
+  const saved = await getAppConfigValue<ModelOverrides>(DEV_MODEL_OVERRIDES_KEY);
+  if (saved) setDevModelOverrides(saved);
+  return getDevModelOverrides();
+}
+
+export async function saveDevModelOverrides(overrides: ModelOverrides): Promise<ModelOverrides> {
+  const sanitized = setDevModelOverrides(overrides);
+  await setAppConfigValue(DEV_MODEL_OVERRIDES_KEY, sanitized);
+  return sanitized;
+}
+
+export function resolveProfileConfig(profileId: ProfileId): ProfileConfig {
+  const override = devModelOverrides[profileId];
+  return override ? { primary: { model: override }, fallbacks: [] } : profiles[profileId];
+}
+
+export function listModelProfiles() {
+  return Object.entries(profiles).map(([profileId, config]) => ({
+    profileId: profileId as ProfileId,
+    defaultModel: config.primary.model,
+    fallbackModels: config.fallbacks ?? [],
+    overrideModel: devModelOverrides[profileId as ProfileId] ?? null,
+    activeModel: resolveProfileConfig(profileId as ProfileId).primary.model,
+  }));
+}
 
 export const TIER_LABELS: Record<Tier, string> = {
   free: "Free", pro: "Pro", hyper: "Hyper", super: "Super",

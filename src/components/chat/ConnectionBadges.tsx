@@ -86,6 +86,7 @@ export function ConnectionBadges({
   }, [loadStatus]);
 
   const hasMcpErrors = mcpStatus.servers.some((s) => s.lastError);
+  const showMcp = mcpStatus.configuredCount > 0 || mcpStatus.connectedCount > 0 || hasMcpErrors;
 
   const envSnippet = mcpStatus.servers.length > 0
     ? `STUD_MCP_SERVERS=${mcpStatus.servers.map((s) => `${s.name}:${s.url}`).join(",")}`
@@ -113,23 +114,24 @@ export function ConnectionBadges({
     <div className={cn("stud-route-row", className)} aria-label="Connection routes">
       <Badge label={bridge ? "Bridge online" : "Bridge offline"} active={bridge} icon={<Server />} />
       <Badge label={studio ? "Studio connected" : "Studio waiting"} active={studio} icon={<Plug />} />
-      <Dialog onOpenChange={(open) => { if (open) loadStatus(); }}>
-        <DialogTrigger asChild>
-          <Badge
-            asButton
-            label={mcpStatus.connectedCount ? `${mcpStatus.connectedCount} MCP` : hasMcpErrors ? "MCP error" : "MCP none"}
-            active={mcpStatus.connectedCount > 0}
-            warning={hasMcpErrors}
-            icon={<Blocks />}
-          />
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>MCP servers</DialogTitle>
-            <DialogDescription>
-              External MCP tools configured with STUD_MCP_SERVERS load when the bridge starts.
-            </DialogDescription>
-          </DialogHeader>
+      {showMcp && (
+        <Dialog onOpenChange={(open) => { if (open) loadStatus(); }}>
+          <DialogTrigger asChild>
+            <Badge
+              asButton
+              label={mcpStatus.connectedCount ? `${mcpStatus.connectedCount} MCP` : "MCP error"}
+              active={mcpStatus.connectedCount > 0}
+              warning={hasMcpErrors}
+              icon={<Blocks />}
+            />
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>MCP servers</DialogTitle>
+              <DialogDescription>
+                External MCP tools configured with STUD_MCP_SERVERS load when the bridge starts.
+              </DialogDescription>
+            </DialogHeader>
 
           {/* Summary counts + refresh */}
           <div className="flex items-center justify-between">
@@ -234,8 +236,9 @@ export function ConnectionBadges({
           <p className="text-xs" style={{ color: "var(--stud-muted)" }}>
             Authentication is handled by the upstream MCP URL or gateway configuration; restart the bridge after changing server entries.
           </p>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

@@ -19,7 +19,7 @@
 
 import { z } from "zod";
 import { ROBLOX_AGENT_SYSTEM_PROMPT } from "./system-prompt.ts";
-import { aiConfig } from "./ai-config.ts";
+import { aiConfig, resolveProfileConfig } from "./ai-config.ts";
 import type { ProfileId, Tier } from "./ai-config.ts";
 import type { AgentMessage, AgentToolRegistry, ModelDriver, ModelTurn } from "./types.ts";
 
@@ -148,8 +148,9 @@ class GatewayDriver implements ModelDriver {
     input: Parameters<ModelDriver["generate"]>[0],
     attemptsLeft: number,
   ): Promise<ModelTurn> {
-    const primaryModel = this.devModel ?? aiConfig.profiles[this.profileId].primary.model;
-    const fallbacks = this.devModel ? [] : (aiConfig.profiles[this.profileId].fallbacks ?? []);
+    const profile = resolveProfileConfig(this.profileId);
+    const primaryModel = this.devModel ?? profile.primary.model;
+    const fallbacks = this.devModel ? [] : (profile.fallbacks ?? []);
 
     const { url, headers } = resolveUrlAndHeaders();
     const body = buildRequestBody(primaryModel, fallbacks, input.messages, this.tools, input.systemContext);

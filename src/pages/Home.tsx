@@ -14,6 +14,8 @@ import { StudComposer } from "@/stud-ui/StudComposer";
 import { BotAvatar, UserAvatar } from "@/components/icons/Avatars";
 import { ModelSelector } from "@/components/chat/ModelSelector";
 import { SettingsDialog } from "@/components/settings/SettingsDialog";
+import { DevModelConfigDialog } from "@/components/settings/DevModelConfigDialog";
+import { DevRateLimitsDialog } from "@/components/settings/DevRateLimitsDialog";
 import { ContextChips, ChipAction } from "@/components/chat/ContextChips";
 import { QuestionPrompt } from "@/components/chat/QuestionPrompt";
 import { ApprovalPrompt } from "@/components/chat/ApprovalPrompt";
@@ -50,6 +52,7 @@ import {
 } from "@/lib/ai/server-agent";
 import { useAppShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { cn } from "@/lib/utils";
+import { StudioToken } from "@/components/StudioToken";
 import { ArrowUp, Square, CheckCircle2, Download, FolderOpen, RefreshCw, Box, FileText, Play, ListTodo, Terminal, Zap, Undo2 } from "lucide-react";
 
 const SUGGESTIONS = [
@@ -191,6 +194,8 @@ function ConnectionScreen({ status }: { status: ConnectionStatus }) {
               <Loader variant="terminal" text="Waiting for Roblox Studio" size="sm" />
             </div>
           </div>
+
+          <StudioToken />
 
           <div className="stud-panel p-6 space-y-5">
             <ConnectionStep
@@ -827,6 +832,8 @@ export function Home() {
           trailing={
             <>
               {devModeAllowed && <DevModeHeaderToggle active={devMode} onToggle={toggleDevMode} />}
+              {devModeAllowed && <DevModelConfigDialog />}
+              {devModeAllowed && <DevRateLimitsDialog />}
               {fullAccessAllowed && <FullAccessToggle active={fullAccess} onToggle={toggleFullAccess} />}
               <SettingsDialog />
             </>
@@ -902,6 +909,8 @@ export function Home() {
         trailing={
           <>
             {devModeAllowed && <DevModeHeaderToggle active={devMode} onToggle={toggleDevMode} />}
+            {devModeAllowed && <DevModelConfigDialog />}
+            {devModeAllowed && <DevRateLimitsDialog />}
             {fullAccessAllowed && <FullAccessToggle active={fullAccess} onToggle={toggleFullAccess} />}
             <ChatActions onClear={handleClearChat} disabled={messages.length === 0 || isStreaming} />
             <SettingsDialog />

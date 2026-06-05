@@ -718,7 +718,15 @@ app.get("/health", (_req, res) => {
 });
 
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`[Stud Bridge] http://localhost:${PORT}`);
   console.log("[Stud Bridge] Waiting for web app and Studio plugin...");
 });
+server.on("error", (err) => {
+  console.error("[Stud Bridge] server error:", err);
+  process.exit(1);
+});
+// Under Bun, the node:http server from app.listen() does not reliably hold the
+// event loop open, so once startup async work settles the process exits 0 right
+// after binding (consistently under `concurrently`). Keep an explicit timer ref.
+setInterval(() => {}, 1 << 30);

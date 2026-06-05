@@ -217,6 +217,15 @@ model UserSettings {
   @@map("user_settings")
 }
 
+model AppConfig {
+  key       String   @id
+  value     Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("app_config")
+}
+
 model ProviderCredential {
   id              String    @id @default(uuid()) @db.Uuid
   userId          String    @map("user_id") @db.Uuid

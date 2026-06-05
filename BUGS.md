@@ -19,3 +19,5 @@ user_stud-bridge.server.lua.Script:816: invalid use of '%' in replacement string
 Write script wont work
 
 - Fix UI when it calls tools and writes scripts mainly ui show proper diffs
+- replace raw details with something that looks better
+- make no permission mode doesnt not need any allow or reject requests

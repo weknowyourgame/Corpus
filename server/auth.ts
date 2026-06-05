@@ -1,5 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
+import { Prisma } from "@prisma/client";
 import { getPrismaClient } from "./agent/prisma.ts";
 
 const SESSION_COOKIE = "stud_session";
@@ -142,23 +143,41 @@ async function upsertUser(input: {
   avatarUrl?: string | null;
   anonymous?: boolean;
 }) {
-  const email = input.email.toLowerCase();
-  return getPrismaClient().appUser.upsert({
-    where: { email },
-    update: {
-      displayName: input.displayName ?? undefined,
-      avatarUrl: input.avatarUrl ?? undefined,
-      anonymous: input.anonymous ?? false,
-      lastSeenAt: new Date(),
-    },
-    create: {
-      email,
-      displayName: input.displayName ?? null,
-      avatarUrl: input.avatarUrl ?? null,
-      anonymous: input.anonymous ?? false,
-      settings: { create: {} },
-    },
-  });
+  const email = input.email.trim().toLowerCase();
+  const prisma = getPrismaClient();
+  const update = {
+    displayName: input.displayName ?? undefined,
+    avatarUrl: input.avatarUrl ?? undefined,
+    anonymous: input.anonymous ?? false,
+    lastSeenAt: new Date(),
+  };
+  const create = {
+    email,
+    displayName: input.displayName ?? null,
+    avatarUrl: input.avatarUrl ?? null,
+    anonymous: input.anonymous ?? false,
+    settings: { create: {} },
+  };
+
+  const existing = await prisma.appUser.findUnique({ where: { email } });
+  if (existing) {
+    return prisma.appUser.update({
+      where: { id: existing.id },
+      data: update,
+    });
+  }
+
+  try {
+    return await prisma.appUser.create({ data: create });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return prisma.appUser.update({
+        where: { email },
+        data: update,
+      });
+    }
+    throw error;
+  }
 }
 
 async function verifyGoogleIdToken(idToken: string) {
