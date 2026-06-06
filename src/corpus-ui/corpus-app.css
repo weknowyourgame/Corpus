@@ -54,7 +54,7 @@
   flex-direction: column;
   isolation: isolate;
   background:
-    url("/corpus/assets/corpus-world-hero.webp") center bottom / cover no-repeat,
+    url("/corpus/assets/stud-world-hero.webp") center bottom / cover no-repeat,
     #7ac2f6;
 }
 
@@ -363,7 +363,7 @@
   border-radius: 11px;
   background:
     linear-gradient(to top, rgba(31, 75, 72, 0.14), transparent),
-    url("/corpus/assets/corpus-world-hero.webp") 83% 64% / 310% auto;
+    url("/corpus/assets/stud-world-hero.webp") 83% 64% / 310% auto;
   image-rendering: pixelated;
 }
 
@@ -1627,7 +1627,7 @@
 /* Cofounder-style open meadow workspace, retaining real agent controls. */
 .corpus-app-shell {
   background:
-    url("/corpus/assets/corpus-world-hero.webp") center center / cover no-repeat,
+    url("/corpus/assets/stud-world-hero.webp") center center / cover no-repeat,
     #48a5ea;
 }
 
@@ -1707,7 +1707,7 @@
 .corpus-prereq-screen {
   background:
     linear-gradient(90deg, rgba(12, 58, 96, 0.12), transparent 52%),
-    url("/corpus/assets/corpus-world-hero.webp") center center / cover no-repeat,
+    url("/corpus/assets/stud-world-hero.webp") center center / cover no-repeat,
     #48a5ea !important;
 }
 

@@ -96,12 +96,34 @@ model AgentConversation {
   updatedAt           DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
   events              AgentEventLog[]
   memories            AgentMemory[]
+  discordProjects     DiscordProject[]
   user                AppUser?        @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([studioSessionId])
   @@index([updatedAt])
   @@map("agent_conversations")
+}
+
+model DiscordProject {
+  id             String            @id @default(uuid()) @db.Uuid
+  guildId        String            @map("guild_id")
+  channelId      String            @unique @map("channel_id")
+  ownerDiscordId String            @map("owner_discord_id")
+  conversationId String            @map("conversation_id") @db.Uuid
+  studioSessionId String           @map("studio_session_id")
+  lastRunId      String?           @map("last_run_id")
+  disconnectedAt DateTime?         @map("disconnected_at") @db.Timestamptz
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  conversation   AgentConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([guildId])
+  @@index([ownerDiscordId])
+  @@index([conversationId])
+  @@index([studioSessionId])
+  @@index([disconnectedAt])
+  @@map("discord_projects")
 }
 
 model AgentMemory {

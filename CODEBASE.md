@@ -31,6 +31,8 @@
 
 The polling pattern is fundamental: Roblox Studio cannot receive HTTP requests so the plugin polls the bridge; the bridge queues commands sent by the web app.
 
+Optional Discord path: Discord project channels can route through `server/discord/` into the same `AgentRuntime` and Studio plugin polling bridge. This is additive; the React web app keeps using the existing `/agent` route/SSE flow.
+
 ---
 
 ## Directory Map
@@ -53,6 +55,7 @@ corpus/
 │   └── stores/                 # Zustand stores (chat, settings, auth, roblox, plugin, models)
 ├── server/
 │   ├── index.js                # Express entry, routes, session management, relay
+│   ├── discord/                # Optional Discord bot adapter for invite-only project channels
 │   └── agent/
 │       ├── runtime.ts          # AgentRuntime — run lifecycle, tool dispatch, approval flow
 │       ├── types.ts            # Shared types for agent, conversations, tools, events
@@ -184,6 +187,7 @@ Express server on port 3001. Responsibilities:
 5. **OAuth** — Handles Google OAuth redirect flows.
 5. **Codex proxy** — Proxies requests to Corpus-owned hosted model infrastructure when enabled server-side.
 6. **Open Cloud** — Exposes endpoints that wrap Roblox Open Cloud APIs.
+7. **Discord bot (optional)** — `server/discord/` starts only when Discord env vars are configured, maps Discord channels to Corpus conversations, and calls `AgentRuntime` directly without changing web routes.
 
 **Process keep-alive (Bun):** `app.listen()` is captured into `server`; an explicit `setInterval(() => {}, 1<<30)` keeps the event loop alive because under Bun the node:http server handle does not reliably hold the loop open — without it the bridge exits cleanly (code 0) right after binding once startup async work settles (consistently when launched via `concurrently`/`npm run dev`). `server.on("error")` surfaces bind failures (e.g. `EADDRINUSE`) and exits 1 instead of silently mis-binding.
 
@@ -495,6 +499,7 @@ Lua plugin that runs inside Roblox Studio. Key behavior:
 3. **Dispatches** to the appropriate handler (read script, write script, create instance, set property, get children, etc.).
 4. **Creates undo waypoints** before mutations so Studio's Ctrl+Z works.
 5. **Posts results** to `POST /respond?sessionId=X`.
+6. **Dock widget UI** uses a Studio-native dark panel with Corpus header, live status pill, setup inputs, bridge/version health rows, fixed connect-button hover states, and a detailed recent-activity feed.
 
 The plugin is the only thing that can touch Roblox Studio internals; the bridge and web app only communicate via this polling relay.
 
@@ -732,7 +737,16 @@ Next.js 16.2.6 (App Router) marketing landing page for Corpus. Deployed to Cloud
 - Corpus repair resume commands: `bun run scripts/fix-corpus-niches.ts --repair-stale-indexes` audits stale uploaded vectors; add `--reembed` to repair them. `bun run scripts/fix-corpus-niches.ts --repair-missing-raw` audits pending raw R2 manifests; add `--apply` to rebuild missing raw uploads from local converted folders. Then run `bun run scripts/embed-pending-batches.ts --limit=25` repeatedly to continue pending embeddings.
 - Corpus pending embed runner: `scripts/embed-pending-batches.ts` now retries transient Postgres/Cloudflare failures up to 3 attempts, retries DB count/pending queries, and prints the meaningful tail of failures instead of only SSL warning noise.
 - Corpus repair validation: stale uploaded vector audit is currently `0`; pending raw manifest audit found no missing manifests in the sampled/latest run. A hardened pending batch embedded 5/5 games successfully, moving corpus status to 896 games / 237 ingested / 659 pending / 2,632 chunks.
+- Corpus chunk quality audit: latest status observed 896 games / 351 ingested / 545 pending / 2,992 chunks. Every ingested game has exactly one summary chunk and R2 `summary.txt` files are present/non-empty, but summary content is skeletal file-list text (median 174 chars; 185/351 lack a services line) rather than rich semantic summaries. `games.summary_text` is empty for 23 older ingested games, and 661 older script chunks across those same early games lack line/source-hash metadata; use metadata backfill or re-embed/backfill tooling before considering summaries production-quality.
 - Product rebrand: the product was renamed **Stud → Corpus** (mechanical, `Studio` references always preserved via negative-lookahead). This is breaking and requires ops follow-up: env vars `STUD_*` → `CORPUS_*` (redeploy with the new names; `.env` must be updated), the auth cookie `stud_session` → `corpus_session` (existing sessions are invalidated — users must log in again), localStorage keys (`stud_dev_mode_token` → `corpus_dev_mode_token`, etc.) reset, model-facing task tools `stud_task_*` → `corpus_task_*` (system prompt updated to match), HTTP relay routes `/stud/*` → `/corpus/*` (plugin + bridge updated together), and files/dirs renamed: `studio-plugin/corpus-bridge.server.lua`, `src/corpus-ui/` with `Corpus*` components, `public/corpus/` assets. No Postgres table/column rename was needed (all `stud`-looking DB names were actually `studio_*`). The existing knowledge-base **corpus** feature (`CORPUS_ENABLED`, `CORPUS_MAX_CHUNKS`, `server/agent/corpus/`, "Corpus retrieval") is unrelated and unchanged — the product name now shares that word, but there is no literal env-var/identifier collision. The marketing site lives at `RobloxLandingPage/` (its own nested git repo; the old `StudLandingPage/` path was renamed to it outside this work) and was rebranded too: `corpus-landing-page` package/wrangler name, `public/corpus/` assets (hero renamed `corpus-world-hero.webp`), "Corpus Chat" copy. Its `.open-next/` build output is generated and regenerates on `bunx opennextjs-cloudflare build`.
+- Discord launch planning: no code changed; Discord can be treated as an alternate chat surface that calls the existing server agent, while Studio still connects through the current Corpus plugin polling bridge. Invite-only access would map Discord guild/channel/user permissions to Corpus users, conversations, and Studio sessions.
+- Discord integration planning: no code changed; preferred architecture is additive and non-invasive: add a separate Discord bot adapter around the existing agent routes/runtime, keep the current React web UI untouched, and reuse the same Studio plugin polling bridge/session model.
+- Discord integration implemented: added `discord.js`, `server/discord/` (`config.ts`, `store.ts`, `bot.ts`, `index.ts`, `types.ts`), optional startup wiring in `server/index.js`, `discord_projects` Prisma model/table + migration, `.env.example` Discord config keys, and `docs/DISCORD_INTEGRATION.md`. Discord channels link to Studio sessions with `/corpus connect`, natural messages start agent runs, approvals/plans use Discord buttons, and local dev without Postgres falls back to `.corpus/discord-projects.json`.
+- Discord startup note: no separate Discord HTTP server is created; `server/index.js` calls `startDiscordBot({ runtime, studioStatus })` during bridge startup, and `server/discord/index.ts` only logs into Discord when `loadDiscordConfig()` finds the bot enabled with `DISCORD_BOT_TOKEN` and `DISCORD_CLIENT_ID`.
+- Discord 401 troubleshooting: `[discord] startup failed: 401: Unauthorized` means Discord rejected auth during slash-command registration or bot login. Fix `DISCORD_BOT_TOKEN` first: use the raw Bot token from Developer Portal > Bot, with no `Bot ` prefix, not the OAuth client secret/public key/application id; restart the bridge after changing `.env`. `DISCORD_CLIENT_ID` should be the application/client id for the same Discord app.
+- Discord credential clarification: OAuth Client ID/Client Secret are not enough to run the Discord bot; `DISCORD_CLIENT_ID` uses the Application ID/Client ID, while `DISCORD_BOT_TOKEN` must come from Developer Portal > Bot > Token. If an OAuth client secret is pasted into chat or `.env` as the bot token, reset it and replace it with the real bot token.
+- Discord connect fix: `/corpus connect` now accepts either the long Studio token from the Corpus web app/plugin flow or a short session id. `server/index.js` resolves Studio tokens through the existing hashed `studioTokens` map and passes the session id into `server/discord/bot.ts`, fixing the previous mismatch where Discord required a session code the web UI explicitly hid.
+- Studio plugin UI refresh: `studio-plugin/corpus-bridge.server.lua` dock widget was redesigned with a dark Studio-native layout, larger default/min dock sizing, Corpus header/status pill, clearer token/bridge setup fields, connection health rows, improved activity cards, and button hover styling that follows the current connect/disconnect state.
 
 ---
 
@@ -747,6 +761,11 @@ Next.js 16.2.6 (App Router) marketing landing page for Corpus. Deployed to Cloud
 - Parallel tool calls whenever possible in agent/scheduler code
 - No comments unless the WHY is non-obvious
 
+
+## Evals (planning)
+
+- `EVALS_EXPLAINED.md` (repo root) — beginner-friendly doc on what evals are and the plan to benchmark Corpus.
+- Plan: reuse `open-game-eval/Evals/*.lua` task files + placefiles, but run them through the real Corpus agent (`/agent/conversations/:id/runs`) instead of Roblox's closed OpenGameEval service; checks run inside Studio via the plugin. Candidate runner: Inspect AI. Not yet built.
 
 1. Fix MCP/plugin wording
 2. Finish frontend login/logout UX

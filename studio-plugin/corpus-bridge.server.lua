@@ -73,21 +73,27 @@ local toggleButton = toolbar:CreateButton(
 -- Declare tokenInput here so it's accessible to toggleConnection
 local tokenInput
 
--- Colors (cozy light theme to match Corpus app)
+-- Colors (Studio-native dark theme)
 local Colors = {
-	bg = Color3.fromRGB(250, 250, 250),
-	bgSecondary = Color3.fromRGB(245, 245, 245),
-	bgTertiary = Color3.fromRGB(240, 240, 240),
-	accent = Color3.fromRGB(139, 124, 246), -- Soft purple from Corpus
-	accentHover = Color3.fromRGB(159, 144, 255),
-	success = Color3.fromRGB(34, 197, 94),
-	warning = Color3.fromRGB(250, 204, 21),
-	error = Color3.fromRGB(239, 68, 68),
-	text = Color3.fromRGB(28, 28, 28),
-	textSecondary = Color3.fromRGB(100, 100, 100),
-	textMuted = Color3.fromRGB(150, 150, 150),
-	border = Color3.fromRGB(229, 229, 229),
-	processing = Color3.fromRGB(59, 130, 246),
+	bg = Color3.fromRGB(13, 16, 21),
+	bgSecondary = Color3.fromRGB(20, 24, 31),
+	bgTertiary = Color3.fromRGB(29, 35, 44),
+	panel = Color3.fromRGB(23, 28, 36),
+	panelElevated = Color3.fromRGB(31, 37, 47),
+	input = Color3.fromRGB(14, 18, 24),
+	accent = Color3.fromRGB(0, 170, 255),
+	accentHover = Color3.fromRGB(38, 190, 255),
+	accentSoft = Color3.fromRGB(31, 72, 97),
+	violet = Color3.fromRGB(124, 92, 255),
+	success = Color3.fromRGB(48, 209, 88),
+	warning = Color3.fromRGB(255, 190, 64),
+	error = Color3.fromRGB(255, 84, 84),
+	text = Color3.fromRGB(239, 244, 250),
+	textSecondary = Color3.fromRGB(182, 194, 207),
+	textMuted = Color3.fromRGB(116, 130, 147),
+	border = Color3.fromRGB(48, 57, 70),
+	borderStrong = Color3.fromRGB(70, 84, 102),
+	processing = Color3.fromRGB(77, 163, 255),
 }
 
 -- Widget UI
@@ -95,11 +101,16 @@ local widget
 local statusDot
 local statusText
 local subText
+local statusPill
 local connectButton
 local bridgeInput
 local activityContainer
 local activityList
+local activityEmptyState
 local processingIndicator
+local tokenStatusText
+local bridgeStatusText
+local versionStatusText
 
 -- Utility: Create rounded frame
 local function createFrame(props)
@@ -109,11 +120,29 @@ local function createFrame(props)
 	frame.Size = props.size or UDim2.new(1, 0, 0, 40)
 	frame.Position = props.position or UDim2.new(0, 0, 0, 0)
 	frame.BackgroundTransparency = props.transparency or 0
+	frame.ClipsDescendants = props.clips or false
 
 	if props.corner then
 		local corner = Instance.new("UICorner")
 		corner.CornerRadius = UDim.new(0, props.corner)
 		corner.Parent = frame
+	end
+
+	if props.stroke then
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = props.strokeColor or Colors.border
+		stroke.Thickness = props.strokeThickness or 1
+		stroke.Transparency = props.strokeTransparency or 0
+		stroke.Parent = frame
+	end
+
+	if props.padding then
+		local padding = Instance.new("UIPadding")
+		padding.PaddingTop = UDim.new(0, props.padding)
+		padding.PaddingBottom = UDim.new(0, props.padding)
+		padding.PaddingLeft = UDim.new(0, props.padding)
+		padding.PaddingRight = UDim.new(0, props.padding)
+		padding.Parent = frame
 	end
 
 	if props.parent then
@@ -134,13 +163,27 @@ local function createLabel(props)
 	label.TextSize = props.textSize or 14
 	label.Font = props.font or Enum.Font.GothamMedium
 	label.TextXAlignment = props.align or Enum.TextXAlignment.Left
+	label.TextYAlignment = props.yAlign or Enum.TextYAlignment.Center
 	label.TextTruncate = Enum.TextTruncate.AtEnd
+	label.TextWrapped = props.wrapped or false
+	if props.autoSize then
+		label.AutomaticSize = props.autoSize
+	end
 
 	if props.parent then
 		label.Parent = props.parent
 	end
 
 	return label
+end
+
+local function setButtonStyle(button, bg, hover, textColor)
+	button:SetAttribute("CorpusBg", bg)
+	button:SetAttribute("CorpusHover", hover or bg)
+	button.BackgroundColor3 = bg
+	if textColor then
+		button.TextColor3 = textColor
+	end
 end
 
 -- Utility: Create button
@@ -157,19 +200,27 @@ local function createButton(props)
 	button.AutoButtonColor = false
 
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, props.corner or 12)
+	corner.CornerRadius = UDim.new(0, props.corner or 10)
 	corner.Parent = button
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = props.strokeColor or Color3.fromRGB(255, 255, 255)
+	stroke.Transparency = props.strokeTransparency or 0.85
+	stroke.Thickness = 1
+	stroke.Parent = button
+
+	setButtonStyle(button, props.bg or Colors.accent, props.bgHover or Colors.accentHover, props.textColor or Color3.fromRGB(255, 255, 255))
 
 	-- Hover effect
 	button.MouseEnter:Connect(function()
 		TweenService:Create(button, TweenInfo.new(0.15), {
-			BackgroundColor3 = props.bgHover or Colors.accentHover
+			BackgroundColor3 = button:GetAttribute("CorpusHover")
 		}):Play()
 	end)
 
 	button.MouseLeave:Connect(function()
 		TweenService:Create(button, TweenInfo.new(0.15), {
-			BackgroundColor3 = props.bg or Colors.accent
+			BackgroundColor3 = button:GetAttribute("CorpusBg")
 		}):Play()
 	end)
 
@@ -178,6 +229,97 @@ local function createButton(props)
 	end
 
 	return button
+end
+
+local function createTextBox(props)
+	local box = Instance.new("TextBox")
+	box.Size = props.size or UDim2.new(1, 0, 0, 38)
+	box.Position = props.position or UDim2.new(0, 0, 0, 0)
+	box.BackgroundColor3 = props.bg or Colors.input
+	box.TextColor3 = props.color or Colors.text
+	box.PlaceholderText = props.placeholder or ""
+	box.PlaceholderColor3 = Colors.textMuted
+	box.Text = props.text or ""
+	box.Font = props.font or Enum.Font.Gotham
+	box.TextSize = props.textSize or 12
+	box.TextXAlignment = Enum.TextXAlignment.Left
+	box.ClearTextOnFocus = false
+	box.BorderSizePixel = 0
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, props.corner or 10)
+	corner.Parent = box
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Colors.border
+	stroke.Thickness = 1
+	stroke.Parent = box
+
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0, 12)
+	pad.PaddingRight = UDim.new(0, 12)
+	pad.Parent = box
+
+	box.Focused:Connect(function()
+		stroke.Color = Colors.accent
+	end)
+
+	box.FocusLost:Connect(function()
+		stroke.Color = Colors.border
+	end)
+
+	if props.parent then
+		box.Parent = props.parent
+	end
+
+	return box
+end
+
+local function createSectionTitle(parent, text, order)
+	local label = createLabel({
+		text = string.upper(text),
+		color = Colors.textMuted,
+		textSize = 10,
+		font = Enum.Font.GothamBold,
+		size = UDim2.new(1, 0, 0, 14),
+		parent = parent
+	})
+	label.LayoutOrder = order
+	return label
+end
+
+local function createStatusRow(parent, labelText, valueText, order)
+	local row = createFrame({
+		bg = Colors.panelElevated,
+		size = UDim2.new(1, 0, 0, 34),
+		corner = 8,
+		stroke = true,
+		strokeTransparency = 0.4,
+		parent = parent
+	})
+	row.LayoutOrder = order
+
+	createLabel({
+		text = labelText,
+		color = Colors.textMuted,
+		textSize = 11,
+		font = Enum.Font.GothamMedium,
+		size = UDim2.new(0, 78, 1, 0),
+		position = UDim2.new(0, 10, 0, 0),
+		parent = row
+	})
+
+	local value = createLabel({
+		text = valueText,
+		color = Colors.textSecondary,
+		textSize = 11,
+		font = Enum.Font.Gotham,
+		size = UDim2.new(1, -98, 1, 0),
+		position = UDim2.new(0, 88, 0, 0),
+		parent = row
+	})
+
+	return value
 end
 
 -- Add activity to log
@@ -200,53 +342,71 @@ local function addActivity(action, status, details)
 	if activityList then
 		-- Clear existing
 		for _, child in ipairs(activityList:GetChildren()) do
-			if child:IsA("Frame") then
+			if child:IsA("Frame") or child.Name == "EmptyState" then
 				child:Destroy()
 			end
 		end
 
 		-- Add entries
 		for i, entry in ipairs(activityLog) do
+			local hasDetails = entry.details and entry.details ~= ""
 			local row = createFrame({
-				bg = i % 2 == 0 and Colors.bgSecondary or Colors.bg,
-				size = UDim2.new(1, 0, 0, 28),
+				bg = Colors.panelElevated,
+				size = UDim2.new(1, -4, 0, hasDetails and 54 or 38),
+				corner = 9,
+				stroke = true,
+				strokeTransparency = 0.55,
 				parent = activityList
 			})
+			row.LayoutOrder = i
 
-			-- Time
+			local stripe = Instance.new("Frame")
+			stripe.Size = UDim2.new(0, 3, 1, -12)
+			stripe.Position = UDim2.new(0, 8, 0, 6)
+			stripe.BorderSizePixel = 0
+			stripe.BackgroundColor3 = entry.status == "success" and Colors.success or
+				entry.status == "error" and Colors.error or Colors.processing
+			stripe.Parent = row
+
+			local stripeCorner = Instance.new("UICorner")
+			stripeCorner.CornerRadius = UDim.new(1, 0)
+			stripeCorner.Parent = stripe
+
 			createLabel({
 				text = entry.time,
 				color = Colors.textMuted,
 				textSize = 11,
 				font = Enum.Font.RobotoMono,
-				size = UDim2.new(0, 55, 1, 0),
-				position = UDim2.new(0, 8, 0, 0),
+				size = UDim2.new(0, 58, 0, 18),
+				position = UDim2.new(0, 18, 0, 8),
 				parent = row
 			})
 
-			-- Status dot
-			local dot = Instance.new("Frame")
-			dot.Size = UDim2.new(0, 6, 0, 6)
-			dot.Position = UDim2.new(0, 68, 0.5, -3)
-			dot.BorderSizePixel = 0
-			dot.BackgroundColor3 = entry.status == "success" and Colors.success or
-				entry.status == "error" and Colors.error or Colors.processing
-			dot.Parent = row
-
-			local dotCorner = Instance.new("UICorner")
-			dotCorner.CornerRadius = UDim.new(1, 0)
-			dotCorner.Parent = dot
-
-			-- Action
 			createLabel({
 				text = entry.action,
-				color = Colors.textSecondary,
-				textSize = 11,
-				font = Enum.Font.Gotham,
-				size = UDim2.new(1, -90, 1, 0),
-				position = UDim2.new(0, 82, 0, 0),
+				color = Colors.text,
+				textSize = 12,
+				font = Enum.Font.GothamMedium,
+				size = UDim2.new(1, -86, 0, 20),
+				position = UDim2.new(0, 76, 0, 7),
 				parent = row
 			})
+
+			if hasDetails then
+				createLabel({
+					text = tostring(entry.details),
+					color = Colors.textMuted,
+					textSize = 11,
+					font = Enum.Font.Gotham,
+					size = UDim2.new(1, -86, 0, 18),
+					position = UDim2.new(0, 76, 0, 28),
+					parent = row
+				})
+			end
+		end
+
+		if #activityLog == 0 and activityEmptyState then
+			activityEmptyState.Parent = activityList
 		end
 	end
 end
@@ -256,17 +416,16 @@ local function createWidget()
 		Enum.InitialDockState.Float,
 		true,  -- Initially enabled
 		false, -- Override previous state
-		280,   -- Width
-		320,   -- Height
-		260,   -- Min width
-		280    -- Min height
+		360,   -- Width
+		540,   -- Height
+		320,   -- Min width
+		420    -- Min height
 	)
 
 	widget = plugin:CreateDockWidgetPluginGui("CorpusBridge", info)
-	widget.Title = "corpus-bridge"
+	widget.Title = "Corpus"
 	widget.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	-- Main container
 	local container = createFrame({
 		bg = Colors.bg,
 		size = UDim2.new(1, 0, 1, 0),
@@ -274,225 +433,306 @@ local function createWidget()
 	container.Name = "Container"
 	container.Parent = widget
 
-	-- Padding
-	local padding = Instance.new("UIPadding")
-	padding.PaddingTop = UDim.new(0, 16)
-	padding.PaddingBottom = UDim.new(0, 16)
-	padding.PaddingLeft = UDim.new(0, 16)
-	padding.PaddingRight = UDim.new(0, 16)
-	padding.Parent = container
+	local body = Instance.new("ScrollingFrame")
+	body.Name = "Body"
+	body.Size = UDim2.new(1, 0, 1, 0)
+	body.BackgroundTransparency = 1
+	body.BorderSizePixel = 0
+	body.ScrollBarThickness = 4
+	body.ScrollBarImageColor3 = Colors.borderStrong
+	body.CanvasSize = UDim2.new(0, 0, 0, 0)
+	body.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	body.Parent = container
 
-	-- Layout
+	local bodyPadding = Instance.new("UIPadding")
+	bodyPadding.PaddingTop = UDim.new(0, 14)
+	bodyPadding.PaddingBottom = UDim.new(0, 14)
+	bodyPadding.PaddingLeft = UDim.new(0, 14)
+	bodyPadding.PaddingRight = UDim.new(0, 14)
+	bodyPadding.Parent = body
+
 	local layout = Instance.new("UIListLayout")
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Padding = UDim.new(0, 12)
-	layout.Parent = container
+	layout.Parent = body
 
-	-- ========== Status Card ==========
-	local statusCard = createFrame({
-		bg = Colors.bgSecondary,
-		size = UDim2.new(1, 0, 0, 80),
-		corner = 16,
-		parent = container
+	local header = createFrame({
+		bg = Colors.panel,
+		size = UDim2.new(1, 0, 0, 112),
+		corner = 14,
+		stroke = true,
+		strokeTransparency = 0.5,
+		clips = true,
+		parent = body
 	})
-	statusCard.LayoutOrder = 1
+	header.LayoutOrder = 1
 
-	local statusPadding = Instance.new("UIPadding")
-	statusPadding.PaddingTop = UDim.new(0, 14)
-	statusPadding.PaddingBottom = UDim.new(0, 14)
-	statusPadding.PaddingLeft = UDim.new(0, 14)
-	statusPadding.PaddingRight = UDim.new(0, 14)
-	statusPadding.Parent = statusCard
+	local headerGradient = Instance.new("UIGradient")
+	headerGradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Colors.panel),
+		ColorSequenceKeypoint.new(0.62, Colors.accentSoft),
+		ColorSequenceKeypoint.new(1, Colors.violet),
+	})
+	headerGradient.Rotation = 18
+	headerGradient.Parent = header
 
-	-- Status header row
-	local statusHeader = Instance.new("Frame")
-	statusHeader.Size = UDim2.new(1, 0, 0, 24)
-	statusHeader.BackgroundTransparency = 1
-	statusHeader.Parent = statusCard
+	createLabel({
+		text = "Corpus",
+		color = Colors.text,
+		textSize = 24,
+		font = Enum.Font.GothamBold,
+		size = UDim2.new(1, -118, 0, 32),
+		position = UDim2.new(0, 16, 0, 15),
+		parent = header
+	})
 
-	-- Status dot (animated)
+	createLabel({
+		text = "Roblox Studio bridge",
+		color = Colors.textSecondary,
+		textSize = 12,
+		font = Enum.Font.GothamMedium,
+		size = UDim2.new(1, -32, 0, 18),
+		position = UDim2.new(0, 16, 0, 48),
+		parent = header
+	})
+
+	createLabel({
+		text = "Paste a Studio token, connect once, then build from the web app or Discord.",
+		color = Colors.textMuted,
+		textSize = 11,
+		font = Enum.Font.Gotham,
+		size = UDim2.new(1, -32, 0, 32),
+		position = UDim2.new(0, 16, 0, 72),
+		wrapped = true,
+		yAlign = Enum.TextYAlignment.Top,
+		parent = header
+	})
+
+	statusPill = createLabel({
+		text = "Offline",
+		color = Colors.text,
+		textSize = 11,
+		font = Enum.Font.GothamBold,
+		align = Enum.TextXAlignment.Center,
+		size = UDim2.new(0, 76, 0, 24),
+		position = UDim2.new(1, -92, 0, 16),
+		parent = header
+	})
+	statusPill.BackgroundTransparency = 0
+	statusPill.BackgroundColor3 = Colors.error
+
+	local pillCorner = Instance.new("UICorner")
+	pillCorner.CornerRadius = UDim.new(1, 0)
+	pillCorner.Parent = statusPill
+
+	local statusCard = createFrame({
+		bg = Colors.panel,
+		size = UDim2.new(1, 0, 0, 92),
+		corner = 12,
+		stroke = true,
+		strokeTransparency = 0.35,
+		parent = body
+	})
+	statusCard.LayoutOrder = 2
+
 	statusDot = Instance.new("Frame")
 	statusDot.Name = "Dot"
-	statusDot.Size = UDim2.new(0, 10, 0, 10)
-	statusDot.Position = UDim2.new(0, 0, 0.5, -5)
+	statusDot.Size = UDim2.new(0, 12, 0, 12)
+	statusDot.Position = UDim2.new(0, 17, 0, 18)
 	statusDot.BackgroundColor3 = Colors.error
 	statusDot.BorderSizePixel = 0
-	statusDot.Parent = statusHeader
+	statusDot.Parent = statusCard
 
 	local dotCorner = Instance.new("UICorner")
 	dotCorner.CornerRadius = UDim.new(1, 0)
 	dotCorner.Parent = statusDot
 
-	-- Glow effect for dot
 	local dotGlow = Instance.new("UIStroke")
 	dotGlow.Color = Colors.error
-	dotGlow.Thickness = 2
-	dotGlow.Transparency = 0.7
+	dotGlow.Thickness = 3
+	dotGlow.Transparency = 0.72
 	dotGlow.Parent = statusDot
 
-	-- Status text
 	statusText = createLabel({
 		text = "Disconnected",
 		color = Colors.text,
-		textSize = 16,
+		textSize = 17,
 		font = Enum.Font.GothamBold,
-		size = UDim2.new(1, -20, 1, 0),
-		position = UDim2.new(0, 18, 0, 0),
-		parent = statusHeader
+		size = UDim2.new(1, -50, 0, 24),
+		position = UDim2.new(0, 38, 0, 12),
+		parent = statusCard
 	})
 
-	-- Processing indicator (animated spinner text)
 	processingIndicator = createLabel({
 		text = "",
 		color = Colors.processing,
 		textSize = 12,
 		font = Enum.Font.GothamMedium,
-		size = UDim2.new(1, 0, 0, 16),
-		position = UDim2.new(0, 0, 0, 28),
+		size = UDim2.new(1, -34, 0, 18),
+		position = UDim2.new(0, 17, 0, 62),
 		parent = statusCard
 	})
 
-	-- Sub text / Project info
 	subText = createLabel({
-		text = "Click Connect to start",
+		text = "Paste your token and connect to the bridge.",
 		color = Colors.textSecondary,
 		textSize = 12,
 		font = Enum.Font.Gotham,
-		size = UDim2.new(1, 0, 0, 16),
-		position = UDim2.new(0, 0, 1, -16),
+		size = UDim2.new(1, -34, 0, 20),
+		position = UDim2.new(0, 17, 0, 38),
 		parent = statusCard
 	})
 
-	-- ========== Token Input ==========
+	createSectionTitle(body, "Setup", 3)
+
 	local tokenLabel = createLabel({
-		text = "Corpus Token",
-		color = Colors.textMuted,
-		textSize = 11,
-		font = Enum.Font.GothamBold,
+		text = "Studio token",
+		color = Colors.textSecondary,
+		textSize = 12,
+		font = Enum.Font.GothamMedium,
 		size = UDim2.new(1, 0, 0, 16),
-		parent = container
+		parent = body
 	})
-	tokenLabel.LayoutOrder = 2
+	tokenLabel.LayoutOrder = 4
 
-	tokenInput = Instance.new("TextBox")
-	tokenInput.Size = UDim2.new(1, 0, 0, 36)
-	tokenInput.BackgroundColor3 = Colors.bgSecondary
-	tokenInput.TextColor3 = Colors.text
-	tokenInput.PlaceholderText = "Paste token from corpus.com"
-	tokenInput.PlaceholderColor3 = Colors.textMuted
-	tokenInput.Text = getToken()
-	tokenInput.Font = Enum.Font.RobotoMono
-	tokenInput.TextSize = 11
-	tokenInput.ClearTextOnFocus = false
-	tokenInput.Parent = container
-	tokenInput.LayoutOrder = 3
-
-	local tokenCorner = Instance.new("UICorner")
-	tokenCorner.CornerRadius = UDim.new(0, 10)
-	tokenCorner.Parent = tokenInput
-
-	local tokenPad = Instance.new("UIPadding")
-	tokenPad.PaddingLeft = UDim.new(0, 12)
-	tokenPad.PaddingRight = UDim.new(0, 12)
-	tokenPad.Parent = tokenInput
+	tokenInput = createTextBox({
+		text = getToken(),
+		placeholder = "Paste token from the Corpus web app",
+		font = Enum.Font.RobotoMono,
+		textSize = 11,
+		parent = body
+	})
+	tokenInput.LayoutOrder = 5
 
 	tokenInput.FocusLost:Connect(function()
 		local t = tokenInput.Text:gsub("^%s*(.-)%s*$", "%1")
 		tokenInput.Text = t
 		setToken(t)
+		if tokenStatusText then
+			tokenStatusText.Text = t ~= "" and "Token saved locally in Studio settings." or "Required before connecting."
+		end
 	end)
 
-	-- ========== Bridge URL (advanced) ==========
-	bridgeInput = Instance.new("TextBox")
-	bridgeInput.Size = UDim2.new(1, 0, 0, 28)
-	bridgeInput.BackgroundColor3 = Colors.bgTertiary
-	bridgeInput.TextColor3 = Colors.textSecondary
-	bridgeInput.PlaceholderText = "Bridge URL (optional)"
-	bridgeInput.Text = getBridgeBase()
-	bridgeInput.Font = Enum.Font.Gotham
-	bridgeInput.TextSize = 11
-	bridgeInput.ClearTextOnFocus = false
-	bridgeInput.Parent = container
-	bridgeInput.LayoutOrder = 4
+	tokenStatusText = createLabel({
+		text = getToken() ~= "" and "Token saved locally in Studio settings." or "Required before connecting.",
+		color = Colors.textMuted,
+		textSize = 11,
+		font = Enum.Font.Gotham,
+		size = UDim2.new(1, 0, 0, 16),
+		parent = body
+	})
+	tokenStatusText.LayoutOrder = 6
 
-	local bridgeCorner = Instance.new("UICorner")
-	bridgeCorner.CornerRadius = UDim.new(0, 8)
-	bridgeCorner.Parent = bridgeInput
+	local bridgeLabel = createLabel({
+		text = "Bridge URL",
+		color = Colors.textSecondary,
+		textSize = 12,
+		font = Enum.Font.GothamMedium,
+		size = UDim2.new(1, 0, 0, 16),
+		parent = body
+	})
+	bridgeLabel.LayoutOrder = 7
+
+	bridgeInput = createTextBox({
+		text = getBridgeBase(),
+		placeholder = DEFAULT_BRIDGE,
+		textSize = 11,
+		parent = body
+	})
+	bridgeInput.LayoutOrder = 8
 
 	bridgeInput.FocusLost:Connect(function()
 		local url = bridgeInput.Text:gsub("/+$", "")
 		if #url > 0 then
 			plugin:SetSetting("BridgeUrl", url)
 			bridgeInput.Text = url
+			if bridgeStatusText then
+				bridgeStatusText.Text = url
+			end
 		end
 	end)
 
-	-- ========== Connect Button ==========
 	connectButton = createButton({
 		text = "Connect",
 		size = UDim2.new(1, 0, 0, 44),
-		corner = 14,
-		parent = container
+		corner = 11,
+		parent = body
 	})
-	connectButton.LayoutOrder = 5
+	connectButton.LayoutOrder = 9
 
 	connectButton.MouseButton1Click:Connect(function()
 		toggleConnection()
 	end)
 
-	-- ========== Activity Log ==========
-	local activityHeader = createLabel({
-		text = "Recent Activity",
-		color = Colors.textMuted,
-		textSize = 11,
-		font = Enum.Font.GothamBold,
-		size = UDim2.new(1, 0, 0, 16),
-		parent = container
+	createSectionTitle(body, "Connection", 10)
+
+	local connectionCard = createFrame({
+		bg = Colors.panel,
+		size = UDim2.new(1, 0, 0, 138),
+		corner = 12,
+		stroke = true,
+		strokeTransparency = 0.4,
+		padding = 10,
+		parent = body
 	})
-	activityHeader.LayoutOrder = 6
+	connectionCard.LayoutOrder = 11
+
+	local connectionLayout = Instance.new("UIListLayout")
+	connectionLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	connectionLayout.Padding = UDim.new(0, 7)
+	connectionLayout.Parent = connectionCard
+
+	bridgeStatusText = createStatusRow(connectionCard, "Bridge", getBridgeBase(), 1)
+	versionStatusText = createStatusRow(connectionCard, "Plugin", "v" .. PLUGIN_VERSION, 2)
+	createStatusRow(connectionCard, "Polling", "100ms long-poll bridge", 3)
+
+	createSectionTitle(body, "Recent Activity", 12)
 
 	activityContainer = createFrame({
-		bg = Colors.bgSecondary,
-		size = UDim2.new(1, 0, 1, -280),
-		corner = 14,
-		parent = container
+		bg = Colors.panel,
+		size = UDim2.new(1, 0, 0, 178),
+		corner = 12,
+		stroke = true,
+		strokeTransparency = 0.4,
+		parent = body
 	})
-	activityContainer.LayoutOrder = 7
+	activityContainer.LayoutOrder = 13
 	activityContainer.ClipsDescendants = true
 
-	-- Scrolling frame for activity
 	local scrollFrame = Instance.new("ScrollingFrame")
-	scrollFrame.Size = UDim2.new(1, 0, 1, 0)
+	scrollFrame.Size = UDim2.new(1, -8, 1, -8)
+	scrollFrame.Position = UDim2.new(0, 8, 0, 8)
 	scrollFrame.BackgroundTransparency = 1
 	scrollFrame.BorderSizePixel = 0
 	scrollFrame.ScrollBarThickness = 4
-	scrollFrame.ScrollBarImageColor3 = Colors.border
+	scrollFrame.ScrollBarImageColor3 = Colors.borderStrong
 	scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 	scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	scrollFrame.Parent = activityContainer
 
 	activityList = Instance.new("Frame")
-	activityList.Size = UDim2.new(1, 0, 0, 0)
+	activityList.Size = UDim2.new(1, -6, 0, 0)
 	activityList.BackgroundTransparency = 1
 	activityList.AutomaticSize = Enum.AutomaticSize.Y
 	activityList.Parent = scrollFrame
 
 	local activityLayout = Instance.new("UIListLayout")
 	activityLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	activityLayout.Padding = UDim.new(0, 8)
 	activityLayout.Parent = activityList
 
-	-- Empty state
-	local emptyLabel = createLabel({
-		text = "No activity yet",
+	activityEmptyState = createLabel({
+		text = "No activity yet. Once connected, tool calls and bridge events appear here.",
 		color = Colors.textMuted,
 		textSize = 12,
 		font = Enum.Font.Gotham,
-		size = UDim2.new(1, 0, 0, 40),
+		size = UDim2.new(1, -12, 0, 58),
 		align = Enum.TextXAlignment.Center,
+		wrapped = true,
 		parent = activityList
 	})
-	emptyLabel.Name = "EmptyState"
-	emptyLabel.TextYAlignment = Enum.TextYAlignment.Center
+	activityEmptyState.Name = "EmptyState"
+	activityEmptyState.TextYAlignment = Enum.TextYAlignment.Center
 
 	return widget
 end
@@ -502,7 +742,7 @@ local processingDots = 0
 local function updateProcessingAnimation()
 	if isProcessing and processingIndicator then
 		processingDots = (processingDots % 3) + 1
-		processingIndicator.Text = "Processing" .. string.rep(".", processingDots)
+		processingIndicator.Text = "Working" .. string.rep(".", processingDots)
 	elseif processingIndicator then
 		processingIndicator.Text = ""
 	end
@@ -549,35 +789,69 @@ local function updateUI()
 	end
 
 	local glow = statusDot:FindFirstChildOfClass("UIStroke")
+	local tokenValue = tokenInput and tokenInput.Text:gsub("^%s*(.-)%s*$", "%1") or getToken()
+
+	if bridgeStatusText then
+		bridgeStatusText.Text = getBridgeBase()
+	end
+
+	if versionStatusText then
+		versionStatusText.Text = "v" .. PLUGIN_VERSION .. " / tool-protocol-v1"
+	end
+
+	if tokenStatusText then
+		tokenStatusText.Text = tokenValue ~= "" and "Token saved locally in Studio settings." or "Required before connecting."
+		tokenStatusText.TextColor3 = tokenValue ~= "" and Colors.textMuted or Colors.warning
+	end
 
 	if isProcessing then
 		statusDot.BackgroundColor3 = Colors.processing
 		if glow then glow.Color = Colors.processing end
-		statusText.Text = "Processing..."
-		subText.Text = "Executing AI command"
+		if statusPill then
+			statusPill.Text = "Working"
+			statusPill.BackgroundColor3 = Colors.processing
+			statusPill.TextColor3 = Colors.text
+		end
+		statusText.Text = "Working in Studio"
+		subText.Text = "Executing a Corpus tool request."
 		connectButton.Text = "Disconnect"
-		connectButton.BackgroundColor3 = Colors.error
+		setButtonStyle(connectButton, Colors.error, Color3.fromRGB(255, 105, 105))
 	elseif isConnecting then
 		statusDot.BackgroundColor3 = Colors.warning
 		if glow then glow.Color = Colors.warning end
+		if statusPill then
+			statusPill.Text = "Connecting"
+			statusPill.BackgroundColor3 = Colors.warning
+			statusPill.TextColor3 = Colors.bg
+		end
 		statusText.Text = "Connecting..."
-		subText.Text = "Looking for Corpus Desktop"
+		subText.Text = "Waiting for the bridge to accept this token."
 		connectButton.Text = "Cancel"
-		connectButton.BackgroundColor3 = Colors.textMuted
+		setButtonStyle(connectButton, Colors.bgTertiary, Colors.borderStrong)
 	elseif isConnected then
 		statusDot.BackgroundColor3 = Colors.success
 		if glow then glow.Color = Colors.success end
+		if statusPill then
+			statusPill.Text = "Online"
+			statusPill.BackgroundColor3 = Colors.success
+			statusPill.TextColor3 = Colors.bg
+		end
 		statusText.Text = "Connected"
-		subText.Text = projectInfo and ("Project: " .. projectInfo) or "Ready for AI commands"
+		subText.Text = projectInfo and ("Project: " .. projectInfo) or "Ready for web or Discord commands."
 		connectButton.Text = "Disconnect"
-		connectButton.BackgroundColor3 = Colors.error
+		setButtonStyle(connectButton, Colors.error, Color3.fromRGB(255, 105, 105))
 	else
 		statusDot.BackgroundColor3 = Colors.error
 		if glow then glow.Color = Colors.error end
+		if statusPill then
+			statusPill.Text = "Offline"
+			statusPill.BackgroundColor3 = Colors.error
+			statusPill.TextColor3 = Colors.text
+		end
 		statusText.Text = "Disconnected"
-		subText.Text = "Click Connect to start"
+		subText.Text = tokenValue ~= "" and "Click Connect to start polling." or "Paste a Studio token to connect."
 		connectButton.Text = "Connect"
-		connectButton.BackgroundColor3 = Colors.accent
+		setButtonStyle(connectButton, Colors.accent, Colors.accentHover)
 	end
 
 	toggleButton:SetActive(isConnected or isConnecting)

@@ -7,7 +7,7 @@ let pool: pg.Pool | null = null;
 
 export function getPrismaClient() {
   if (prisma) return prisma;
-  pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+  pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
   prisma = new PrismaClient({ adapter: new PrismaPg(pool) } as ConstructorParameters<typeof PrismaClient>[0]);
   return prisma;
 }

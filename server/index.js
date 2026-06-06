@@ -30,6 +30,7 @@ import { corpusConfig } from "./agent/corpus/config.ts";
 import { retrieveCorpusContext } from "./agent/corpus/retrieve.ts";
 import { getPendingGames } from "./agent/corpus/postgres.ts";
 import { getPrismaClient } from "./agent/prisma.ts";
+import { startDiscordBot } from "./discord/index.ts";
 import {
   logout,
   publicUser,
@@ -410,6 +411,42 @@ const buildStudioStatus = (session) => {
     capabilities: session.capabilities ?? [],
   };
 };
+
+const discordStudioStatus = (sessionId) => {
+  const session = getSession(sessionId);
+  if (!session) {
+    return {
+      connected: false,
+      pluginConnected: false,
+      pending_requests: 0,
+      last_poll_time: null,
+      pluginVersion: null,
+      capabilities: [],
+    };
+  }
+  cleanupSession(session);
+  return buildStudioStatus(session);
+};
+
+const resolveDiscordStudioSession = (tokenOrSessionId) => {
+  const input = String(tokenOrSessionId ?? "").trim();
+  if (SESSION_ID_PATTERN.test(input)) {
+    const sessionId = input.toUpperCase();
+    const session = sessions.get(sessionId);
+    return { sessionId, studioConnected: session ? isStudioConnected(session) : false };
+  }
+  const entry = studioTokens.get(digestToken(input));
+  if (!entry) return null;
+  const session = sessions.get(entry.sessionId);
+  return { sessionId: entry.sessionId, studioConnected: session ? isStudioConnected(session) : false };
+};
+
+void startDiscordBot({
+  runtime: agentRuntime,
+  studioStatus: discordStudioStatus,
+  resolveStudioSession: resolveDiscordStudioSession,
+})
+  .catch((error) => console.error("[discord] startup failed:", error instanceof Error ? error.message : error));
 
 // --- Studio token endpoints ---
 
