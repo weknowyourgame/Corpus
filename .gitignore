@@ -42,13 +42,11 @@ coverage/
 
 # Required application sources (override broad user-level lib/ ignores)
 !src/lib/
-src/lib/*
-!src/lib/ai/
-src/lib/ai/*
-!src/lib/ai/server-agent.ts
+!src/lib/**
 
 # Misc
 *.tsbuildinfo
 server/studio-tokens.json
 
 games/
+repo-backup.git/
