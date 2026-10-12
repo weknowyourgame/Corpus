@@ -7,7 +7,7 @@
 
 import express from "express";
 import cors from "cors";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { createHash, randomBytes } from "node:crypto";
@@ -754,6 +754,14 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true, sessions: sessions.size });
 });
 
+// --- Built frontend (production: one service serves UI + bridge, same origin) ---
+const DIST_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "dist");
+if (existsSync(join(DIST_DIR, "index.html"))) {
+  app.use(express.static(DIST_DIR, { index: false, maxAge: "1h" }));
+  app.get(/^\/(?!agent|auth|studio|corpus|mcp|api|health).*/, (_req, res) => {
+    res.sendFile(join(DIST_DIR, "index.html"));
+  });
+}
 
 const server = app.listen(PORT, () => {
   console.log(`[Corpus Bridge] http://localhost:${PORT}`);

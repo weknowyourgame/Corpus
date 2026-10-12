@@ -1,0 +1,13 @@
+node_modules
+dist
+.git
+.env
+.stud
+games
+repo-backup.git
+open-game-eval
+RobloxLandingPage
+src-tauri
+studio-rust-mcp-server
+.claude
+.corpus
